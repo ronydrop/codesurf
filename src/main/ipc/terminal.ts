@@ -8,8 +8,19 @@ const pty = require('node-pty')
 
 function expandHome(arg: string): string {
   if (!arg.startsWith('~')) return arg
-  if (arg === '~') return homedir()
-  if (arg.startsWith('~/') || arg.startsWith('~\\')) return join(homedir(), arg.slice(2))
+  const home = homedir()
+  if (arg === '~') return home
+
+  // Backward compatibility: older builds passed ~/.clawd-collab..., while runtime
+  // config now lives in ~/clawd-collab. Keep both working.
+  if (arg.startsWith('~/.clawd-collab/')) {
+    return join(home, 'clawd-collab', arg.slice('~/.clawd-collab/'.length))
+  }
+  if (arg.startsWith('~\\.clawd-collab\\')) {
+    return join(home, 'clawd-collab', arg.slice('~\\.clawd-collab\\'.length))
+  }
+
+  if (arg.startsWith('~/') || arg.startsWith('~\\')) return join(home, arg.slice(2))
   return arg
 }
 

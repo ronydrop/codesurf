@@ -64,8 +64,22 @@ export const MODELS: Record<string, string[]> = {
   shell:    []
 }
 
-const MCP_CONFIG = '~/.clawd-collab/mcp-server.json'
+const MCP_CONFIG = '~/clawd-collab/mcp-server.json'
 const BUILTIN_TOOLS = ['read', 'write', 'edit', 'bash', 'computer', 'web_search', 'browser']
+
+function resolveMcpConfigPath(input: string): string {
+  if (!input.startsWith('~')) return input
+  const home = (window as any).process?.env?.HOME
+  if (!home) return input
+  if (input === '~') return home
+  if (input.startsWith('~/.clawd-collab/')) {
+    return `${home}/clawd-collab/${input.slice('~/.clawd-collab/'.length)}`
+  }
+  if (input.startsWith('~\\.clawd-collab\\')) {
+    return `${home}/clawd-collab/${input.slice('~\\.clawd-collab\\'.length)}`
+  }
+  return `${home}/${input.slice(2)}`
+}
 
 type Tab = 'overview' | 'terminal' | 'notes'
 
@@ -76,7 +90,8 @@ export function buildLaunchCmd(card: KanbanCardData, briefPath?: string, agentPa
   const bin = agentPath ?? card.agent
   const parts: string[] = [bin]
   if (card.model) parts.push(`--model ${card.model}`)
-  parts.push(`--mcp-config "${card.mcpConfig ?? MCP_CONFIG}"`)
+  const mcpConfigPath = resolveMcpConfigPath(card.mcpConfig ?? MCP_CONFIG)
+  parts.push(`--mcp-config "${mcpConfigPath}"`)
   if (briefPath) {
     if (card.agent === 'claude') parts.push(`--print "$(cat ${briefPath})"`)
     else if (card.agent === 'codex') parts.push(`exec "$(cat ${briefPath})"`)

@@ -26,7 +26,7 @@ interface MCPConfig {
   updatedAt: string
 }
 
-const CONFIG_PATH = '~/.clawd-collab/mcp-server.json'
+const CONFIG_PATH = '~/clawd-collab/mcp-server.json'
 
 // Well-known MCP servers — curated catalogue
 const KNOWN_SERVERS: Array<Omit<MCPServer, 'enabled'> & { category: string; installCmd?: string }> = [
