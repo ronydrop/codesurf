@@ -382,8 +382,7 @@ export async function startMCPServer(): Promise<number> {
         updatedAt: new Date().toISOString(),
         mcpServers: {
           collaborator: {
-            url: `http://127.0.0.1:${serverPort}`,
-            description: 'Collaborator canvas — kanban, tiles, workspace, files'
+            url: `http://127.0.0.1:${serverPort}/mcp`
           }
         },
         tools: TOOLS.map(t => ({ name: t.name, description: t.description })),
