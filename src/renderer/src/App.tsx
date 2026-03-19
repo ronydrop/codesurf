@@ -1086,6 +1086,7 @@ function App(): JSX.Element {
             workspaceDir={workspace?.path ?? ''}
             width={tile.width}
             height={tile.height}
+            settings={settings}
           />
         )
       default:
@@ -1336,7 +1337,22 @@ function App(): JSX.Element {
                   >
                     {/* Label bar */}
                     <div
+                      draggable
                       onMouseDown={e => e.stopPropagation()}
+                      onDragStart={e => {
+                        e.stopPropagation()
+                        const memberTiles = tiles.filter(t => t.groupId === g.id)
+                        e.dataTransfer.setData('application/group-id', g.id)
+                        e.dataTransfer.setData('application/group-label', g.label ?? 'group')
+                        e.dataTransfer.setData('application/group-tile-ids', JSON.stringify(memberTiles.map(t => t.id)))
+                        e.dataTransfer.setData('application/group-tile-types', JSON.stringify(memberTiles.map(t => t.type)))
+                        e.dataTransfer.effectAllowed = 'link'
+                        const ghost = document.createElement('div')
+                        ghost.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px'
+                        document.body.appendChild(ghost)
+                        e.dataTransfer.setDragImage(ghost, 0, 0)
+                        setTimeout(() => ghost.remove(), 0)
+                      }}
                       style={{
                         position: 'absolute', top: -28, left: 0,
                         display: 'flex', gap: 6, alignItems: 'center',
@@ -1345,6 +1361,7 @@ function App(): JSX.Element {
                         border: '1px solid #333',
                         borderRadius: 6, padding: '3px 8px',
                         backdropFilter: 'blur(4px)',
+                        cursor: 'grab',
                       }}>
                       {/* Color swatch / picker */}
                       <div style={{ position: 'relative' }}>

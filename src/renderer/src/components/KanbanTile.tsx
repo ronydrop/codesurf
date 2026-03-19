@@ -328,13 +328,42 @@ export function KanbanTile({ tileId, workspaceId, workspaceDir, width, height, o
       setDragging(null)
       return
     }
+    // Group dragged from canvas label bar
+    const linkedGroupId = e.dataTransfer.getData('application/group-id')
+    const groupLabel = e.dataTransfer.getData('application/group-label')
+    if (linkedGroupId) {
+      let tileIds: string[] = []
+      let tileTypes: string[] = []
+      try { tileIds = JSON.parse(e.dataTransfer.getData('application/group-tile-ids') || '[]') } catch { /**/ }
+      try { tileTypes = JSON.parse(e.dataTransfer.getData('application/group-tile-types') || '[]') } catch { /**/ }
+      const typeSummary = [...new Set(tileTypes)].join(', ')
+      const cardId = `card-${tileId}-${Date.now()}`
+      setCards(prev => [...prev, {
+        id: cardId,
+        title: groupLabel || 'Group',
+        description: `Group with ${tileIds.length} tile${tileIds.length !== 1 ? 's' : ''} (${typeSummary})`,
+        instructions: '', agent: 'claude',
+        tools: [], skillsAndCommands: [], fileRefs: [], cardRefs: [],
+        mcpServers: [], hooks: [],
+        columnId: colId, color: COLORS[prev.length % COLORS.length],
+        linkedGroupId,
+        linkedTileIds: tileIds,
+        launched: false,
+        comments: [], attachments: []
+      }])
+      window.electron?.bus?.publish(`kanban:${tileId}`, 'task', `kanban:${tileId}`, {
+        action: 'group_linked', cardId, groupId: linkedGroupId, tileIds, column: colId
+      })
+      return
+    }
     // Tile dragged from canvas titlebar
     const linkedTileId = e.dataTransfer.getData('application/tile-id')
     const linkedTileType = e.dataTransfer.getData('application/tile-type')
     const linkedTileLabel = e.dataTransfer.getData('application/tile-label')
     if (linkedTileId) {
+      const tileCardId = `card-${tileId}-${Date.now()}`
       setCards(prev => [...prev, {
-        id: `card-${tileId}-${Date.now()}`,
+        id: tileCardId,
         title: linkedTileLabel || linkedTileType,
         description: '', instructions: '', agent: 'claude',
         tools: [], skillsAndCommands: [], fileRefs: [], cardRefs: [],
@@ -344,6 +373,9 @@ export function KanbanTile({ tileId, workspaceId, workspaceDir, width, height, o
         launched: linkedTileType === 'terminal',
         comments: [], attachments: []
       }])
+      window.electron?.bus?.publish(`kanban:${tileId}`, 'task', `kanban:${tileId}`, {
+        action: 'tile_linked', cardId: tileCardId, linkedTileId, tileType: linkedTileType, column: colId
+      })
       return
     }
     // File from sidebar

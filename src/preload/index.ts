@@ -74,6 +74,15 @@ contextBridge.exposeInMainWorld('electron', {
     detect: () => ipcRenderer.invoke('agents:detect')
   },
 
+  // Chat — send messages to LLM providers (Claude, Codex, OpenCode)
+  chat: {
+    send: (req: { cardId: string; provider: string; model: string; messages: { role: string; content: string }[] }) =>
+      ipcRenderer.invoke('chat:send', req),
+    stop: (cardId: string) => ipcRenderer.invoke('chat:stop', cardId),
+    clearSession: (cardId: string) => ipcRenderer.invoke('chat:clearSession', cardId),
+    opencodeModels: () => ipcRenderer.invoke('chat:opencodeModels'),
+  },
+
   // Agent streaming (SSE/NDJSON parsers for Claude, Codex, Pi)
   stream: {
     start: (req: { cardId: string; agentId: string; url: string; method?: string; headers?: Record<string, string>; body?: string }) =>

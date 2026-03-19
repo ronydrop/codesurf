@@ -22,6 +22,8 @@ export interface KanbanCardData {
   color: string
   linkedTileId?: string
   linkedTileType?: string
+  linkedGroupId?: string
+  linkedTileIds?: string[]
   justMoved?: boolean
   agent: string
   model?: string
@@ -243,6 +245,19 @@ export function KanbanCard({
       onDragLeave={() => setDragOver(false)}
       onDrop={e => {
         e.preventDefault(); e.stopPropagation(); setDragOver(false)
+        // Group drop
+        const groupId = e.dataTransfer.getData('application/group-id')
+        if (groupId) {
+          let tileIds: string[] = []
+          try { tileIds = JSON.parse(e.dataTransfer.getData('application/group-tile-ids') || '[]') } catch { /**/ }
+          onUpdate(card.id, {
+            linkedGroupId: groupId,
+            linkedTileIds: tileIds,
+            title: e.dataTransfer.getData('application/group-label') || card.title
+          })
+          return
+        }
+        // Tile drop
         const tileId = e.dataTransfer.getData('application/tile-id')
         if (tileId) {
           onUpdate(card.id, { linkedTileId: tileId, linkedTileType: e.dataTransfer.getData('application/tile-type'), title: e.dataTransfer.getData('application/tile-label') || card.title })
