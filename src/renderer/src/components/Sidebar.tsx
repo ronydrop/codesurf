@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Workspace } from '../../../shared/types'
 import { ContextMenu, MenuItem } from './ContextMenu'
+import { useAppFonts } from '../FontContext'
 
 interface FsEntry {
   name: string
@@ -45,6 +46,7 @@ interface Props {
   workspaces: Workspace[]
   onSwitchWorkspace: (id: string) => void
   onNewWorkspace: (name: string) => void
+  onOpenFolder: () => void
   onOpenFile: (filePath: string) => void
   onNewTerminal: () => void
   onNewKanban: () => void
@@ -241,7 +243,7 @@ function FileIcon({ name, ext }: { name: string; ext: string }): JSX.Element {
     }}>
       <span style={{
         fontSize: 7, fontWeight: 700, color: meta.color,
-        fontFamily: 'monospace', letterSpacing: '-0.02em', lineHeight: 1
+        fontFamily: 'inherit', letterSpacing: '-0.02em', lineHeight: 1
       }}>
         {meta.label}
       </span>
@@ -271,7 +273,7 @@ function Badge({ count }: { count: number }): JSX.Element {
       fontSize: 10, color: '#aaa',
       background: '#2a2a2a', borderRadius: 8,
       padding: '1px 6px', marginLeft: 6,
-      fontFamily: 'monospace', flexShrink: 0
+      fontFamily: 'inherit', flexShrink: 0
     }}>
       {count}
     </span>
@@ -316,6 +318,7 @@ function CreateInline({
   onSubmit: () => void
   onCancel: () => void
 }): JSX.Element {
+  const fonts = useAppFonts()
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 6,
@@ -334,10 +337,10 @@ function CreateInline({
         onBlur={onSubmit}
         placeholder={type === 'file' ? 'filename.ts' : 'folder-name'}
         style={{
-          flex: 1, padding: '4px 8px', fontSize: 11, borderRadius: 4,
+          flex: 1, padding: '4px 8px', fontSize: fonts.size, borderRadius: 4,
           background: '#161616', color: '#ccc',
           border: '1px solid #4a9eff', outline: 'none',
-          boxSizing: 'border-box', fontFamily: 'monospace'
+          boxSizing: 'border-box', fontFamily: 'inherit'
         }}
       />
     </div>
@@ -355,6 +358,7 @@ function RenameInput({
   onSubmit: () => void
   onCancel: () => void
 }): JSX.Element {
+  const fonts = useAppFonts()
   return (
     <input
       autoFocus
@@ -368,10 +372,10 @@ function RenameInput({
       onBlur={onSubmit}
       onClick={e => e.stopPropagation()}
       style={{
-        flex: 1, padding: '1px 4px', fontSize: 11, borderRadius: 3,
+        flex: 1, padding: '1px 4px', fontSize: fonts.size, borderRadius: 3,
         background: '#1a1a2a', color: '#d4d4d4',
         border: '1px solid #4a9eff', outline: 'none',
-        fontFamily: 'monospace'
+        fontFamily: 'inherit'
       }}
     />
   )
@@ -381,7 +385,7 @@ function GitBadge({ status }: { status: GitStatus }): JSX.Element {
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, color: GIT_COLORS[status],
-      marginLeft: 6, flexShrink: 0, fontFamily: 'monospace', lineHeight: 1
+      marginLeft: 6, flexShrink: 0, fontFamily: 'inherit', lineHeight: 1
     }} title={status}>
       {GIT_LABELS[status]}
     </span>
@@ -423,6 +427,7 @@ function TreeNode({
   onRenameSubmit: (oldPath: string, newName: string) => void
   onRenameCancel: () => void
 }): JSX.Element {
+  const fonts = useAppFonts()
   const expanded = entry.isDir && expandedPaths.has(entry.path)
   const [hovered, setHovered] = useState(false)
   const [renameVal, setRenameVal] = useState(entry.name)
@@ -472,9 +477,8 @@ function TreeNode({
           />
         ) : (
           <span style={{
-            fontSize: 11,
-            fontFamily: 'monospace',
-            color: entry.isDir ? '#d4d4d4' : '#b8b8b8',
+            fontSize: fonts.size,
+                       color: entry.isDir ? '#d4d4d4' : '#b8b8b8',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             flex: 1
           }}>
@@ -513,8 +517,8 @@ function TreeNode({
           {entry.children.length === 0 && !isCreateTarget ? (
             <div style={{
               paddingLeft: 8 + (depth + 1) * 16 + 22,
-              height: 24, fontSize: 11, color: '#3a3a3a',
-              display: 'flex', alignItems: 'center', fontFamily: 'monospace'
+              height: 24, fontSize: fonts.size, color: '#3a3a3a',
+              display: 'flex', alignItems: 'center', fontFamily: 'inherit'
             }}>
               empty
             </div>
@@ -566,6 +570,7 @@ function FlatEntry({
   onRenameSubmit: (oldPath: string, newName: string) => void
   onRenameCancel: () => void
 }): JSX.Element {
+  const fonts = useAppFonts()
   const [hovered, setHovered] = useState(false)
   const [renameVal, setRenameVal] = useState(entry.name)
   const isRenaming = renamingPath === entry.path
@@ -600,14 +605,14 @@ function FlatEntry({
         <>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
             <span style={{
-              fontSize: 11, fontFamily: 'monospace', color: '#b8b8b8',
+              fontSize: fonts.size, fontFamily: 'inherit', color: '#b8b8b8',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
             }}>
               <span style={{ fontWeight: 400 }}>{entry.name.replace(entry.ext, '')}</span>
               <span style={{ color: '#4a4a4a' }}>{entry.ext}</span>
             </span>
             <span style={{
-              fontSize: 10, fontFamily: 'monospace', color: '#575757',
+              fontSize: fonts.size - 1, fontFamily: 'inherit', color: '#575757',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
             }}>
               {relativePath(rootPath, entry.path)}
@@ -623,9 +628,10 @@ function FlatEntry({
 }
 
 export function Sidebar({
-  workspace, workspaces, onSwitchWorkspace, onNewWorkspace, onOpenFile, onNewTerminal, onNewKanban, onNewBrowser, onNewChat,
+  workspace, workspaces, onSwitchWorkspace, onNewWorkspace, onOpenFolder, onOpenFile, onNewTerminal, onNewKanban, onNewBrowser, onNewChat,
   collapsed, onToggleCollapse: _onToggleCollapse
 }: Props): JSX.Element {
+  const fonts = useAppFonts()
   const [treeEntries, setTreeEntries] = useState<TreeEntry[]>([])
   const [sortMode, setSortMode] = useState<SortMode>('name')
   const [viewMode, setViewMode] = useState<ViewMode>('tree')
@@ -908,9 +914,9 @@ export function Sidebar({
           onClick={() => setWsDropdownOpen(p => !p)}
         >
           <span style={{
-            fontSize: 11, color: '#d4d4d4', fontWeight: 500,
+            fontSize: fonts.size, color: '#d4d4d4', fontWeight: 500,
             flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            fontFamily: 'monospace'
+            fontFamily: 'inherit'
           }}>
             {workspace?.name ?? 'No workspace'}
           </span>
@@ -922,7 +928,7 @@ export function Sidebar({
             {workspaces.map(ws => (
               <div
                 key={ws.id}
-                style={{ padding: '7px 14px', fontSize: 12, fontFamily: 'monospace', color: ws.id === workspace?.id ? '#4a9eff' : '#ccc', cursor: 'pointer' }}
+                style={{ padding: '7px 14px', fontSize: fonts.size, fontFamily: 'inherit', color: ws.id === workspace?.id ? '#4a9eff' : '#ccc', cursor: 'pointer' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 onClick={() => { onSwitchWorkspace(ws.id); setWsDropdownOpen(false) }}
@@ -950,18 +956,28 @@ export function Sidebar({
                     }
                   }}
                   placeholder="Workspace name…"
-                  style={{ width: '100%', padding: '4px 8px', fontSize: 12, borderRadius: 4, background: '#1a1a1a', color: '#ccc', border: '1px solid #4a9eff', outline: 'none', fontFamily: 'monospace' }}
+                  style={{ width: '100%', padding: '4px 8px', fontSize: fonts.size, borderRadius: 4, background: '#1a1a1a', color: '#ccc', border: '1px solid #4a9eff', outline: 'none', fontFamily: 'inherit' }}
                 />
               </div>
             ) : (
-              <div
-                style={{ padding: '7px 14px', fontSize: 12, color: '#555', cursor: 'pointer', fontFamily: 'monospace' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                onClick={() => setNewWsInput(true)}
-              >
-                + Add workspace
-              </div>
+              <>
+                <div
+                  style={{ padding: '7px 14px', fontSize: fonts.size, color: '#555', cursor: 'pointer', fontFamily: 'inherit' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  onClick={() => { onOpenFolder(); setWsDropdownOpen(false) }}
+                >
+                  Open Folder…
+                </div>
+                <div
+                  style={{ padding: '7px 14px', fontSize: fonts.size, color: '#555', cursor: 'pointer', fontFamily: 'inherit' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  onClick={() => setNewWsInput(true)}
+                >
+                  + New empty workspace
+                </div>
+              </>
             )}
           </div>
         )}
@@ -998,10 +1014,10 @@ export function Sidebar({
           onChange={e => setSearch(e.target.value)}
           placeholder="Search files"
           style={{
-            flex: 1, padding: '4px 10px', fontSize: 11,
+            flex: 1, padding: '4px 10px', fontSize: fonts.size,
             background: '#222', color: '#ccc',
             border: '1px solid #2d2d2d', borderRadius: 6,
-            outline: 'none', fontFamily: 'monospace'
+            outline: 'none', fontFamily: 'inherit'
           }}
         />
         <button
@@ -1010,7 +1026,7 @@ export function Sidebar({
           style={{
             fontSize: 10, color: '#777', background: 'transparent', border: 'none',
             cursor: 'pointer', padding: '4px 6px', borderRadius: 4,
-            whiteSpace: 'nowrap', fontFamily: 'monospace'
+            whiteSpace: 'nowrap', fontFamily: 'inherit'
           }}
           onMouseEnter={e => { e.currentTarget.style.color = '#bbb' }}
           onMouseLeave={e => { e.currentTarget.style.color = '#777' }}
@@ -1025,7 +1041,7 @@ export function Sidebar({
           style={{
             flex: 1, padding: '5px 8px', borderRadius: 6,
             border: '1px solid #2d2d2d', background: '#222', color: '#cfcfcf',
-            fontSize: 11, cursor: 'pointer', fontFamily: 'monospace'
+            fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit'
           }}
         >
           + File
@@ -1035,7 +1051,7 @@ export function Sidebar({
           style={{
             flex: 1, padding: '5px 8px', borderRadius: 6,
             border: '1px solid #2d2d2d', background: '#222', color: '#cfcfcf',
-            fontSize: 11, cursor: 'pointer', fontFamily: 'monospace'
+            fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit'
           }}
         >
           + Folder
@@ -1045,7 +1061,7 @@ export function Sidebar({
           style={{
             padding: '5px 8px', borderRadius: 6,
             border: '1px solid #2d2d2d', background: '#222', color: '#8a8a8a',
-            fontSize: 11, cursor: 'pointer', fontFamily: 'monospace'
+            fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit'
           }}
         >
           ↻
@@ -1054,12 +1070,12 @@ export function Sidebar({
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', position: 'relative' }} onContextMenu={handleBgCtxMenu}>
         {!workspace ? (
-          <div style={{ padding: '16px', fontSize: 12, color: '#444', fontFamily: 'monospace' }}>No workspace open</div>
+          <div style={{ padding: '16px', fontSize: fonts.size, color: '#444', fontFamily: 'inherit' }}>No workspace open</div>
         ) : loadingTree && treeEntries.length === 0 ? (
-          <div style={{ padding: '16px', fontSize: 12, color: '#666', fontFamily: 'monospace' }}>Loading files…</div>
+          <div style={{ padding: '16px', fontSize: fonts.size, color: '#666', fontFamily: 'inherit' }}>Loading files…</div>
         ) : viewMode === 'list' ? (
           filteredFlat.length === 0 ? (
-            <div style={{ padding: '16px', fontSize: 12, color: '#444', fontFamily: 'monospace' }}>{search ? 'No matches' : 'Empty'}</div>
+            <div style={{ padding: '16px', fontSize: fonts.size, color: '#444', fontFamily: 'inherit' }}>{search ? 'No matches' : 'Empty'}</div>
           ) : (
             filteredFlat.map(entry => (
               <FlatEntry
@@ -1089,7 +1105,7 @@ export function Sidebar({
             )}
 
             {filteredTree.length === 0 ? (
-              <div style={{ padding: '16px', fontSize: 12, color: '#444', fontFamily: 'monospace' }}>{search ? 'No matches' : 'Empty'}</div>
+              <div style={{ padding: '16px', fontSize: fonts.size, color: '#444', fontFamily: 'inherit' }}>{search ? 'No matches' : 'Empty'}</div>
             ) : (
               filteredTree.map(entry => (
                 <TreeNode
@@ -1119,7 +1135,7 @@ export function Sidebar({
 
       <div style={{ borderTop: '1px solid #252525', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <button
-          style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: '1px solid #2d2d2d', background: '#222', color: '#ccc', fontSize: 12, cursor: 'pointer', fontFamily: 'monospace' }}
+          style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: '1px solid #2d2d2d', background: '#222', color: '#ccc', fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit' }}
           onMouseEnter={e => (e.currentTarget.style.background = '#2a2a2a')}
           onMouseLeave={e => (e.currentTarget.style.background = '#222')}
           onClick={onNewTerminal}
@@ -1127,7 +1143,7 @@ export function Sidebar({
           New Terminal
         </button>
         <button
-          style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: '1px solid #2d2d2d', background: '#222', color: '#666', fontSize: 12, cursor: 'pointer', fontFamily: 'monospace' }}
+          style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: '1px solid #2d2d2d', background: '#222', color: '#666', fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit' }}
           onMouseEnter={e => (e.currentTarget.style.background = '#2a2a2a')}
           onMouseLeave={e => (e.currentTarget.style.background = '#222')}
           onClick={onNewKanban}
@@ -1135,7 +1151,7 @@ export function Sidebar({
           Agent Board
         </button>
         <button
-          style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: '1px solid #2d2d2d', background: '#222', color: '#666', fontSize: 12, cursor: 'pointer', fontFamily: 'monospace' }}
+          style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: '1px solid #2d2d2d', background: '#222', color: '#666', fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit' }}
           onMouseEnter={e => (e.currentTarget.style.background = '#2a2a2a')}
           onMouseLeave={e => (e.currentTarget.style.background = '#222')}
           onClick={onNewBrowser}
@@ -1143,7 +1159,7 @@ export function Sidebar({
           Browser
         </button>
         <button
-          style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: '1px solid #2d2d2d', background: '#222', color: '#666', fontSize: 12, cursor: 'pointer', fontFamily: 'monospace' }}
+          style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: '1px solid #2d2d2d', background: '#222', color: '#666', fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit' }}
           onMouseEnter={e => (e.currentTarget.style.background = '#2a2a2a')}
           onMouseLeave={e => (e.currentTarget.style.background = '#222')}
           onClick={onNewChat}

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Editor from '@monaco-editor/react'
+import { useAppFonts } from '../FontContext'
 
 interface Props {
   filePath?: string
@@ -25,6 +26,7 @@ export function CodeTile({ filePath, initialContent = '' }: Props): JSX.Element 
   const [content, setContent] = useState<string | undefined>(undefined)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLoaded = useRef(false)
+  const fonts = useAppFonts()
 
   useEffect(() => {
     isLoaded.current = false
@@ -87,7 +89,7 @@ export function CodeTile({ filePath, initialContent = '' }: Props): JSX.Element 
             verticalScrollbarSize: 6,
             horizontalScrollbarSize: 6
           },
-          fontFamily: '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", monospace',
+          fontFamily: fonts.mono,
           fontLigatures: true
         }}
       />

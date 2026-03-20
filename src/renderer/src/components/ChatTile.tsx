@@ -1312,7 +1312,7 @@ function ToolbarPill({ prefix, label, color, active, onClick }: {
         background: active ? '#1e1e1e' : (h ? '#1a1a1a' : 'transparent'),
         border: 'none',
         borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
-        fontSize: 11, fontFamily: fonts.mono,
+        fontSize: 11, fontFamily: fonts.sans,
         color: color ?? (h ? '#ccc' : '#888'),
         transition: 'color 0.1s, background 0.1s',
         whiteSpace: 'nowrap',
@@ -1362,7 +1362,7 @@ function DropdownItem({ icon, label, sublabel, active, onClick }: {
       {icon && <span style={{ display: 'flex', color: active ? '#58a6ff' : '#888' }}>{icon}</span>}
       <span style={{
         fontSize: 12, color: active ? '#58a6ff' : '#ccc',
-        fontFamily: fonts.mono,
+        fontFamily: fonts.sans,
       }}>
         {label}
       </span>

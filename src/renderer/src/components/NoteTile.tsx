@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
+import { useAppFonts } from '../FontContext'
 
 interface Props {
   filePath?: string
@@ -50,6 +51,7 @@ export function NoteTile({ filePath, initialContent = '' }: Props): JSX.Element 
   const [mode, setMode] = useState<'edit' | 'preview'>('edit')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loaded = useRef(false)
+  const fonts = useAppFonts()
 
   useEffect(() => {
     loaded.current = false
@@ -128,7 +130,7 @@ export function NoteTile({ filePath, initialContent = '' }: Props): JSX.Element 
               automaticLayout: true,
               padding: { top: 12 },
               scrollBeyondLastLine: false,
-              fontFamily: '"JetBrains Mono", "Menlo", "Monaco", monospace',
+              fontFamily: fonts.mono,
               lineNumbers: 'off',
               folding: false,
               renderLineHighlight: 'none',

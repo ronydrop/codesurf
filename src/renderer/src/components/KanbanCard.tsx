@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { useDetectedAgents } from '../hooks/useDetectedAgents'
 import { useMCPServers } from '../hooks/useMCPServers'
+import { useAppFonts } from '../FontContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -127,6 +128,7 @@ function MiniTerminal({ termId, workspaceDir, launchCmd }: {
   const ref = useRef<HTMLDivElement>(null)
   const mounted = useRef(false)
   const parsed = launchCmd ? parseLaunchCmd(launchCmd) : null
+  const fonts = useAppFonts()
 
   useEffect(() => {
     if (!ref.current || mounted.current) return
@@ -141,7 +143,7 @@ function MiniTerminal({ termId, workspaceDir, launchCmd }: {
         brightCyan: '#95e6cb', brightWhite: '#ffffff',
         selectionBackground: 'rgba(83,189,250,0.2)'
       },
-      fontFamily: '"JetBrains Mono", "Menlo", monospace',
+      fontFamily: fonts.mono,
       fontSize: 11, lineHeight: 1.3, cursorBlink: true,
       allowProposedApi: true, scrollback: 5000
     })
@@ -201,6 +203,7 @@ export function KanbanCard({
 
   const detectedAgents = useDetectedAgents()
   const mcpServers = useMCPServers()
+  const fonts = useAppFonts()
   const availableAgents = detectedAgents.length > 0 ? detectedAgents : AGENTS
   const agentInfo = availableAgents.find(a => a.id === card.agent)
   const termId = `kterm-${card.id}`
@@ -305,7 +308,7 @@ export function KanbanCard({
             transition: 'background 0.3s, box-shadow 0.3s'
           }} />
         ) : (
-          <span style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', flexShrink: 0 }}>
+          <span style={{ fontSize: 9, color: '#333', fontFamily: 'inherit', flexShrink: 0 }}>
             {expanded ? 'v' : '>'}
           </span>
         )}
@@ -321,7 +324,7 @@ export function KanbanCard({
         {/* Agent pill */}
         {card.agent !== 'shell' && (
           <span style={{
-            fontSize: 9, fontFamily: 'monospace', flexShrink: 0,
+            fontSize: 9, fontFamily: 'inherit', flexShrink: 0,
             color: card.launched ? (active ? '#3fb950' : '#3a3a3a') : '#444',
             background: '#161b22', border: '1px solid #21262d',
             borderRadius: 10, padding: '1px 7px',
@@ -370,7 +373,7 @@ export function KanbanCard({
           <div style={{ position: 'absolute', top: 6, right: 8, zIndex: 20 }}>
             <button
               onClick={e => { e.stopPropagation(); setExpanded(false) }}
-              style={{ fontSize: 10, color: '#444', background: '#0d1117', border: '1px solid #21262d', borderRadius: 4, padding: '2px 7px', cursor: 'pointer', fontFamily: 'monospace', lineHeight: 1.4 }}
+              style={{ fontSize: 10, color: '#444', background: '#0d1117', border: '1px solid #21262d', borderRadius: 4, padding: '2px 7px', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4 }}
               onMouseEnter={e => { e.currentTarget.style.color = '#ccc'; e.currentTarget.style.borderColor = '#444' }}
               onMouseLeave={e => { e.currentTarget.style.color = '#444'; e.currentTarget.style.borderColor = '#21262d' }}
               title="Collapse"
@@ -394,7 +397,7 @@ export function KanbanCard({
             ))}
             <div style={{ flex: 1 }} />
             {card.launched && (
-              <span style={{ fontSize: 9, color: active ? '#3fb950' : '#444', padding: '0 12px', fontFamily: 'monospace', transition: 'color 0.3s' }}>
+              <span style={{ fontSize: 9, color: active ? '#3fb950' : '#444', padding: '0 12px', fontFamily: 'inherit', transition: 'color 0.3s' }}>
                 {active ? 'active' : 'idle'}
               </span>
             )}
@@ -481,7 +484,7 @@ export function KanbanCard({
                     {MODELS[card.agent].map(m => (
                       <button key={m} onClick={() => onUpdate(card.id, { model: card.model === m ? undefined : m })}
                         style={{
-                          padding: '2px 10px', borderRadius: 10, fontSize: 10, cursor: 'pointer', fontFamily: 'monospace',
+                          padding: '2px 10px', borderRadius: 10, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
                           background: card.model === m ? '#21262d' : 'transparent',
                           color: card.model === m ? '#58a6ff' : '#444',
                           border: `1px solid ${card.model === m ? '#388bfd' : '#21262d'}`
@@ -499,7 +502,7 @@ export function KanbanCard({
                   style={{
                     width: '100%', padding: '8px 16px', background: 'none', border: 'none',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                    color: '#444', fontSize: 10, fontFamily: 'monospace', textAlign: 'left'
+                    color: '#444', fontSize: 10, fontFamily: 'inherit', textAlign: 'left'
                   }}
                   onMouseEnter={e => (e.currentTarget.style.color = '#888')}
                   onMouseLeave={e => (e.currentTarget.style.color = '#444')}
@@ -518,7 +521,7 @@ export function KanbanCard({
                     {/* MCP servers */}
                     <div>
                       <Label>MCP Servers</Label>
-                      <div style={{ fontSize: 9, color: '#2a3a2a', marginBottom: 6, fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: 9, color: '#2a3a2a', marginBottom: 6, fontFamily: 'inherit' }}>
                         kanban (card_complete, card_update, card_error) always included
                       </div>
                       {card.mcpServers.map((s, i) => (
@@ -533,7 +536,7 @@ export function KanbanCard({
                               onUpdate(card.id, { mcpServers: u })
                             }}
                             placeholder="http://... or npx mcp-name"
-                            style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 10, color: '#3fb950' }} />
+                            style={{ ...inputStyle, flex: 1, fontFamily: fonts.mono, fontSize: 10, color: '#3fb950' }} />
                           <Btn onClick={() => onUpdate(card.id, { mcpServers: card.mcpServers.filter((_, j) => j !== i) })} color="#ff7b72">x</Btn>
                         </div>
                       ))}
@@ -555,7 +558,7 @@ export function KanbanCard({
                       <input value={card.mcpConfig ?? ''}
                         onChange={e => onUpdate(card.id, { mcpConfig: e.target.value || undefined })}
                         placeholder={MCP_CONFIG}
-                        style={{ ...inputStyle, fontFamily: 'monospace', color: '#3fb950', fontSize: 10 }} />
+                        style={{ ...inputStyle, fontFamily: fonts.mono, color: '#3fb950', fontSize: 10 }} />
                     </div>
 
                     {/* Launch command preview */}
@@ -565,7 +568,7 @@ export function KanbanCard({
                         <div style={{
                           fontSize: 9, color: '#388bfd', background: '#0a0e14',
                           border: '1px solid #161b22', borderRadius: 4, padding: '6px 10px',
-                          fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.6
+                          fontFamily: fonts.mono, wordBreak: 'break-all', lineHeight: 1.6
                         }}>
                           <span style={{ color: '#333' }}>$ </span>{launchCmd}
                         </div>
@@ -603,7 +606,7 @@ export function KanbanCard({
                       {active ? 'Agent active' : 'Agent idle'}
                     </span>
                     {card.briefPath && (
-                      <span style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 9, color: '#333', fontFamily: fonts.mono, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {card.briefPath.split('/').slice(-2).join('/')}
                       </span>
                     )}
@@ -665,6 +668,7 @@ interface ChipInputProps {
 }
 
 function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestions = [], suggestionMeta = {}, onDropFile }: ChipInputProps): JSX.Element {
+  const fonts = useAppFonts()
   const [input, setInput] = useState('')
   const [showSugg, setShowSugg] = useState(false)
   const filtered = suggestions.filter(s => s.toLowerCase().includes(input.toLowerCase()) && !values.includes(s))
@@ -681,7 +685,7 @@ function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestion
 
   return (
     <div>
-      {sublabel && <div style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', marginBottom: 4, letterSpacing: 0.5 }}>{sublabel}</div>}
+      {sublabel && <div style={{ fontSize: 9, color: '#444', fontFamily: 'inherit', marginBottom: 4, letterSpacing: 0.5 }}>{sublabel}</div>}
       <div
         style={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 6, padding: '5px 8px', position: 'relative', cursor: 'text' }}
         onDragOver={onDropFile ? e => e.preventDefault() : undefined}
@@ -692,7 +696,7 @@ function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestion
             <span key={i} style={{
               display: 'inline-flex', alignItems: 'center', gap: 3,
               background: chipBg, borderRadius: 4, padding: '2px 7px',
-              fontSize: 10, color: prefixColor, fontFamily: 'monospace',
+              fontSize: 10, color: prefixColor, fontFamily: fonts.mono,
               border: `1px solid ${prefixColor}22`
             }}>
               <span style={{ opacity: 0.4 }}>{prefix}</span>{v}
@@ -712,7 +716,7 @@ function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestion
               if (e.key === 'Escape') setShowSugg(false)
             }}
             placeholder={values.length === 0 ? `${prefix} ${placeholder}` : ''}
-            style={{ background: 'none', border: 'none', outline: 'none', color: '#c9d1d9', fontSize: 11, fontFamily: 'monospace', minWidth: 60, flex: 1, padding: '1px 0' }}
+            style={{ background: 'none', border: 'none', outline: 'none', color: '#c9d1d9', fontSize: 11, fontFamily: fonts.mono, minWidth: 60, flex: 1, padding: '1px 0' }}
           />
         </div>
         {showSugg && filtered.length > 0 && (
@@ -724,7 +728,7 @@ function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestion
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 onMouseDown={() => add(s)}
               >
-                <span style={{ fontSize: 10, color: '#c9d1d9', fontFamily: 'monospace', flexShrink: 0 }}>
+                <span style={{ fontSize: 10, color: '#c9d1d9', fontFamily: fonts.mono, flexShrink: 0 }}>
                   <span style={{ color: prefixColor, opacity: 0.5 }}>{prefix}</span>{s}
                 </span>
                 {suggestionMeta[s] && (
@@ -761,12 +765,12 @@ const inputStyle: React.CSSProperties = {
 }
 
 function Label({ children }: { children: React.ReactNode }): JSX.Element {
-  return <div style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' }}>{children}</div>
+  return <div style={{ fontSize: 10, color: '#555', fontFamily: 'inherit', letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' }}>{children}</div>
 }
 
 function Chip({ label, prefix, bg, fg }: { label: string; prefix: string; bg: string; fg: string }): JSX.Element {
   return (
-    <span style={{ fontSize: 9, background: bg, color: fg, borderRadius: 4, padding: '1px 6px', fontFamily: 'monospace', border: `1px solid ${fg}22` }}>
+    <span style={{ fontSize: 9, background: bg, color: fg, borderRadius: 4, padding: '1px 6px', fontFamily: 'inherit', border: `1px solid ${fg}22` }}>
       <span style={{ opacity: 0.4 }}>{prefix}</span>{label}
     </span>
   )
@@ -787,7 +791,7 @@ function Btn({ onClick, color, children, title }: { onClick: () => void; color: 
   const [h, setH] = useState(false)
   return (
     <button onClick={e => { e.stopPropagation(); onClick() }} title={title}
-      style={{ fontSize: 10, color: h ? color : '#444', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1, transition: 'color 0.1s', fontFamily: 'monospace' }}
+      style={{ fontSize: 10, color: h ? color : '#444', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1, transition: 'color 0.1s', fontFamily: 'inherit' }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
       {children}
     </button>

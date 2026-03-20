@@ -6,17 +6,170 @@ export interface Workspace {
 
 export type TileType = 'terminal' | 'note' | 'code' | 'image' | 'kanban' | 'browser' | 'chat'
 
-export interface FontConfig {
+// ─── Font Token System ──────────────────────────────────────────────────────
+// VS Code-style granular font settings. Every token has family, size, lineHeight,
+// weight, and letterSpacing. Users override only what they want in config.json.
+
+export interface FontToken {
   family: string
   size: number
   lineHeight: number
+  weight?: number
+  letterSpacing?: number
 }
 
+/** Backward-compat alias */
+export type FontConfig = FontToken
+
+export interface FontSettings {
+  // ── Base tokens (everything inherits from these if not overridden) ──
+  /** Default sans-serif used across all UI */
+  sans: FontToken
+  /** Default monospace used for all code/data contexts */
+  mono: FontToken
+
+  // ── Headings & structure ──
+  /** Tile title bars, panel headers */
+  title: FontToken
+  /** Section labels (ACTIVITY, BUILT-IN, MCP SERVERS, etc.) */
+  sectionLabel: FontToken
+  /** Secondary descriptions, subtitles, hints */
+  subtitle: FontToken
+
+  // ── Sidebar ──
+  /** File/folder names in the sidebar tree */
+  sidebarFileList: FontToken
+  /** Section headers in sidebar (FILES, AGENTS, WORKSPACES) */
+  sidebarHeader: FontToken
+  /** Path breadcrumbs and workspace path */
+  sidebarPath: FontToken
+
+  // ── Terminal & code ──
+  /** Terminal emulator (xterm) */
+  terminal: FontToken
+  /** Code editor (Monaco) */
+  codeEditor: FontToken
+  /** Inline code snippets, <code> tags */
+  inlineCode: FontToken
+  /** Launch commands, CLI previews */
+  commandPreview: FontToken
+
+  // ── Chat ──
+  /** Chat message body text */
+  chatMessage: FontToken
+  /** Chat input textarea */
+  chatInput: FontToken
+  /** Model/provider dropdown labels */
+  chatToolbar: FontToken
+  /** Model IDs, cost data, session info */
+  chatMeta: FontToken
+  /** Thinking block content */
+  chatThinking: FontToken
+
+  // ── Kanban ──
+  /** Kanban card titles */
+  kanbanCardTitle: FontToken
+  /** Agent pill badges, status pills */
+  kanbanBadge: FontToken
+  /** Tab labels (overview, terminal, notes) */
+  kanbanTab: FontToken
+
+  // ── Data display ──
+  /** URLs, endpoints, server addresses */
+  dataUrl: FontToken
+  /** File paths, directory paths */
+  dataPath: FontToken
+  /** Key-value pairs (env vars, endpoints table) */
+  dataKeyValue: FontToken
+  /** Timestamps, dates */
+  dataTimestamp: FontToken
+  /** Numeric values, costs, counts */
+  dataNumeric: FontToken
+  /** Tags, chips, tool names */
+  dataBadge: FontToken
+
+  // ── Controls ──
+  /** Buttons, clickable text actions */
+  button: FontToken
+  /** Form labels (URL, DESCRIPTION, etc.) */
+  formLabel: FontToken
+  /** Text inputs, selects */
+  formInput: FontToken
+
+  // ── Settings panel ──
+  /** Settings section headers */
+  settingsHeader: FontToken
+  /** Settings field labels */
+  settingsLabel: FontToken
+}
+
+// ── System font stacks ──────────────────────────────────────────────────────
+
+const SANS_STACK = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+const MONO_STACK = '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", "Fira Code", monospace'
+
+// ── Default font tokens ─────────────────────────────────────────────────────
+
+export const DEFAULT_FONTS: FontSettings = {
+  // Base
+  sans:             { family: SANS_STACK, size: 13, lineHeight: 1.5, weight: 400 },
+  mono:             { family: MONO_STACK, size: 13, lineHeight: 1.5, weight: 400 },
+
+  // Headings
+  title:            { family: SANS_STACK, size: 14, lineHeight: 1.3, weight: 700 },
+  sectionLabel:     { family: SANS_STACK, size: 9,  lineHeight: 1.2, weight: 700, letterSpacing: 1 },
+  subtitle:         { family: SANS_STACK, size: 11, lineHeight: 1.4, weight: 400 },
+
+  // Sidebar
+  sidebarFileList:  { family: SANS_STACK, size: 12, lineHeight: 1.4, weight: 400 },
+  sidebarHeader:    { family: SANS_STACK, size: 9,  lineHeight: 1.2, weight: 700, letterSpacing: 1 },
+  sidebarPath:      { family: MONO_STACK, size: 10, lineHeight: 1.3, weight: 400 },
+
+  // Terminal & code
+  terminal:         { family: MONO_STACK, size: 13, lineHeight: 1.3, weight: 400 },
+  codeEditor:       { family: MONO_STACK, size: 13, lineHeight: 1.5, weight: 400 },
+  inlineCode:       { family: MONO_STACK, size: 12, lineHeight: 1.4, weight: 400 },
+  commandPreview:   { family: MONO_STACK, size: 9,  lineHeight: 1.6, weight: 400 },
+
+  // Chat
+  chatMessage:      { family: SANS_STACK, size: 13, lineHeight: 1.5, weight: 400 },
+  chatInput:        { family: SANS_STACK, size: 13, lineHeight: 1.5, weight: 400 },
+  chatToolbar:      { family: SANS_STACK, size: 11, lineHeight: 1.2, weight: 400 },
+  chatMeta:         { family: MONO_STACK, size: 10, lineHeight: 1.3, weight: 400 },
+  chatThinking:     { family: MONO_STACK, size: 11, lineHeight: 1.5, weight: 400 },
+
+  // Kanban
+  kanbanCardTitle:  { family: SANS_STACK, size: 13, lineHeight: 1.3, weight: 600 },
+  kanbanBadge:      { family: SANS_STACK, size: 9,  lineHeight: 1.2, weight: 400 },
+  kanbanTab:        { family: SANS_STACK, size: 11, lineHeight: 1.2, weight: 400 },
+
+  // Data display
+  dataUrl:          { family: MONO_STACK, size: 10, lineHeight: 1.3, weight: 400 },
+  dataPath:         { family: MONO_STACK, size: 10, lineHeight: 1.3, weight: 400 },
+  dataKeyValue:     { family: MONO_STACK, size: 10, lineHeight: 1.3, weight: 400 },
+  dataTimestamp:    { family: MONO_STACK, size: 9,  lineHeight: 1.2, weight: 400 },
+  dataNumeric:      { family: MONO_STACK, size: 10, lineHeight: 1.3, weight: 400 },
+  dataBadge:        { family: SANS_STACK, size: 9,  lineHeight: 1.2, weight: 400 },
+
+  // Controls
+  button:           { family: SANS_STACK, size: 10, lineHeight: 1.2, weight: 400 },
+  formLabel:        { family: SANS_STACK, size: 9,  lineHeight: 1.2, weight: 400, letterSpacing: 0.5 },
+  formInput:        { family: SANS_STACK, size: 11, lineHeight: 1.4, weight: 400 },
+
+  // Settings panel
+  settingsHeader:   { family: SANS_STACK, size: 9,  lineHeight: 1.2, weight: 700, letterSpacing: 1 },
+  settingsLabel:    { family: SANS_STACK, size: 11, lineHeight: 1.4, weight: 400 },
+}
+
+// ── AppSettings ─────────────────────────────────────────────────────────────
+
 export interface AppSettings {
-  // General — App fonts
-  primaryFont: FontConfig
-  secondaryFont: FontConfig
-  monoFont: FontConfig
+  // Granular font tokens (VS Code-style: override any subset in config.json)
+  fonts: FontSettings
+  // Legacy compat — still read by SettingsPanel pickers, mapped into fonts.*
+  primaryFont: FontToken
+  secondaryFont: FontToken
+  monoFont: FontToken
   // Canvas
   canvasBackground: string
   gridColorSmall: string
@@ -25,10 +178,10 @@ export interface AppSettings {
   gridSpacingLarge: number
   snapToGrid: boolean
   gridSize: number
-  // Terminal
+  // Terminal (legacy — prefer fonts.terminal)
   terminalFontSize: number
   terminalFontFamily: string
-  // Appearance
+  // Appearance (legacy — prefer fonts.sans.size)
   uiFontSize: number
   // Sidebar
   sidebarDefaultSort: 'name' | 'type' | 'ext'
@@ -39,9 +192,10 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  primaryFont: { family: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif', size: 14, lineHeight: 1.5 },
+  fonts: { ...DEFAULT_FONTS },
+  primaryFont: { family: SANS_STACK, size: 14, lineHeight: 1.5 },
   secondaryFont: { family: '"SF Pro Display", "Segoe UI", "Helvetica Neue", sans-serif', size: 12, lineHeight: 1.4 },
-  monoFont: { family: '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", "Fira Code", monospace', size: 13, lineHeight: 1.5 },
+  monoFont: { family: MONO_STACK, size: 13, lineHeight: 1.5 },
   canvasBackground: '#1e1e1e',
   gridColorSmall: '#333333',
   gridColorLarge: '#4a4a4a',
@@ -50,7 +204,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   snapToGrid: true,
   gridSize: 20,
   terminalFontSize: 13,
-  terminalFontFamily: '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", monospace',
+  terminalFontFamily: MONO_STACK,
   uiFontSize: 12,
   sidebarDefaultSort: 'name',
   sidebarIgnored: ['.git', 'node_modules', '.next', 'dist', 'dist-electron', '.DS_Store', '__pycache__', '.cache', 'out'],
@@ -66,9 +220,59 @@ export const DEFAULT_SETTINGS: AppSettings = {
   }
 }
 
+/** Deep-merge a single font token with its default */
+function mergeToken(base: FontToken, override?: Partial<FontToken>): FontToken {
+  if (!override) return { ...base }
+  return { ...base, ...override }
+}
+
+/** Deep-merge all font tokens, falling back to defaults for any missing */
+function mergeFonts(base: FontSettings, overrides?: Partial<Record<keyof FontSettings, Partial<FontToken>>>): FontSettings {
+  if (!overrides) return { ...base }
+  const result = { ...base }
+  for (const key of Object.keys(base) as (keyof FontSettings)[]) {
+    result[key] = mergeToken(base[key], overrides[key])
+  }
+  return result
+}
+
+/** Apply legacy primaryFont/monoFont overrides to the granular font tokens.
+ *  When a user changes primaryFont in the settings UI, all sans-based tokens
+ *  pick up the new family. Same for monoFont → all mono-based tokens. */
+function applyLegacyFontOverrides(fonts: FontSettings, primary?: Partial<FontToken>, mono?: Partial<FontToken>): FontSettings {
+  if (!primary && !mono) return fonts
+  const result = { ...fonts }
+  const pFamily = primary?.family
+  const mFamily = mono?.family
+
+  // All tokens that should track primaryFont (sans-based)
+  const sansKeys: (keyof FontSettings)[] = [
+    'sans', 'title', 'sectionLabel', 'subtitle',
+    'sidebarFileList', 'sidebarHeader',
+    'chatMessage', 'chatInput', 'chatToolbar',
+    'kanbanCardTitle', 'kanbanBadge', 'kanbanTab',
+    'dataBadge', 'button', 'formLabel', 'formInput',
+    'settingsHeader', 'settingsLabel',
+  ]
+  // All tokens that should track monoFont (mono-based)
+  const monoKeys: (keyof FontSettings)[] = [
+    'mono', 'sidebarPath', 'terminal', 'codeEditor', 'inlineCode', 'commandPreview',
+    'chatMeta', 'chatThinking',
+    'dataUrl', 'dataPath', 'dataKeyValue', 'dataTimestamp', 'dataNumeric',
+  ]
+
+  if (pFamily) {
+    for (const k of sansKeys) result[k] = { ...result[k], family: pFamily }
+  }
+  if (mFamily) {
+    for (const k of monoKeys) result[k] = { ...result[k], family: mFamily }
+  }
+  return result
+}
+
 export function withDefaultSettings(input: Partial<AppSettings> | null | undefined): AppSettings {
   const settings = input ?? {}
-  return {
+  const base: AppSettings = {
     ...DEFAULT_SETTINGS,
     ...settings,
     primaryFont: { ...DEFAULT_SETTINGS.primaryFont, ...(settings.primaryFont ?? {}) },
@@ -78,8 +282,15 @@ export function withDefaultSettings(input: Partial<AppSettings> | null | undefin
     defaultTileSizes: {
       ...DEFAULT_SETTINGS.defaultTileSizes,
       ...(settings.defaultTileSizes ?? {})
-    }
-  } as AppSettings
+    },
+    fonts: mergeFonts(DEFAULT_FONTS, settings.fonts as Partial<Record<keyof FontSettings, Partial<FontToken>>>),
+  }
+  // If user set granular fonts.*, those win. Otherwise legacy primaryFont/monoFont
+  // cascade into the token set so the settings UI pickers still work.
+  if (!settings.fonts) {
+    base.fonts = applyLegacyFontOverrides(base.fonts, settings.primaryFont, settings.monoFont)
+  }
+  return base
 }
 
 export interface Config {

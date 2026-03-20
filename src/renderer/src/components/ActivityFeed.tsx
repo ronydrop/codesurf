@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useAppFonts } from '../FontContext'
 
 export interface ActivityEvent {
   id: string
@@ -41,6 +42,7 @@ const TYPE_LABEL: Record<string, string> = {
 function EventRow({ ev, onJump, onReply }: { ev: ActivityEvent; onJump: (id: string) => void; onReply: (evId: string, cardId: string, msg: string) => void }): JSX.Element {
   const [reply, setReply] = useState('')
   const [hovered, setHovered] = useState(false)
+  const fonts = useAppFonts()
   const isInput = ev.type === 'input' && !ev.answered
 
   return (
@@ -50,17 +52,17 @@ function EventRow({ ev, onJump, onReply }: { ev: ActivityEvent; onJump: (id: str
       onMouseLeave={() => setHovered(false)}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, cursor: 'pointer' }} onClick={() => onJump(ev.cardId)}>
-        <span style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', flexShrink: 0, width: 60 }}>
+        <span style={{ fontSize: 9, color: '#333', fontFamily: fonts.mono, flexShrink: 0, width: 60 }}>
           {new Date(ev.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
         </span>
         <span style={{
-          fontSize: 9, color: TYPE_COLOR[ev.type], fontFamily: 'monospace',
+          fontSize: 9, color: TYPE_COLOR[ev.type], fontFamily: 'inherit',
           background: `${TYPE_COLOR[ev.type]}11`, border: `1px solid ${TYPE_COLOR[ev.type]}33`,
           borderRadius: 3, padding: '0 5px', flexShrink: 0
         }}>
           {TYPE_LABEL[ev.type]}
         </span>
-        <span style={{ fontSize: 9, color: '#58a6ff', fontFamily: 'monospace', flexShrink: 0, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 9, color: '#58a6ff', fontFamily: 'inherit', flexShrink: 0, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {ev.cardTitle}
         </span>
         <span style={{ fontSize: 10, color: isInput ? '#f9af4f' : '#8b949e', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isInput ? 600 : 400 }}>
@@ -90,7 +92,7 @@ function EventRow({ ev, onJump, onReply }: { ev: ActivityEvent; onJump: (id: str
             onChange={e => setReply(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && reply.trim()) { onReply(ev.id, ev.cardId, reply); setReply('') } }}
             placeholder="Reply to agent…"
-            style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 4, background: '#0d1117', color: '#c9d1d9', border: '1px solid #f9af4f44', outline: 'none', fontFamily: 'monospace' }}
+            style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 4, background: '#0d1117', color: '#c9d1d9', border: '1px solid #f9af4f44', outline: 'none', fontFamily: 'inherit' }}
             autoFocus
           />
           <button onClick={() => { if (reply.trim()) { onReply(ev.id, ev.cardId, reply); setReply('') } }}
@@ -136,7 +138,7 @@ export function ActivityFeed({ events, onClearAll, onJumpToCard, onReply }: Prop
         flexShrink: 0, cursor: 'pointer', userSelect: 'none'
       }} onClick={() => setCollapsed(p => !p)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 9, color: '#388bfd', fontFamily: 'monospace', letterSpacing: 1, fontWeight: 700 }}>
+          <span style={{ fontSize: 9, color: '#388bfd', fontFamily: 'inherit', letterSpacing: 1, fontWeight: 700 }}>
             ACTIVITY
           </span>
           {events.length > 0 && (
@@ -151,13 +153,13 @@ export function ActivityFeed({ events, onClearAll, onJumpToCard, onReply }: Prop
         </div>
         <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
           {events.length > 0 && (
-            <button onClick={onClearAll} style={{ fontSize: 9, color: '#444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace' }}
+            <button onClick={onClearAll} style={{ fontSize: 9, color: '#444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => (e.currentTarget.style.color = '#ff7b72')}
               onMouseLeave={e => (e.currentTarget.style.color = '#444')}>
               clear
             </button>
           )}
-          <span style={{ fontSize: 9, color: '#333', fontFamily: 'monospace' }}>{collapsed ? 'v' : '^'}</span>
+          <span style={{ fontSize: 9, color: '#333', fontFamily: 'inherit' }}>{collapsed ? 'v' : '^'}</span>
         </div>
       </div>
 
@@ -165,7 +167,7 @@ export function ActivityFeed({ events, onClearAll, onJumpToCard, onReply }: Prop
       {!collapsed && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           {recent.length === 0 ? (
-            <div style={{ fontSize: 10, color: '#2a2a2a', padding: '8px 12px', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 10, color: '#2a2a2a', padding: '8px 12px', fontFamily: 'inherit' }}>
               No activity yet. Launch an agent to see events here.
             </div>
           ) : (

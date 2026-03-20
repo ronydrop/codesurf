@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import type { AppSettings, FontConfig } from '../../../shared/types'
-import { DEFAULT_SETTINGS, withDefaultSettings } from '../../../shared/types'
-import { Settings, Type, Monitor, Terminal, FolderOpen, Layout, Sliders, Network, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
+import type { AppSettings, FontConfig, FontSettings } from '../../../shared/types'
+import { DEFAULT_SETTINGS, DEFAULT_FONTS, withDefaultSettings } from '../../../shared/types'
+import { Settings, Type, Monitor, Terminal, FolderOpen, Layout, Sliders, Network, Plus, Trash2, ChevronDown, ChevronRight, FileJson, AlertTriangle, Check, Copy, RotateCcw } from 'lucide-react'
+import { useAppFonts } from '../FontContext'
 
 interface Workspace {
   id: string
@@ -15,10 +16,11 @@ interface Props {
   workspaces?: Workspace[]
 }
 
-type Section = 'general' | 'canvas' | 'terminal' | 'sidebar' | 'tiles' | 'behaviour' | 'mcp'
+type Section = 'general' | 'fonts' | 'canvas' | 'terminal' | 'sidebar' | 'tiles' | 'behaviour' | 'mcp'
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode; description: string }[] = [
   { id: 'general',   label: 'General',   icon: <Type size={15} />,      description: 'App typography — primary, secondary and monospace fonts' },
+  { id: 'fonts',     label: 'Font Tokens',icon: <FileJson size={15} />, description: 'VS Code-style granular font overrides (settings.json)' },
   { id: 'canvas',    label: 'Canvas',    icon: <Monitor size={15} />,   description: 'Background, grid and snap settings' },
   { id: 'terminal',  label: 'Terminal',  icon: <Terminal size={15} />,  description: 'Font size and family for terminal tiles' },
   { id: 'sidebar',   label: 'Sidebar',   icon: <FolderOpen size={15} />,description: 'File tree sort and ignored folders' },
@@ -78,7 +80,7 @@ function NumInput({ value, min, max, step = 1, onChange }: { value: number; min:
         width: 72, padding: '5px 10px', fontSize: 13,
         background: '#222', color: '#ccc',
         border: '1px solid #333', borderRadius: 8, outline: 'none',
-        textAlign: 'right', fontFamily: 'monospace'
+        textAlign: 'right'
       }}
     />
   )
@@ -92,14 +94,14 @@ function TextInput({ value, onChange, width = 240 }: { value: string; onChange: 
       style={{
         width, padding: '5px 10px', fontSize: 12,
         background: '#222', color: '#ccc',
-        border: '1px solid #333', borderRadius: 8, outline: 'none',
-        fontFamily: 'monospace'
+        border: '1px solid #333', borderRadius: 8, outline: 'none'
       }}
     />
   )
 }
 
 function ColorSwatch({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
+  const fonts = useAppFonts()
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{ position: 'relative' }}>
@@ -110,7 +112,7 @@ function ColorSwatch({ value, onChange }: { value: string; onChange: (v: string)
         <input type="color" value={value} onChange={e => onChange(e.target.value)}
           style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }} />
       </div>
-      <span style={{ fontSize: 11, color: '#555', fontFamily: 'monospace' }}>{value}</span>
+      <span style={{ fontSize: 11, color: '#555', fontFamily: fonts.mono }}>{value}</span>
     </div>
   )
 }
@@ -121,6 +123,8 @@ const SANS_FONTS = [
   '"Helvetica Neue", Helvetica, Arial, sans-serif',
   '"Inter", "Segoe UI", sans-serif',
   '"Geist", "SF Pro Text", sans-serif',
+  '"Orbitron", sans-serif',
+  '"Rajdhani", sans-serif',
   'system-ui, sans-serif',
 ]
 
@@ -220,6 +224,7 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [section, setSection] = useState<Section>('general')
   const [mcpConfig, setMcpConfig] = useState<MCPConfig | null>(null)
+  const fonts = useAppFonts()
   const [mcpSaved, setMcpSaved] = useState(false)
   const [addingServer, setAddingServer] = useState(false)
   const [newServer, setNewServer] = useState({ name: '', url: '', cmd: '', description: '' })
@@ -344,6 +349,8 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
             </div>
           </>
         )
+      case 'fonts':
+        return <FontTokenEditor settings={settings} onSettingsChange={onSettingsChange} />
       case 'canvas':
         return (
           <>
@@ -447,14 +454,14 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: mcpConfig ? '#3fb950' : '#555', boxShadow: mcpConfig ? '0 0 6px #3fb950' : 'none', flexShrink: 0 }} />
                 <span style={{ fontSize: 13, color: '#e0e0e0', fontWeight: 500 }}>collaborator</span>
-                <span style={{ fontSize: 11, color: '#444', fontFamily: 'monospace', marginLeft: 'auto' }}>built-in</span>
+                <span style={{ fontSize: 11, color: '#444', fontFamily: 'inherit', marginLeft: 'auto' }}>built-in</span>
               </div>
               {mcpConfig && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {Object.entries(mcpConfig.endpoints ?? {}).map(([k, v]) => (
                     <div key={k} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', width: 50, flexShrink: 0 }}>{k}</span>
-                      <span style={{ fontSize: 10, color: '#3fb950', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
+                      <span style={{ fontSize: 10, color: '#444', fontFamily: fonts.mono, width: 50, flexShrink: 0 }}>{k}</span>
+                      <span style={{ fontSize: 10, color: '#3fb950', fontFamily: fonts.mono, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
                       <button onClick={() => navigator.clipboard.writeText(v)}
                         style={{ fontSize: 9, color: '#444', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#888')}
@@ -480,7 +487,7 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, color: '#e0e0e0', fontWeight: 500 }}>{name}</div>
                     {s.description && <div style={{ fontSize: 11, color: '#555', marginTop: 1 }}>{s.description}</div>}
-                    <div style={{ fontSize: 10, color: '#333', fontFamily: 'monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 10, color: '#333', fontFamily: fonts.mono, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.url ?? s.cmd}
                     </div>
                   </div>
@@ -500,25 +507,25 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
                 {expandedServer === name && (
                   <div style={{ borderTop: '1px solid #1f1f1f', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div>
-                      <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>URL</div>
+                      <div style={{ fontSize: 10, color: '#444', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>URL</div>
                       <input value={s.url ?? ''} onChange={e => {
                             const url = e.target.value || undefined
                             updateServer(name, { url, cmd: undefined, type: url ? 'http' : 'stdio' })
                           }}
                         placeholder="http://localhost:3000"
-                        style={{ width: '100%', padding: '6px 10px', fontSize: 12, background: '#111', color: '#ccc', border: '1px solid #2a2a2a', borderRadius: 6, outline: 'none', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                        style={{ width: '100%', padding: '6px 10px', fontSize: 12, background: '#111', color: '#ccc', border: '1px solid #2a2a2a', borderRadius: 6, outline: 'none', fontFamily: fonts.mono, boxSizing: 'border-box' }} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Stdio Command</div>
+                      <div style={{ fontSize: 10, color: '#444', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Stdio Command</div>
                       <input value={s.cmd ?? ''} onChange={e => {
                             const cmd = e.target.value || undefined
                             updateServer(name, { cmd, url: undefined, type: cmd ? 'stdio' : 'http' })
                           }}
                         placeholder="npx @modelcontextprotocol/server-name"
-                        style={{ width: '100%', padding: '6px 10px', fontSize: 12, background: '#111', color: '#ccc', border: '1px solid #2a2a2a', borderRadius: 6, outline: 'none', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                        style={{ width: '100%', padding: '6px 10px', fontSize: 12, background: '#111', color: '#ccc', border: '1px solid #2a2a2a', borderRadius: 6, outline: 'none', fontFamily: fonts.mono, boxSizing: 'border-box' }} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Description</div>
+                      <div style={{ fontSize: 10, color: '#444', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Description</div>
                       <input value={s.description ?? ''} onChange={e => updateServer(name, { description: e.target.value })}
                         placeholder="What does this server provide?"
                         style={{ width: '100%', padding: '6px 10px', fontSize: 12, background: '#111', color: '#ccc', border: '1px solid #2a2a2a', borderRadius: 6, outline: 'none', boxSizing: 'border-box' }} />
@@ -543,7 +550,7 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
                   { key: 'description', label: 'Description', placeholder: 'What does this server do?', mono: false },
                 ].map(f => (
                   <div key={f.key} style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{f.label}</div>
+                    <div style={{ fontSize: 10, color: '#444', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{f.label}</div>
                     <input
                       value={(newServer as Record<string, string>)[f.key]}
                       onChange={e => setNewServer(p => ({ ...p, [f.key]: e.target.value }))}
@@ -614,7 +621,7 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
                   const ws = workspaces.find(w => w.id === activeWorkspaceId)!
                   return (
                     <>
-                      <div style={{ fontSize: 10, color: '#333', fontFamily: 'monospace', marginBottom: 8 }}>{ws.path}</div>
+                      <div style={{ fontSize: 10, color: '#333', fontFamily: fonts.mono, marginBottom: 8 }}>{ws.path}</div>
                       {Object.entries(wsServers).map(([name, s]) => (
                         <div key={name} style={{ background: '#161616', borderRadius: 10, marginBottom: 6, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                           <span
@@ -624,7 +631,7 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, color: '#e0e0e0', fontWeight: 500 }}>{name}</div>
                             {s.description && <div style={{ fontSize: 11, color: '#555', marginTop: 1 }}>{s.description}</div>}
-                            <div style={{ fontSize: 10, color: '#333', fontFamily: 'monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 10, color: '#333', fontFamily: fonts.mono, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {s.url ?? s.cmd}
                             </div>
                           </div>
@@ -670,9 +677,9 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
                 { label: 'Merged config (point agents here)', path: '~/clawd-collab/workspaces/<id>/mcp-merged.json', highlight: true },
               ].map(row => (
                 <div key={row.label}>
-                  <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', marginBottom: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{row.label}</div>
+                  <div style={{ fontSize: 10, color: '#444', marginBottom: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{row.label}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <code style={{ fontSize: 11, color: row.highlight ? '#4a9eff' : '#555', fontFamily: 'monospace', flex: 1 }}>{row.path}</code>
+                    <code style={{ fontSize: 11, color: row.highlight ? '#4a9eff' : '#555', fontFamily: fonts.mono, flex: 1 }}>{row.path}</code>
                     <button
                       onClick={() => navigator.clipboard.writeText(row.path)}
                       style={{ fontSize: 10, color: '#333', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
@@ -792,6 +799,380 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── Font token categories for the reference table ──────────────────────────
+
+const FONT_TOKEN_GROUPS: { label: string; tokens: { key: keyof FontSettings; description: string }[] }[] = [
+  { label: 'Base', tokens: [
+    { key: 'sans', description: 'Default sans-serif for all UI' },
+    { key: 'mono', description: 'Default monospace for code/data' },
+  ]},
+  { label: 'Headings', tokens: [
+    { key: 'title', description: 'Tile title bars, panel headers' },
+    { key: 'sectionLabel', description: 'Section labels (ACTIVITY, BUILT-IN, etc.)' },
+    { key: 'subtitle', description: 'Descriptions, hints, secondary text' },
+  ]},
+  { label: 'Sidebar', tokens: [
+    { key: 'sidebarFileList', description: 'File/folder names in sidebar' },
+    { key: 'sidebarHeader', description: 'Sidebar section headers' },
+    { key: 'sidebarPath', description: 'Path breadcrumbs, workspace path' },
+  ]},
+  { label: 'Terminal & Code', tokens: [
+    { key: 'terminal', description: 'Terminal emulator (xterm)' },
+    { key: 'codeEditor', description: 'Code editor (Monaco)' },
+    { key: 'inlineCode', description: 'Inline code, <code> tags' },
+    { key: 'commandPreview', description: 'CLI command previews' },
+  ]},
+  { label: 'Chat', tokens: [
+    { key: 'chatMessage', description: 'Chat message body' },
+    { key: 'chatInput', description: 'Chat input textarea' },
+    { key: 'chatToolbar', description: 'Model/provider dropdown labels' },
+    { key: 'chatMeta', description: 'Model IDs, cost, session info' },
+    { key: 'chatThinking', description: 'Thinking block content' },
+  ]},
+  { label: 'Kanban', tokens: [
+    { key: 'kanbanCardTitle', description: 'Kanban card titles' },
+    { key: 'kanbanBadge', description: 'Agent pills, status badges' },
+    { key: 'kanbanTab', description: 'Tab labels' },
+  ]},
+  { label: 'Data Display', tokens: [
+    { key: 'dataUrl', description: 'URLs, endpoints' },
+    { key: 'dataPath', description: 'File/directory paths' },
+    { key: 'dataKeyValue', description: 'Key-value pairs, env vars' },
+    { key: 'dataTimestamp', description: 'Timestamps, dates' },
+    { key: 'dataNumeric', description: 'Costs, counts, numbers' },
+    { key: 'dataBadge', description: 'Tags, chips, tool names' },
+  ]},
+  { label: 'Controls', tokens: [
+    { key: 'button', description: 'Buttons, clickable text' },
+    { key: 'formLabel', description: 'Form labels (URL, DESCRIPTION)' },
+    { key: 'formInput', description: 'Text inputs, selects' },
+  ]},
+  { label: 'Settings', tokens: [
+    { key: 'settingsHeader', description: 'Settings section headers' },
+    { key: 'settingsLabel', description: 'Settings field labels' },
+  ]},
+]
+
+// ─── Font Token JSON Editor ─────────────────────────────────────────────────
+
+function FontTokenEditor({ settings, onSettingsChange }: {
+  settings: AppSettings
+  onSettingsChange: (s: AppSettings) => void
+}): JSX.Element {
+  const [rawJson, setRawJson] = useState('')
+  const [configPath, setConfigPath] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const fonts = useAppFonts()
+  const [view, setView] = useState<'editor' | 'reference'>('editor')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Load raw config on mount
+  useEffect(() => {
+    if (typeof window.electron.settings.getRawJson !== 'function') {
+      // Bridge not available — app needs restart to pick up preload changes
+      setRawJson(JSON.stringify(settings.fonts ?? {}, null, 2))
+      setConfigPath('~/.clawd-collab/config.json')
+      setLoading(false)
+      return
+    }
+    window.electron.settings.getRawJson().then(({ path, content }) => {
+      setConfigPath(path)
+      try {
+        const parsed = JSON.parse(content)
+        const fonts = parsed.settings?.fonts ?? {}
+        setRawJson(JSON.stringify(fonts, null, 2))
+      } catch {
+        setRawJson('{}')
+      }
+      setLoading(false)
+    })
+  }, [])
+
+  // Validate on change
+  const handleChange = useCallback((value: string) => {
+    setRawJson(value)
+    setSaved(false)
+    try {
+      const parsed = JSON.parse(value)
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        setError('Must be a JSON object')
+        return
+      }
+      const validKeys = new Set(Object.keys(DEFAULT_FONTS))
+      const invalidKeys = Object.keys(parsed).filter(k => !validKeys.has(k))
+      if (invalidKeys.length > 0) {
+        setError(`Unknown token${invalidKeys.length > 1 ? 's' : ''}: ${invalidKeys.join(', ')}`)
+        return
+      }
+      const validProps = new Set(['family', 'size', 'lineHeight', 'weight', 'letterSpacing'])
+      for (const [tokenKey, tokenVal] of Object.entries(parsed)) {
+        if (typeof tokenVal !== 'object' || tokenVal === null) {
+          setError(`"${tokenKey}" must be an object`)
+          return
+        }
+        const invalidProps = Object.keys(tokenVal as object).filter(p => !validProps.has(p))
+        if (invalidProps.length > 0) {
+          setError(`"${tokenKey}" has unknown propert${invalidProps.length > 1 ? 'ies' : 'y'}: ${invalidProps.join(', ')}`)
+          return
+        }
+        const tv = tokenVal as Record<string, unknown>
+        if (tv.family !== undefined && typeof tv.family !== 'string') {
+          setError(`"${tokenKey}.family" must be a string`); return
+        }
+        if (tv.size !== undefined && (typeof tv.size !== 'number' || tv.size < 1 || tv.size > 72)) {
+          setError(`"${tokenKey}.size" must be 1-72`); return
+        }
+        if (tv.lineHeight !== undefined && (typeof tv.lineHeight !== 'number' || tv.lineHeight < 0.5 || tv.lineHeight > 4)) {
+          setError(`"${tokenKey}.lineHeight" must be 0.5-4`); return
+        }
+        if (tv.weight !== undefined && (typeof tv.weight !== 'number' || tv.weight < 100 || tv.weight > 900)) {
+          setError(`"${tokenKey}.weight" must be 100-900`); return
+        }
+        if (tv.letterSpacing !== undefined && typeof tv.letterSpacing !== 'number') {
+          setError(`"${tokenKey}.letterSpacing" must be a number`); return
+        }
+      }
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Invalid JSON')
+    }
+  }, [])
+
+  const hasBridge = typeof window.electron.settings.getRawJson === 'function'
+
+  const handleSave = useCallback(async () => {
+    if (error) return
+    try {
+      const fontsOverride = JSON.parse(rawJson)
+      if (!hasBridge) {
+        // Fallback: save via regular settings API
+        const updated = await window.electron.settings.set({ ...settings, fonts: Object.keys(fontsOverride).length > 0 ? fontsOverride : undefined })
+        onSettingsChange(updated)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+        return
+      }
+      const { content } = await window.electron.settings.getRawJson()
+      const config = JSON.parse(content || '{}')
+      if (!config.settings) config.settings = {}
+      // If empty object, remove fonts key entirely
+      if (Object.keys(fontsOverride).length === 0) {
+        delete config.settings.fonts
+      } else {
+        config.settings.fonts = fontsOverride
+      }
+      const result = await window.electron.settings.setRawJson(JSON.stringify(config, null, 2))
+      if (result.ok && result.settings) {
+        onSettingsChange(result.settings)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      } else {
+        setError(result.error ?? 'Save failed')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed')
+    }
+  }, [rawJson, error, onSettingsChange, settings, hasBridge])
+
+  const handleReset = useCallback(async () => {
+    setRawJson('{}')
+    setError(null)
+    if (!hasBridge) {
+      const updated = await window.electron.settings.set({ ...settings, fonts: undefined as any })
+      onSettingsChange(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      return
+    }
+    const { content } = await window.electron.settings.getRawJson()
+    const config = JSON.parse(content || '{}')
+    if (config.settings) delete config.settings.fonts
+    const result = await window.electron.settings.setRawJson(JSON.stringify(config, null, 2))
+    if (result.ok && result.settings) {
+      onSettingsChange(result.settings)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
+  }, [onSettingsChange, settings, hasBridge])
+
+  const handleCopyDefaults = useCallback(() => {
+    navigator.clipboard.writeText(JSON.stringify(DEFAULT_FONTS, null, 2))
+  }, [])
+
+  const insertToken = useCallback((key: keyof FontSettings) => {
+    try {
+      const current = JSON.parse(rawJson || '{}')
+      if (!current[key]) {
+        const def = DEFAULT_FONTS[key]
+        current[key] = { family: def.family, size: def.size }
+      }
+      const newJson = JSON.stringify(current, null, 2)
+      setRawJson(newJson)
+      handleChange(newJson)
+      setView('editor')
+    } catch { /* ignore */ }
+  }, [rawJson, handleChange])
+
+  if (loading) {
+    return <div style={{ fontSize: 12, color: '#555', padding: 20 }}>Loading config...</div>
+  }
+
+  const monoFont = fonts.mono
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Config file path */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <FileJson size={13} color="#555" />
+        <span style={{ fontSize: 10, color: '#555', fontFamily: monoFont }}>{configPath}</span>
+        <span style={{ fontSize: 9, color: '#388bfd', fontFamily: monoFont }}>settings.fonts</span>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #1a1a1a' }}>
+        {(['editor', 'reference'] as const).map(v => (
+          <button key={v} onClick={() => setView(v)} style={{
+            padding: '6px 14px', fontSize: 11, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            background: view === v ? '#1a1a1a' : 'transparent',
+            color: view === v ? '#e6edf3' : '#555',
+            borderBottom: view === v ? '2px solid #388bfd' : '2px solid transparent',
+          }}>
+            {v === 'editor' ? 'JSON Editor' : 'Token Reference'}
+          </button>
+        ))}
+      </div>
+
+      {view === 'editor' ? (
+        <>
+          {/* Toolbar */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button onClick={handleSave} disabled={!!error}
+              style={{
+                padding: '4px 12px', borderRadius: 5, fontSize: 10, cursor: error ? 'not-allowed' : 'pointer',
+                background: error ? '#1a1a1a' : saved ? '#0d2a1a' : '#1f6feb',
+                color: error ? '#444' : saved ? '#3fb950' : '#fff',
+                border: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+              {saved ? <><Check size={10} /> Saved</> : 'Save'}
+            </button>
+            <button onClick={handleReset}
+              style={{ padding: '4px 10px', borderRadius: 5, fontSize: 10, cursor: 'pointer', background: '#1a1a1a', color: '#888', border: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}
+              title="Reset to defaults (remove all overrides)">
+              <RotateCcw size={9} /> Reset
+            </button>
+            <button onClick={handleCopyDefaults}
+              style={{ padding: '4px 10px', borderRadius: 5, fontSize: 10, cursor: 'pointer', background: '#1a1a1a', color: '#888', border: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}
+              title="Copy all default tokens to clipboard">
+              <Copy size={9} /> Copy Defaults
+            </button>
+            <div style={{ flex: 1 }} />
+            {error && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#ff7b72' }}>
+                <AlertTriangle size={10} />
+                <span style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{error}</span>
+              </div>
+            )}
+          </div>
+
+          {/* JSON textarea */}
+          <textarea
+            ref={textareaRef}
+            value={rawJson}
+            onChange={e => handleChange(e.target.value)}
+            onKeyDown={e => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+                e.preventDefault()
+                handleSave()
+              }
+              if (e.key === 'Tab') {
+                e.preventDefault()
+                const ta = e.currentTarget
+                const start = ta.selectionStart
+                const end = ta.selectionEnd
+                const newVal = ta.value.substring(0, start) + '  ' + ta.value.substring(end)
+                handleChange(newVal)
+                requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + 2 })
+              }
+            }}
+            spellCheck={false}
+            style={{
+              width: '100%', minHeight: 260, maxHeight: 380,
+              padding: '12px 14px', borderRadius: 8,
+              background: '#0a0a0a', color: error ? '#ff9080' : '#c9d1d9',
+              border: `1px solid ${error ? '#ff7b7244' : '#1a1a1a'}`,
+              outline: 'none', resize: 'vertical',
+              fontFamily: monoFont, fontSize: 12, lineHeight: 1.6,
+              tabSize: 2, boxSizing: 'border-box',
+            }}
+          />
+
+          {/* Hint */}
+          <div style={{ fontSize: 10, color: '#333', lineHeight: 1.6 }}>
+            Override only the tokens you want. Properties: <span style={{ color: '#555', fontFamily: monoFont }}>family</span>, <span style={{ color: '#555', fontFamily: monoFont }}>size</span>, <span style={{ color: '#555', fontFamily: monoFont }}>lineHeight</span>, <span style={{ color: '#555', fontFamily: monoFont }}>weight</span>, <span style={{ color: '#555', fontFamily: monoFont }}>letterSpacing</span>.
+            Unset tokens inherit from General. <span style={{ color: '#555' }}>Cmd+S</span> to save.
+          </div>
+        </>
+      ) : (
+        /* Token reference */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 360, overflowY: 'auto' }}>
+          {FONT_TOKEN_GROUPS.map(group => (
+            <div key={group.label}>
+              <div style={{ fontSize: 9, color: '#388bfd', fontFamily: 'inherit', letterSpacing: 1, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>
+                {group.label}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {group.tokens.map(({ key, description }) => {
+                  const token = settings.fonts?.[key] ?? DEFAULT_FONTS[key]
+                  let isOverridden = false
+                  try { isOverridden = !!(rawJson && rawJson !== '{}' && JSON.parse(rawJson)[key]) } catch { /* ignore */ }
+                  return (
+                    <div key={key}
+                      onClick={() => insertToken(key)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+                        background: isOverridden ? '#0d2137' : '#0d0d0d',
+                        border: `1px solid ${isOverridden ? '#1f3a5f' : '#151515'}`,
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={e => { if (!isOverridden) e.currentTarget.style.background = '#111' }}
+                      onMouseLeave={e => { if (!isOverridden) e.currentTarget.style.background = '#0d0d0d' }}
+                      title={`Click to add "${key}" to editor`}
+                    >
+                      <span style={{ fontSize: 11, color: isOverridden ? '#58a6ff' : '#c9d1d9', fontFamily: monoFont, width: 140, flexShrink: 0 }}>
+                        {key}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#555', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {description}
+                      </span>
+                      <span style={{ fontSize: 9, color: '#444', fontFamily: monoFont, flexShrink: 0 }}>
+                        {token.size}px
+                      </span>
+                      <span
+                        style={{
+                          fontSize: token.size > 14 ? 14 : token.size,
+                          color: '#888', fontFamily: token.family,
+                          fontWeight: token.weight, maxWidth: 60, flexShrink: 0,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}
+                        title={token.family}
+                      >
+                        Abc
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

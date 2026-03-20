@@ -6,6 +6,8 @@ interface ElectronAPI {
   workspace: {
     list(): Promise<Workspace[]>
     create(name: string): Promise<Workspace>
+    createFromFolder(folderPath: string): Promise<Workspace>
+    openFolder(): Promise<string | null>
     setActive(id: string): Promise<void>
     getActive(): Promise<Workspace | null>
     delete(id: string): Promise<void>
@@ -83,6 +85,8 @@ interface ElectronAPI {
   settings: {
     get(): Promise<import('../../shared/types').AppSettings>
     set(settings: import('../../shared/types').AppSettings): Promise<import('../../shared/types').AppSettings>
+    getRawJson(): Promise<{ path: string; content: string }>
+    setRawJson(json: string): Promise<{ ok: boolean; error?: string; settings?: import('../../shared/types').AppSettings }>
   }
   bus: {
     publish(channel: string, type: string, source: string, payload: Record<string, unknown>): Promise<import('../../shared/types').BusEvent>

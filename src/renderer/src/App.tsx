@@ -1,7 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense } from 'react'
+import { Ungroup, Grid2x2X, Scissors, ClipboardPaste } from 'lucide-react'
 import type { TileState, GroupState, CanvasState, Workspace, AppSettings } from '../../shared/types'
 import { withDefaultSettings, DEFAULT_SETTINGS } from '../../shared/types'
 import type { MenuItem } from './components/ContextMenu'
+import { FontProvider, FontTokenProvider, SANS_DEFAULT, MONO_DEFAULT } from './FontContext'
 
 const textIconStyle = (size: number): React.CSSProperties => ({
   display: 'inline-flex',
@@ -11,7 +13,6 @@ const textIconStyle = (size: number): React.CSSProperties => ({
   height: size,
   fontSize: Math.max(10, size - 2),
   lineHeight: 1,
-  fontFamily: 'monospace',
   userSelect: 'none'
 })
 
@@ -670,6 +671,15 @@ function App(): JSX.Element {
     await handleSwitchWorkspace(ws.id)
   }, [handleSwitchWorkspace])
 
+  const handleOpenFolder = useCallback(async () => {
+    const folderPath = await window.electron.workspace.openFolder()
+    if (!folderPath) return
+    const ws = await window.electron.workspace.createFromFolder(folderPath)
+    const updated = await window.electron.workspace.list()
+    setWorkspaces(updated)
+    await handleSwitchWorkspace(ws.id)
+  }, [handleSwitchWorkspace])
+
   const handleOpenFile = useCallback((filePath: string) => {
     addTile(extToType(filePath), filePath)
   }, [addTile])
@@ -1096,8 +1106,19 @@ function App(): JSX.Element {
 
   const isDraggingCanvas = dragState.type === 'pan'
 
+  const appFonts = React.useMemo(() => ({
+    sans: settings.fonts?.sans?.family ?? settings.primaryFont?.family ?? SANS_DEFAULT,
+    mono: settings.fonts?.mono?.family ?? settings.monoFont?.family ?? MONO_DEFAULT,
+    size: settings.fonts?.sans?.size ?? settings.primaryFont?.size ?? 13,
+    monoSize: settings.fonts?.mono?.size ?? settings.monoFont?.size ?? 13,
+  }), [settings.fonts, settings.primaryFont, settings.monoFont])
+
+  const fontTokens = React.useMemo(() => settings.fonts, [settings.fonts])
+
   return (
-    <div className="w-full h-full flex flex-col" style={{ background: '#1e1e1e', color: '#d4d4d4', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' }}>
+    <FontTokenProvider value={fontTokens}>
+    <FontProvider value={appFonts}>
+    <div className="w-full h-full flex flex-col" style={{ background: '#1e1e1e', color: '#d4d4d4', fontFamily: appFonts.sans, fontSize: appFonts.size }}>
       {/* Titlebar — traffic lights area */}
       <div
         className="flex items-center flex-shrink-0"
@@ -1184,6 +1205,7 @@ function App(): JSX.Element {
             workspaces={workspaces}
             onSwitchWorkspace={handleSwitchWorkspace}
             onNewWorkspace={handleNewWorkspace}
+            onOpenFolder={handleOpenFolder}
             onOpenFile={handleOpenFile}
             onNewTerminal={() => addTile('terminal')}
             onNewKanban={() => addTile('kanban')}
@@ -1357,10 +1379,9 @@ function App(): JSX.Element {
                         position: 'absolute', top: -28, left: 0,
                         display: 'flex', gap: 6, alignItems: 'center',
                         userSelect: 'none', pointerEvents: 'all',
-                        background: 'rgba(18,18,18,0.85)',
-                        border: '1px solid #333',
-                        borderRadius: 6, padding: '3px 8px',
-                        backdropFilter: 'blur(4px)',
+                        background: 'none',
+                        border: 'none',
+                        padding: '3px 0',
                         cursor: 'grab',
                       }}>
                       {/* Color swatch / picker */}
@@ -1413,18 +1434,18 @@ function App(): JSX.Element {
                         {g.label ?? 'group'}
                       </span>
 
-                      <span style={{ width: 1, height: 10, background: '#444' }} />
+                      <span style={{ width: 1, height: 10, background: color, opacity: 0.3 }} />
 
                       {([
-                        { icon: <Icon glyph='⟂' size={11} />, label: 'Ungroup', action: () => ungroupTilesRef.current(g.id) },
-                        { icon: <Icon glyph='▦' size={11} />, label: 'Ungroup all', action: () => ungroupAllRef.current(g.id) },
-                        { icon: <Icon glyph='✂' size={11} />, label: 'Cut', action: () => {
+                        { icon: <Ungroup size={12} />, label: 'Ungroup', action: () => ungroupTilesRef.current(g.id) },
+                        { icon: <Grid2x2X size={12} />, label: 'Ungroup all', action: () => ungroupAllRef.current(g.id) },
+                        { icon: <Scissors size={12} />, label: 'Cut', action: () => {
                           const ids = collectGroupTileIds(g.id)
                           setSelectedTileIds(new Set(ids))
                           setSelectedTileId(null)
                           setTimeout(() => copyTilesRef.current(true), 0)
                         }},
-                        ...(clipboard.current.length > 0 ? [{ icon: <Icon glyph='📋' size={11} />, label: 'Paste in', action: () => pasteTilesRef.current(undefined, g.id) }] : [])
+                        ...(clipboard.current.length > 0 ? [{ icon: <ClipboardPaste size={12} />, label: 'Paste in', action: () => pasteTilesRef.current(undefined, g.id) }] : [])
                       ] as { icon: React.ReactNode; label: string; action: () => void }[]).map(btn => (
                         <div
                           key={btn.label}
@@ -1433,10 +1454,10 @@ function App(): JSX.Element {
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             width: 20, height: 20, borderRadius: 4, cursor: 'pointer',
-                            color: '#999',
+                            color: labelColor, opacity: 0.6,
                           }}
-                          onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
-                          onMouseLeave={e => (e.currentTarget.style.color = '#999')}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
                         >
                           {btn.icon}
                         </div>
@@ -1695,6 +1716,8 @@ function App(): JSX.Element {
         <LazyClusoWidgetMount />
       </Suspense>
     </div>
+    </FontProvider>
+    </FontTokenProvider>
   )
 }
 

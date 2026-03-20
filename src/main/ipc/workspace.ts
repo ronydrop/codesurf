@@ -1,6 +1,6 @@
-import { ipcMain } from 'electron'
+import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { promises as fs } from 'fs'
-import { join, resolve } from 'path'
+import { join, resolve, basename } from 'path'
 import { homedir } from 'os'
 import type { Config, Workspace, AppSettings } from '../../shared/types'
 import { DEFAULT_SETTINGS, withDefaultSettings } from '../../shared/types'
@@ -75,6 +75,34 @@ export function registerWorkspaceIPC(): void {
     return workspace
   })
 
+  ipcMain.handle('workspace:openFolder', async () => {
+    const win = BrowserWindow.getFocusedWindow()
+    const result = await dialog.showOpenDialog(win!, {
+      properties: ['openDirectory'],
+      title: 'Open Project Folder',
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('workspace:createFromFolder', async (_, folderPath: string) => {
+    const config = await readConfig()
+    // Don't add duplicates — if a workspace already points at this path, just switch to it
+    const existing = config.workspaces.find(w => w.path === folderPath)
+    if (existing) {
+      config.activeWorkspaceIndex = config.workspaces.indexOf(existing)
+      await writeConfig(config)
+      return existing
+    }
+    const id = `ws-${Date.now()}`
+    const name = basename(folderPath)
+    const workspace: Workspace = { id, name, path: folderPath }
+    config.workspaces.push(workspace)
+    config.activeWorkspaceIndex = config.workspaces.length - 1
+    await writeConfig(config)
+    return workspace
+  })
+
   ipcMain.handle('workspace:setActive', async (_, id: string) => {
     const config = await readConfig()
     const idx = config.workspaces.findIndex(w => w.id === id)
@@ -94,6 +122,32 @@ export function registerWorkspaceIPC(): void {
     config.settings = withDefaultSettings(settings)
     await writeConfig(config)
     return config.settings
+  })
+
+  ipcMain.handle('settings:getRawJson', async () => {
+    try {
+      const raw = await fs.readFile(CONFIG_PATH, 'utf8')
+      return { path: CONFIG_PATH, content: raw }
+    } catch {
+      return { path: CONFIG_PATH, content: '{}' }
+    }
+  })
+
+  ipcMain.handle('settings:setRawJson', async (_, json: string) => {
+    try {
+      const parsed = JSON.parse(json)
+      if (typeof parsed !== 'object' || parsed === null) {
+        return { ok: false, error: 'Root must be a JSON object' }
+      }
+      await writeConfig({
+        ...parsed,
+        settings: withDefaultSettings(parsed.settings ?? {})
+      })
+      const config = await readConfig()
+      return { ok: true, settings: config.settings }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
   })
 
   ipcMain.handle('workspace:delete', async (_, id: string) => {

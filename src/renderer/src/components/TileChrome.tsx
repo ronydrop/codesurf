@@ -95,9 +95,9 @@ export function TileChrome({
         width: tile.width, height: tile.height,
         zIndex: tile.zIndex,
         borderRadius: 8, overflow: 'hidden',
-        border: `1px solid ${isSelected ? '#4a9eff' : '#3a3a3a'}`,
+        border: isSelected ? '0.5px solid #4a9eff' : '1px solid #3a3a3a',
         boxShadow: isSelected
-          ? '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(74,158,255,0.3)'
+          ? '0 8px 32px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(74,158,255,0.3)'
           : '0 4px 20px rgba(0,0,0,0.4)',
         background: '#1e1e1e',
         visibility: forceExpanded ? 'hidden' : 'visible',

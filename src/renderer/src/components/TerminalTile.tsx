@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
+import { useAppFonts } from '../FontContext'
 
 interface Props {
   tileId: string
@@ -12,7 +13,9 @@ interface Props {
   fontFamily?: string
 }
 
-export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 13, fontFamily = '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", monospace' }: Props): JSX.Element {
+export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 13, fontFamily }: Props): JSX.Element {
+  const appFonts = useAppFonts()
+  const resolvedFont = fontFamily ?? appFonts.mono
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -36,7 +39,7 @@ export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 1
 
     const term = new Terminal({
       theme: {
-        background: '#1a1a1a',
+        background: '#1e1e1e',
         foreground: '#d4d4d4',
         cursor: '#aeafad',
         cursorAccent: '#1a1a1a',
@@ -48,7 +51,7 @@ export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 1
         brightYellow: '#d7ba7d', brightBlue: '#569cd6', brightMagenta: '#c586c0',
         brightCyan: '#4ec9b0', brightWhite: '#ffffff'
       },
-      fontFamily,
+      fontFamily: resolvedFont,
       fontSize,
       lineHeight: 1,
       cursorBlink: true,
@@ -103,7 +106,7 @@ export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 1
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', background: '#1a1a1a', padding: '4px 6px', boxSizing: 'border-box' }}
+      style={{ width: '100%', height: 'calc(100% + 20px)', background: '#1e1e1e', padding: '4px 6px 20px 6px', boxSizing: 'border-box', overflow: 'hidden' }}
     />
   )
 }

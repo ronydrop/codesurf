@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('electron', {
   workspace: {
     list: () => ipcRenderer.invoke('workspace:list'),
     create: (name: string) => ipcRenderer.invoke('workspace:create', name),
+    createFromFolder: (folderPath: string) => ipcRenderer.invoke('workspace:createFromFolder', folderPath),
+    openFolder: () => ipcRenderer.invoke('workspace:openFolder'),
     delete: (id: string) => ipcRenderer.invoke('workspace:delete', id),
     setActive: (id: string) => ipcRenderer.invoke('workspace:setActive', id),
     getActive: () => ipcRenderer.invoke('workspace:getActive')
@@ -121,6 +123,8 @@ contextBridge.exposeInMainWorld('electron', {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     set: (settings: any) => ipcRenderer.invoke('settings:set', settings),
+    getRawJson: () => ipcRenderer.invoke('settings:getRawJson'),
+    setRawJson: (json: string) => ipcRenderer.invoke('settings:setRawJson', json),
   },
 
   // Update checker (stub)
