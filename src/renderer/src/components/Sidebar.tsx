@@ -253,15 +253,24 @@ function FileIcon({ name, ext }: { name: string; ext: string }): JSX.Element {
 
 function FolderIcon({ expanded }: { expanded: boolean }): JSX.Element {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginRight: 5, flexShrink: 0 }}>
-      <svg width="14" height="12" viewBox="0 0 14 12" fill="none" style={{ marginRight: 2 }}>
+    <div style={{ display: 'flex', alignItems: 'center', marginRight: 5, flexShrink: 0, gap: 3 }}>
+      {/* Chevron — rotates 90deg when expanded */}
+      <svg
+        width="8" height="8" viewBox="0 0 8 8"
+        style={{
+          transition: 'transform 0.15s ease',
+          transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          opacity: expanded ? 0.9 : 0.45,
+        }}
+      >
+        <path d="M2 1l4 3-4 3" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {/* Folder */}
+      <svg width="14" height="12" viewBox="0 0 14 12" fill="none">
         <path
           d="M0 2.5C0 1.67 0.67 1 1.5 1H4.5L6 2.5H12.5C13.33 2.5 14 3.17 14 4V10C14 10.83 13.33 11.5 12.5 11.5H1.5C0.67 11.5 0 10.83 0 10V2.5Z"
           fill={expanded ? '#dcb67a' : '#c09a5c'}
         />
-      </svg>
-      <svg width="6" height="6" viewBox="0 0 6 6" style={{ transition: 'transform 0.12s', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-        <path d="M1 1L5 3L1 5" stroke={expanded ? '#bbb' : '#666'} strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
   )
@@ -280,25 +289,31 @@ function Badge({ count }: { count: number }): JSX.Element {
   )
 }
 
-function TreeViewIcon({ active }: { active: boolean }): JSX.Element {
+function SortIcon({ mode }: { mode: SortMode }): JSX.Element {
+  if (mode === 'name') {
+    // A→Z icon
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2 3h4M2 7h3M2 11h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        <path d="M10 3v8M8 9l2 2 2-2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  }
+  if (mode === 'type') {
+    // Folder sort icon
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M1.5 3.5h4l1 1.5h6v6.5h-11z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+        <path d="M10 3v-1M8 0l2 2 2-2" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
+      </svg>
+    )
+  }
+  // ext — dot/extension sort
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <rect x="1" y="2" width="2" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
-      <rect x="4" y="2" width="7" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
-      <rect x="3" y="6" width="2" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
-      <rect x="6" y="6" width="6" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
-      <rect x="3" y="10" width="2" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
-      <rect x="6" y="10" width="6" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
-    </svg>
-  )
-}
-
-function ListViewIcon({ active }: { active: boolean }): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <rect x="1" y="2" width="12" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
-      <rect x="1" y="6" width="12" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
-      <rect x="1" y="10" width="12" height="2" fill={active ? '#4a9eff' : '#555'} rx="0.5" />
+      <path d="M3 4h5v8H3z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M8 6h2v-4H5v2" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+      <circle cx="5.5" cy="9" r="1" fill="currentColor" />
     </svg>
   )
 }
@@ -647,6 +662,8 @@ export function Sidebar({
   const [createName, setCreateName] = useState('')
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [loadingTree, setLoadingTree] = useState(false)
+  const [showFileMenu, setShowFileMenu] = useState(false)
+  const fileMenuRef = useRef<HTMLDivElement>(null)
   const expandedPathsRef = useRef(expandedPaths)
   expandedPathsRef.current = expandedPaths
   const resizing = useRef(false)
@@ -764,6 +781,14 @@ export function Sidebar({
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
+  }, [])
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (fileMenuRef.current && !fileMenuRef.current.contains(e.target as Node)) setShowFileMenu(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
   const flatFiles = useMemo(() => flattenFiles(treeEntries), [treeEntries])
@@ -902,7 +927,8 @@ export function Sidebar({
       position: 'relative', overflow: 'hidden',
       transition: 'width 0.15s ease',
     }}>
-      <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #252525' }}>
+      {/* Workspace selector — tight to top */}
+      <div style={{ padding: '4px 10px 6px' }}>
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
@@ -981,32 +1007,8 @@ export function Sidebar({
         )}
       </div>
 
-      <div style={{ padding: '8px 12px 6px', borderBottom: '1px solid #1f1f1f', display: 'flex', gap: 4, alignItems: 'center' }}>
-        <button
-          onClick={() => setViewMode('tree')}
-          title="Tree view"
-          style={{
-            background: viewMode === 'tree' ? 'rgba(74,158,255,0.12)' : 'transparent',
-            border: viewMode === 'tree' ? '1px solid rgba(74,158,255,0.3)' : '1px solid transparent',
-            borderRadius: 4, padding: '3px 4px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', flexShrink: 0
-          }}
-        >
-          <TreeViewIcon active={viewMode === 'tree'} />
-        </button>
-        <button
-          onClick={() => setViewMode('list')}
-          title="List view"
-          style={{
-            background: viewMode === 'list' ? 'rgba(74,158,255,0.12)' : 'transparent',
-            border: viewMode === 'list' ? '1px solid rgba(74,158,255,0.3)' : '1px solid transparent',
-            borderRadius: 4, padding: '3px 4px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', flexShrink: 0
-          }}
-        >
-          <ListViewIcon active={viewMode === 'list'} />
-        </button>
-
+      {/* Compact toolbar: [ Search ] [Sort] [Menu] */}
+      <div style={{ padding: '4px 10px 6px', borderBottom: '1px solid #1f1f1f', display: 'flex', gap: 4, alignItems: 'center' }}>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -1015,55 +1017,71 @@ export function Sidebar({
             flex: 1, padding: '4px 10px', fontSize: fonts.size,
             background: '#222', color: '#ccc',
             border: '1px solid #2d2d2d', borderRadius: 6,
-            outline: 'none', fontFamily: 'inherit'
+            outline: 'none', fontFamily: 'inherit', minWidth: 0
           }}
         />
         <button
           onClick={cycleSortMode}
-          title="Cycle sort mode"
+          title={`Sort: ${SORT_LABELS[sortMode]}`}
           style={{
-            fontSize: 10, color: '#777', background: 'transparent', border: 'none',
-            cursor: 'pointer', padding: '4px 6px', borderRadius: 4,
-            whiteSpace: 'nowrap', fontFamily: 'inherit'
+            background: 'transparent', border: 'none',
+            cursor: 'pointer', padding: '4px 5px', borderRadius: 4,
+            color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#bbb' }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#777' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#ccc' }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#666' }}
         >
-          {SORT_LABELS[sortMode]}
+          <SortIcon mode={sortMode} />
         </button>
-      </div>
-
-      <div style={{ padding: '6px 12px', borderBottom: '1px solid #1f1f1f', display: 'flex', gap: 6 }}>
-        <button
-          onClick={() => workspace && startCreate(workspace.path, 'file')}
-          style={{
-            flex: 1, padding: '5px 8px', borderRadius: 6,
-            border: '1px solid #2d2d2d', background: '#222', color: '#cfcfcf',
-            fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit'
-          }}
-        >
-          + File
-        </button>
-        <button
-          onClick={() => workspace && startCreate(workspace.path, 'folder')}
-          style={{
-            flex: 1, padding: '5px 8px', borderRadius: 6,
-            border: '1px solid #2d2d2d', background: '#222', color: '#cfcfcf',
-            fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit'
-          }}
-        >
-          + Folder
-        </button>
-        <button
-          onClick={() => { void reloadAll() }}
-          style={{
-            padding: '5px 8px', borderRadius: 6,
-            border: '1px solid #2d2d2d', background: '#222', color: '#8a8a8a',
-            fontSize: fonts.size, cursor: 'pointer', fontFamily: 'inherit'
-          }}
-        >
-          ↻
-        </button>
+        <div ref={fileMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={() => setShowFileMenu(p => !p)}
+            title="File actions"
+            style={{
+              background: showFileMenu ? '#252525' : 'transparent', border: 'none',
+              cursor: 'pointer', padding: '4px 5px', borderRadius: 4,
+              color: showFileMenu ? '#ccc' : '#666', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            onMouseEnter={e => { if (!showFileMenu) e.currentTarget.style.color = '#ccc' }}
+            onMouseLeave={e => { if (!showFileMenu) e.currentTarget.style.color = '#666' }}
+          >
+            {/* Hamburger / list icon */}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 3.5h10M2 7h10M2 10.5h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+          </button>
+          {showFileMenu && (
+            <div style={{
+              position: 'absolute', top: '100%', right: 0,
+              marginTop: 4, minWidth: 150,
+              background: '#1c1c1c', border: '1px solid #2a2a2a',
+              borderRadius: 8, padding: 4,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+              zIndex: 9999,
+            }}>
+              {([
+                { label: 'New File', action: () => { workspace && startCreate(workspace.path, 'file'); setShowFileMenu(false) } },
+                { label: 'New Folder', action: () => { workspace && startCreate(workspace.path, 'folder'); setShowFileMenu(false) } },
+                { label: 'Refresh', action: () => { void reloadAll(); setShowFileMenu(false) } },
+                { label: 'Show in Finder', action: () => { workspace && window.electron.fs.revealInFinder?.(workspace.path); setShowFileMenu(false) } },
+              ]).map(item => (
+                <div
+                  key={item.label}
+                  onClick={item.action}
+                  style={{
+                    padding: '6px 10px', borderRadius: 6, cursor: 'pointer',
+                    fontSize: fonts.size, color: '#ccc', fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#252525')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  {item.label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', position: 'relative' }} onContextMenu={handleBgCtxMenu}>

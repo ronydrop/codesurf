@@ -62,6 +62,7 @@ function App(): JSX.Element {
   const [tiles, setTiles] = useState<TileState[]>([])
   const [groups, setGroups] = useState<GroupState[]>([])
   const [viewport, setViewport] = useState({ tx: 0, ty: 0, zoom: 1 })
+  const prevZoomRef = React.useRef(1)
   const [nextZIndex, setNextZIndex] = useState(1)
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null)
   const [selectedTileIds, setSelectedTileIds] = useState<Set<string>>(new Set())
@@ -1200,7 +1201,7 @@ function App(): JSX.Element {
           <div style={{ marginLeft: 'auto', marginRight: 16, display: 'flex', gap: 4, alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             {/* Stats */}
             <span style={{ fontSize: 11, color: '#777', marginRight: 8 }}>
-              {Math.round(viewport.zoom * 100)}% · {tiles.length} tile{tiles.length !== 1 ? 's' : ''}
+              {tiles.length} tile{tiles.length !== 1 ? 's' : ''}
             </span>
 
             {/* Icon buttons */}
@@ -1717,7 +1718,20 @@ function App(): JSX.Element {
 
           {/* Arrange toolbar */}
           <Suspense fallback={null}>
-            <LazyArrangeToolbar tiles={tiles} onArrange={handleArrange} />
+            <LazyArrangeToolbar
+              tiles={tiles}
+              onArrange={handleArrange}
+              zoom={viewport.zoom}
+              onZoomToggle={() => {
+                setViewport(prev => {
+                  if (prev.zoom === 1) {
+                    return { ...prev, zoom: prevZoomRef.current !== 1 ? prevZoomRef.current : 1 }
+                  }
+                  prevZoomRef.current = prev.zoom
+                  return { ...prev, zoom: 1 }
+                })
+              }}
+            />
           </Suspense>
         </div>
       </div>

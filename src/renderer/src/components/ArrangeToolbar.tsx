@@ -8,6 +8,8 @@ const GAP = 40
 interface Props {
   tiles: TileState[]
   onArrange: (updated: TileState[]) => void
+  zoom: number
+  onZoomToggle: () => void
 }
 
 type Mode = 'grid' | 'column' | 'row'
@@ -147,7 +149,7 @@ const RowIcon = () => (
 )
 
 // ─── Toolbar ─────────────────────────────────────────────────────────────────
-export function ArrangeToolbar({ tiles, onArrange }: Props): JSX.Element {
+export function ArrangeToolbar({ tiles, onArrange, zoom, onZoomToggle }: Props): JSX.Element {
   const [loading, setLoading] = useState(false)
   const [lastMode, setLastMode] = useState<Mode | null>(null)
 
@@ -185,9 +187,21 @@ export function ArrangeToolbar({ tiles, onArrange }: Props): JSX.Element {
         alignItems: 'center',
       }}
     >
-      <span style={{ fontSize: 10, color: '#444', marginRight: 4, userSelect: 'none', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-        Arrange
-      </span>
+      <button
+        onClick={onZoomToggle}
+        title="Toggle zoom to 100%"
+        style={{
+          fontSize: 11, color: zoom === 1 ? '#4a9eff' : '#888',
+          background: 'transparent', border: 'none',
+          cursor: 'pointer', padding: '4px 6px', borderRadius: 4,
+          userSelect: 'none', fontFamily: 'inherit', whiteSpace: 'nowrap',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#ccc' }}
+        onMouseLeave={e => { e.currentTarget.style.color = zoom === 1 ? '#4a9eff' : '#888' }}
+      >
+        {Math.round(zoom * 100)}%
+      </button>
       <Btn label={<GridIcon />}   title="Grid layout (auto-wrap)"  active={lastMode === 'grid'}   loading={loading} onClick={() => run('grid')} />
       <Btn label={<ColumnIcon />} title="Stack in column"                  active={lastMode === 'column'} loading={loading} onClick={() => run('column')} />
       <Btn label={<RowIcon />}    title="Arrange in row"                   active={lastMode === 'row'}    loading={loading} onClick={() => run('row')} />
