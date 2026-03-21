@@ -279,7 +279,7 @@ function TabBar({ tabs, activeTab, panelId, onActivate, onClose, onTabMouseDown,
   return (
     <div style={{
       display: 'flex', alignItems: 'center', height: 38,
-      background: '#171a1f', borderBottom: '1px solid #262b33',
+      background: '#1e1e1e', borderBottom: '1px solid #2d2d2d',
       overflow: 'hidden', flexShrink: 0, zIndex: 1,
       padding: '0 8px',
     }}>
@@ -310,8 +310,8 @@ function TabBar({ tabs, activeTab, panelId, onActivate, onClose, onTabMouseDown,
                 height: 28,
                 padding: '0 11px', cursor: 'grab', userSelect: 'none',
                 fontSize: 11, color: isActive ? '#58a6ff' : '#6f7782',
-                background: isActive ? '#21262d' : 'transparent',
-                border: `1px solid ${isActive ? '#30363d' : 'transparent'}`,
+                background: isActive ? '#252525' : 'transparent',
+                border: `1px solid ${isActive ? '#333' : 'transparent'}`,
                 borderRadius: 7,
                 transition: 'background 0.15s, color 0.15s, border-color 0.15s',
                 flexShrink: 0, maxWidth: 220,
@@ -323,7 +323,7 @@ function TabBar({ tabs, activeTab, panelId, onActivate, onClose, onTabMouseDown,
                 if (!isActive) {
                   e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
                   e.currentTarget.style.color = '#aeb8c4'
-                  e.currentTarget.style.borderColor = '#2a2f38'
+                  e.currentTarget.style.borderColor = '#333'
                 }
               }}
               onMouseLeave={e => {
