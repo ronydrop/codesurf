@@ -615,22 +615,47 @@ export function KanbanTile({ tileId, workspaceId, workspaceDir, width, height, o
       <div style={{ height: HEADER, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', borderBottom: '1px solid #21262d' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Mode toggle */}
-          <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden', border: '1px solid #30363d' }}>
-            {(['board', 'overview'] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                style={{
-                  fontSize: 10, fontWeight: mode === m ? 700 : 400,
-                  padding: '2px 8px', border: 'none', cursor: 'pointer',
-                  background: mode === m ? '#21262d' : 'transparent',
-                  color: mode === m ? '#58a6ff' : '#555',
-                  fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: 0.5,
-                }}
-              >
-                {m === 'overview' ? 'Activity' : 'Board'}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['board', 'overview'] as const).map(m => {
+              const isActive = mode === m
+              return (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  style={{
+                    height: 28,
+                    fontSize: 11,
+                    fontWeight: isActive ? 700 : 500,
+                    padding: '0 11px',
+                    border: `1px solid ${isActive ? '#30363d' : 'transparent'}`,
+                    borderRadius: 7,
+                    cursor: 'pointer',
+                    background: isActive ? '#21262d' : 'transparent',
+                    color: isActive ? '#58a6ff' : '#6f7782',
+                    fontFamily: 'inherit',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.3,
+                    transition: 'color 0.15s, background 0.15s, border-color 0.15s',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                      e.currentTarget.style.color = '#aeb8c4'
+                      e.currentTarget.style.borderColor = '#2a2f38'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = '#6f7782'
+                      e.currentTarget.style.borderColor = 'transparent'
+                    }
+                  }}
+                >
+                  {m === 'overview' ? 'Activity' : 'Board'}
+                </button>
+              )
+            })}
           </div>
 
           {mode === 'board' && (

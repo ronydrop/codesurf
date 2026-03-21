@@ -1607,7 +1607,7 @@ function App(): JSX.Element {
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = '#8fbfff' }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = '#666' }}
                 >
-                  <span>{ws.name}</span>
+                  <span style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>{ws.name}</span>
                   {openWorkspaceIds.length > 1 && (
                     <span
                       onClick={e => {

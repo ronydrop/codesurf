@@ -383,21 +383,52 @@ export function KanbanCard({
           </div>
 
           {/* Tab bar */}
-          <div style={{ display: 'flex', background: '#0d1117', borderBottom: '1px solid #21262d', alignItems: 'center' }}>
-            {(['overview', ...(card.launched ? ['terminal'] : []), 'notes'] as Tab[]).map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                padding: '6px 14px', fontSize: 11, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                background: tab === t ? '#161b22' : 'transparent',
-                color: tab === t ? '#e6edf3' : '#555',
-                borderBottom: tab === t ? '2px solid #388bfd' : '2px solid transparent',
-                textTransform: 'capitalize', transition: 'color 0.1s'
-              }}>
-                {t}{t === 'notes' && card.comments.length ? ` (${card.comments.length})` : ''}
-              </button>
-            ))}
+          <div style={{ display: 'flex', background: '#0d1117', borderBottom: '1px solid #21262d', alignItems: 'center', gap: 4, padding: '6px 8px' }}>
+            {(['overview', ...(card.launched ? ['terminal'] : []), 'notes'] as Tab[]).map(t => {
+              const isActive = tab === t
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  style={{
+                    height: 28,
+                    padding: '0 11px',
+                    fontSize: 11,
+                    border: `1px solid ${isActive ? '#30363d' : 'transparent'}`,
+                    borderRadius: 7,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    background: isActive ? '#21262d' : 'transparent',
+                    color: isActive ? '#58a6ff' : '#6f7782',
+                    textTransform: 'uppercase',
+                    transition: 'color 0.15s, background 0.15s, border-color 0.15s',
+                    fontWeight: isActive ? 700 : 500,
+                    letterSpacing: 0.3,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                      e.currentTarget.style.color = '#aeb8c4'
+                      e.currentTarget.style.borderColor = '#2a2f38'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = '#6f7782'
+                      e.currentTarget.style.borderColor = 'transparent'
+                    }
+                  }}
+                >
+                  {t}{t === 'notes' && card.comments.length ? ` (${card.comments.length})` : ''}
+                </button>
+              )
+            })}
             <div style={{ flex: 1 }} />
             {card.launched && (
-              <span style={{ fontSize: 9, color: active ? '#3fb950' : '#444', padding: '0 12px', fontFamily: 'inherit', transition: 'color 0.3s' }}>
+              <span style={{ fontSize: 9, color: active ? '#3fb950' : '#444', padding: '0 8px', fontFamily: 'inherit', transition: 'color 0.3s', textTransform: 'uppercase', letterSpacing: 0.3 }}>
                 {active ? 'active' : 'idle'}
               </span>
             )}

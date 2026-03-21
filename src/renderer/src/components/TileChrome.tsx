@@ -566,11 +566,12 @@ function DrawerPanel({ data, activeTab, onTabChange, onUpdateTask, onDeleteTask,
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Tab bar */}
       <div style={{
-        height: 32, flexShrink: 0,
+        minHeight: 38, flexShrink: 0,
         display: 'flex', alignItems: 'center',
         borderBottom: '1px solid #222',
-        padding: '0 4px',
-        gap: 0,
+        padding: '5px 8px',
+        gap: 4,
+        overflowX: 'auto',
       }}>
         {ALL_TABS.map(tab => {
           const active = tab === activeTab
@@ -606,25 +607,28 @@ function TabButton({ tab, active, count, onClick }: {
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       style={{
-        flex: 1,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
         height: 28,
-        background: active ? 'rgba(255,255,255,0.05)' : (h ? 'rgba(255,255,255,0.02)' : 'transparent'),
-        border: 'none',
-        borderBottom: active ? '1.5px solid #4a9eff' : '1.5px solid transparent',
+        background: active ? '#21262d' : (h ? 'rgba(255,255,255,0.03)' : 'transparent'),
+        border: `1px solid ${active ? '#30363d' : h ? '#2a2f38' : 'transparent'}`,
+        borderRadius: 7,
         cursor: 'pointer',
-        color: active ? '#ccc' : (h ? '#888' : '#555'),
-        fontSize: 10, fontWeight: active ? 600 : 400,
-        padding: '0 4px',
-        transition: 'color 0.1s, background 0.1s',
+        color: active ? '#58a6ff' : (h ? '#aeb8c4' : '#6f7782'),
+        fontSize: 11, fontWeight: active ? 700 : 500,
+        padding: '0 11px',
+        transition: 'color 0.15s, background 0.15s, border-color 0.15s',
+        flexShrink: 0,
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+        whiteSpace: 'nowrap',
       }}
     >
       <TabIcon tab={tab} />
       <span>{TAB_LABELS[tab]}</span>
       {count > 0 && (
         <span style={{
-          fontSize: 8, fontWeight: 700,
-          color: active ? '#4a9eff' : '#555',
+          fontSize: 9, fontWeight: 700,
+          color: active ? '#58a6ff' : (h ? '#aeb8c4' : '#6f7782'),
           minWidth: 10, textAlign: 'center',
         }}>
           {count > 99 ? '99+' : count}

@@ -1100,27 +1100,51 @@ function DisplaySettingsEditor({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid #1a1a1a', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #1a1a1a', paddingBottom: 8 }}>
         {[
           { id: 'display' as const, label: 'Display', icon: <FormInput size={14} /> },
           { id: 'json' as const, label: '<>', icon: <Code2 size={14} /> },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setView(tab.id)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 12px', borderRadius: 8, border: '1px solid',
-              borderColor: view === tab.id ? 'rgba(88,166,255,0.35)' : '#222',
-              background: view === tab.id ? 'rgba(56,139,253,0.12)' : '#111',
-              color: view === tab.id ? '#e6edf3' : '#777',
-              cursor: 'pointer', fontSize: 12,
-            }}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+        ].map(tab => {
+          const isActive = view === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setView(tab.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                height: 28,
+                padding: '0 11px',
+                borderRadius: 7,
+                border: `1px solid ${isActive ? '#30363d' : 'transparent'}`,
+                background: isActive ? '#21262d' : 'transparent',
+                color: isActive ? '#58a6ff' : '#6f7782',
+                cursor: 'pointer',
+                fontSize: 11,
+                fontWeight: isActive ? 700 : 500,
+                letterSpacing: 0.3,
+                textTransform: 'uppercase',
+                transition: 'color 0.15s, background 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={e => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                  e.currentTarget.style.color = '#aeb8c4'
+                  e.currentTarget.style.borderColor = '#2a2f38'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = '#6f7782'
+                  e.currentTarget.style.borderColor = 'transparent'
+                }
+              }}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       {view === 'display' ? (
