@@ -1,6 +1,6 @@
 {
   "name": "collaborator-clone",
-  "version": "1.0.0",
+  "version": "2.2.1",
   "description": "Infinite canvas workspace for AI agents — rebuilt from plan",
   "main": "dist-electron/main/index.js",
   "scripts": {
