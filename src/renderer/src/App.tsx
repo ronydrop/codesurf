@@ -440,7 +440,7 @@ function App(): JSX.Element {
   useEffect(() => {
     if (!workspace) return
     persistCanvasState(tiles, viewport, nextZIndex, groups)
-  }, [workspace, panelLayout, activePanelId, expandedTileId, persistCanvasState])
+  }, [workspace, panelLayout, activePanelId, expandedTileId, persistCanvasState, tiles, viewport, nextZIndex, groups])
 
   const screenToWorld = useCallback((sx: number, sy: number) => {
     const rect = canvasRef.current?.getBoundingClientRect()
