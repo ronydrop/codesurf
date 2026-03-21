@@ -407,12 +407,12 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const currentModel = providerModels[provider].find(m => m.id === model) ?? providerModels[provider][0]
+  const currentModel = providerModels[provider]?.find(m => m.id === model) ?? providerModels[provider]?.[0] ?? { id: '', label: 'No model' }
 
   const handleProviderChange = useCallback((p: Provider) => {
     setProvider(p)
-    setModel(providerModels[p][0].id)
-    setMode(PROVIDER_MODES[p][0].id)
+    setModel(providerModels[p]?.[0]?.id ?? '')
+    setMode(PROVIDER_MODES[p]?.[0]?.id ?? 'default')
     if (p !== 'claude') setThinking('adaptive') // reset thinking when leaving Claude
     setShowProviderMenu(false)
   }, [providerModels])
