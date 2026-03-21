@@ -49,6 +49,9 @@ interface ElectronAPI {
   shell?: {
     openExternal(url: string): Promise<void>
   }
+  app?: {
+    relaunch(): Promise<void>
+  }
   window?: {
     new(): Promise<void>
     newTab(): Promise<void>

@@ -318,6 +318,9 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
       const next = { ...prev, [key]: value }
       window.electron.settings?.set(next).then((saved: AppSettings) => {
         if (saved) onSettingsChange(saved)
+        if (key === 'translucentBackground' && prev.translucentBackground !== value) {
+          window.electron.app?.relaunch?.()
+        }
       })
       return next
     })
@@ -357,6 +360,9 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
             <SectionLabel label="Display" />
             <SettingRow label="Background colour" description="Canvas background color">
               <ColorSwatch value={settings.canvasBackground} onChange={v => update('canvasBackground', v)} />
+            </SettingRow>
+            <SettingRow label="Translucent canvas background" description="Use macOS vibrancy behind the canvas while leaving sidebar and tiles opaque">
+              <Toggle value={settings.translucentBackground} onChange={v => update('translucentBackground', v)} />
             </SettingRow>
             <SectionLabel label="Grid" />
             <SettingRow label="Small dot colour" description="Color of the small grid dots">

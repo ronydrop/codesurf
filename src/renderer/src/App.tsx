@@ -62,6 +62,32 @@ function extToType(filePath: string): TileState['type'] {
   return 'terminal'
 }
 
+function withAlpha(color: string, alpha: number): string {
+  const trimmed = color.trim()
+
+  if (trimmed.startsWith('#')) {
+    const hex = trimmed.slice(1)
+    if (hex.length === 3) {
+      const [r, g, b] = hex.split('').map(ch => parseInt(ch + ch, 16))
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16)
+      const g = parseInt(hex.slice(2, 4), 16)
+      const b = parseInt(hex.slice(4, 6), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+  }
+
+  const rgbMatch = trimmed.match(/^rgba?\(([^)]+)\)$/i)
+  if (rgbMatch) {
+    const [r = '0', g = '0', b = '0'] = rgbMatch[1].split(',').map(part => part.trim())
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  }
+
+  return color
+}
+
 function App(): JSX.Element {
   const [tiles, setTiles] = useState<TileState[]>([])
   const [groups, setGroups] = useState<GroupState[]>([])
@@ -1201,21 +1227,28 @@ function App(): JSX.Element {
   }), [settings.fonts, settings.primaryFont, settings.monoFont])
 
   const fontTokens = React.useMemo(() => settings.fonts, [settings.fonts])
+  const translucentBackground = settings.translucentBackground
+  const shellBackground = translucentBackground ? 'transparent' : '#111'
+  const sidebarBackground = '#1a1a1a'
+  const pillBackground = '#252525'
+  const toolbarBackground = '#111'
+  const canvasBackground = translucentBackground ? withAlpha(settings.canvasBackground, 0.74) : settings.canvasBackground
 
   return (
     <FontTokenProvider value={fontTokens}>
     <FontProvider value={appFonts}>
-    <div className="w-full h-full flex" style={{ background: '#111', color: '#d4d4d4', fontFamily: appFonts.sans, fontSize: appFonts.size }}>
+    <div className="w-full h-full flex" style={{ background: shellBackground, color: '#d4d4d4', fontFamily: appFonts.sans, fontSize: appFonts.size }}>
       {/* Sidebar inset panel — rounded, padded from window edges, traffic lights sit on top */}
       <div style={{
         padding: '8px 0 8px 8px',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
+        background: toolbarBackground,
       }}>
         <div style={{
           height: '100%',
-          background: '#1a1a1a',
+          background: sidebarBackground,
           borderRadius: 10,
           border: sidebarCollapsed ? 'none' : '1px solid rgba(255,255,255,0.12)',
           overflow: 'hidden',
@@ -1301,6 +1334,7 @@ function App(): JSX.Element {
             // @ts-ignore
             WebkitAppRegion: 'drag',
             paddingLeft: sidebarCollapsed ? 90 : 16,
+            background: toolbarBackground,
           }}
         >
           {/* Workspace pill tabs */}
@@ -1399,7 +1433,7 @@ function App(): JSX.Element {
             transform: 'translateY(-50%)',
             width: 8,
             height: 40,
-            background: '#252525',
+            background: pillBackground,
             border: '1px solid #333',
             borderRadius: 9999,
             cursor: 'pointer',
@@ -1409,8 +1443,8 @@ function App(): JSX.Element {
             userSelect: 'none',
             zIndex: 200,
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#252525'; e.currentTarget.style.color = '#aaa' }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#555' }}
+          onMouseEnter={e => { e.currentTarget.style.background = pillBackground; e.currentTarget.style.color = '#aaa' }}
+          onMouseLeave={e => { e.currentTarget.style.background = sidebarBackground; e.currentTarget.style.color = '#555' }}
         >
           {''}
         </div>
@@ -1420,7 +1454,7 @@ function App(): JSX.Element {
           ref={canvasRef}
           className="flex-1 relative overflow-hidden"
           style={{
-            background: settings.canvasBackground,
+            background: canvasBackground,
             cursor: isDraggingCanvas ? 'grabbing' : (spaceHeld.current ? 'grab' : 'default'),
             userSelect: 'none',
             WebkitUserSelect: 'none',

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { initWorkspaces, registerWorkspaceIPC } from './ipc/workspace'
+import { initWorkspaces, readSettingsSync, registerWorkspaceIPC } from './ipc/workspace'
 import { registerFsIPC } from './ipc/fs'
 import { registerCanvasIPC } from './ipc/canvas'
 import { registerTerminalIPC } from './ipc/terminal'
@@ -14,25 +14,34 @@ import { registerChatIPC } from './ipc/chat'
 import { registerActivityIPC } from './ipc/activity'
 import { registerCollabIPC, stopAllCollabWatchers } from './ipc/collab'
 import { flushAll as flushActivityStore } from './activity-store'
+import { applyWindowAppearance, getWindowAppearanceOptions } from './windowAppearance'
 // browserTile BrowserView IPC was removed — renderer uses <webview> tag directly
 
 // Per-window display titles (webContents.id → label set by renderer via workspace name)
 const windowTitles = new Map<number, string>()
 
+function getLiveWindows(): BrowserWindow[] {
+  return BrowserWindow.getAllWindows().filter(w => !w.isDestroyed() && !w.webContents.isDestroyed())
+}
+
 function broadcastWindowList(): void {
-  const wins = BrowserWindow.getAllWindows()
-  const focusedId = BrowserWindow.getFocusedWindow()?.webContents.id
+  const wins = getLiveWindows()
+  const focused = BrowserWindow.getFocusedWindow()
+  const focusedId = focused && !focused.isDestroyed() && !focused.webContents.isDestroyed()
+    ? focused.webContents.id
+    : undefined
   const list = wins.map(w => ({
     id: w.webContents.id,
     title: windowTitles.get(w.webContents.id) ?? 'Collaborator',
     focused: w.webContents.id === focusedId,
   }))
   for (const w of wins) {
-    if (!w.isDestroyed()) w.webContents.send('window:list-changed', list)
+    w.webContents.send('window:list-changed', list)
   }
 }
 
 function createWindow(): BrowserWindow {
+  const settings = readSettingsSync()
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -42,7 +51,7 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 18 },
-    backgroundColor: '#111111',
+    ...getWindowAppearanceOptions(settings),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -51,8 +60,11 @@ function createWindow(): BrowserWindow {
       webviewTag: true
     }
   })
+  const windowId = win.webContents.id
 
   win.on('ready-to-show', () => {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
+    applyWindowAppearance(win, settings)
     win.setTitle('') // hide native title text; our pill tabs show workspace name
     win.show()
     broadcastWindowList()
@@ -62,7 +74,7 @@ function createWindow(): BrowserWindow {
   win.on('blur', () => broadcastWindowList())
 
   win.on('closed', () => {
-    windowTitles.delete(win.webContents.id)
+    windowTitles.delete(windowId)
     broadcastWindowList()
   })
 
@@ -279,8 +291,11 @@ app.whenReady().then(async () => {
   ipcMain.handle('window:newTab', () => { createWindow(); return null })
 
   ipcMain.handle('window:list', () => {
-    const wins = BrowserWindow.getAllWindows()
-    const focusedId = BrowserWindow.getFocusedWindow()?.webContents.id
+    const wins = getLiveWindows()
+    const focused = BrowserWindow.getFocusedWindow()
+    const focusedId = focused && !focused.isDestroyed() && !focused.webContents.isDestroyed()
+      ? focused.webContents.id
+      : undefined
     return wins.map(w => ({
       id: w.webContents.id,
       title: windowTitles.get(w.webContents.id) ?? 'Collaborator',
@@ -296,13 +311,18 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('window:focusById', (_, id: number) => {
-    const win = BrowserWindow.getAllWindows().find(w => w.webContents.id === id)
+    const win = getLiveWindows().find(w => w.webContents.id === id)
     win?.focus()
   })
 
   ipcMain.handle('window:closeById', (_, id: number) => {
-    const win = BrowserWindow.getAllWindows().find(w => w.webContents.id === id)
+    const win = getLiveWindows().find(w => w.webContents.id === id)
     win?.close()
+  })
+
+  ipcMain.handle('app:relaunch', () => {
+    app.relaunch()
+    app.quit()
   })
 
   // Native app menu with Cmd+N / Cmd+T

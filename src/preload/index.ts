@@ -117,6 +117,10 @@ contextBridge.exposeInMainWorld('electron', {
     },
   },
 
+  app: {
+    relaunch: () => ipcRenderer.invoke('app:relaunch')
+  },
+
   browserTile: {
     sync: (payload: { tileId: string; url: string; mode: 'desktop' | 'mobile'; zIndex: number; visible: boolean; bounds: { left: number; top: number; width: number; height: number } }) =>
       ipcRenderer.invoke('browserTile:sync', payload),

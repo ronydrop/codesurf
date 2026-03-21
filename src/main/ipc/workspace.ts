@@ -1,10 +1,11 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
-import { promises as fs } from 'fs'
+import { promises as fs, readFileSync } from 'fs'
 import { join, resolve, basename } from 'path'
 import { homedir } from 'os'
 import type { Config, Workspace, AppSettings } from '../../shared/types'
 import { DEFAULT_SETTINGS, withDefaultSettings } from '../../shared/types'
 import { writeMCPConfigToWorkspace } from '../mcp-server'
+import { applyWindowAppearance } from '../windowAppearance'
 
 const COLLAB_DIR = join(homedir(), 'clawd-collab')
 const CONFIG_PATH = join(COLLAB_DIR, 'config.json')
@@ -24,6 +25,16 @@ async function readConfig(): Promise<Config> {
     }
   } catch {
     return { workspaces: [], activeWorkspaceIndex: 0, settings: { ...DEFAULT_SETTINGS } }
+  }
+}
+
+export function readSettingsSync(): AppSettings {
+  try {
+    const raw = readFileSync(CONFIG_PATH, 'utf8')
+    const parsed = JSON.parse(raw)
+    return withDefaultSettings(parsed.settings ?? {})
+  } catch {
+    return { ...DEFAULT_SETTINGS }
   }
 }
 
@@ -126,6 +137,9 @@ export function registerWorkspaceIPC(): void {
     const config = await readConfig()
     config.settings = withDefaultSettings(settings)
     await writeConfig(config)
+    for (const win of BrowserWindow.getAllWindows()) {
+      applyWindowAppearance(win, config.settings)
+    }
     return config.settings
   })
 
@@ -149,6 +163,9 @@ export function registerWorkspaceIPC(): void {
         settings: withDefaultSettings(parsed.settings ?? {})
       })
       const config = await readConfig()
+      for (const win of BrowserWindow.getAllWindows()) {
+        applyWindowAppearance(win, config.settings)
+      }
       return { ok: true, settings: config.settings }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
