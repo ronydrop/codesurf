@@ -39,7 +39,9 @@ const GIT_LABELS: Record<GitStatus, string> = {
 
 const SORT_MODES: SortMode[] = ['name', 'type', 'ext']
 const SORT_LABELS: Record<SortMode, string> = { name: 'Name', type: 'Type', ext: 'Ext' }
-const IGNORED = new Set(['.git', 'node_modules', '.next', 'dist', 'dist-electron', '.DS_Store', '__pycache__', '.cache', 'out'])
+const IGNORED = new Set(['.git', '.contex', '.mcp.json', 'mcp-merged.json', 'node_modules', '.next', 'dist', 'dist-electron', '.DS_Store', '__pycache__', '.cache', 'out'])
+
+interface ExtTileEntry { type: string; label: string; icon?: string }
 
 interface Props {
   workspace: Workspace | null
@@ -54,6 +56,8 @@ interface Props {
   onNewKanban: () => void
   onNewBrowser: () => void
   onNewChat: () => void
+  extensionTiles?: ExtTileEntry[]
+  onAddExtensionTile?: (type: string) => void
   collapsed: boolean
   width: number
   onWidthChange: (width: number) => void
@@ -684,6 +688,7 @@ function FlatEntry({
 
 export function Sidebar({
   workspace, workspaces, onSwitchWorkspace, onNewWorkspace, onOpenFolder, onOpenFile, selectedPath, onSelectPath, onNewTerminal, onNewKanban, onNewBrowser, onNewChat,
+  extensionTiles, onAddExtensionTile,
   collapsed, width, onWidthChange, onResizeStateChange, onToggleCollapse: _onToggleCollapse
 }: Props): JSX.Element {
   const fonts = useAppFonts()
@@ -705,6 +710,8 @@ export function Sidebar({
   const [loadingTree, setLoadingTree] = useState(false)
   const [showFileMenu, setShowFileMenu] = useState(false)
   const fileMenuRef = useRef<HTMLDivElement>(null)
+  const [showExtMenu, setShowExtMenu] = useState(false)
+  const extMenuRef = useRef<HTMLDivElement>(null)
   const expandedPathsRef = useRef(expandedPaths)
   expandedPathsRef.current = expandedPaths
   const resizing = useRef(false)
@@ -1292,6 +1299,57 @@ export function Sidebar({
               {btn.icon}
             </button>
           ))}
+
+          {/* Extensions dropdown */}
+          {extensionTiles && extensionTiles.length > 0 && (
+            <div style={{ position: 'relative' }} ref={extMenuRef}>
+              <button
+                title="Extensions"
+                style={{
+                  width: 28, height: 28, borderRadius: 6,
+                  border: '1px solid #2d2d2d', background: showExtMenu ? '#2a2a2a' : 'transparent',
+                  color: showExtMenu ? '#e1e6ec' : '#8f96a0', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#e1e6ec' }}
+                onMouseLeave={e => { if (!showExtMenu) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#8f96a0' } }}
+                onClick={() => setShowExtMenu(p => !p)}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M6 1.5h2a.5.5 0 01.5.5v1.5H8a1 1 0 00-1 1v0a1 1 0 001 1h.5V7a.5.5 0 01-.5.5H6V7a1 1 0 00-1-1v0a1 1 0 00-1 1v.5H2.5A.5.5 0 012 7V5.5h.5a1 1 0 001-1v0a1 1 0 00-1-1H2V2a.5.5 0 01.5-.5H6z"
+                    stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+                  <path d="M8 7.5h2a.5.5 0 01.5.5v1.5H10a1 1 0 00-1 1v0a1 1 0 001 1h.5V13a.5.5 0 01-.5.5H8V13a1 1 0 00-1-1v0a1 1 0 00-1 1v.5H4.5A.5.5 0 014 13v-1.5h.5a1 1 0 001-1v0a1 1 0 00-1-1H4V8a.5.5 0 01.5-.5H8z"
+                    stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" opacity="0.5" />
+                </svg>
+              </button>
+              {showExtMenu && (
+                <div style={{
+                  position: 'absolute', bottom: 32, right: 0, minWidth: 160,
+                  background: '#1a1a1a', border: '1px solid #333', borderRadius: 8,
+                  padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', zIndex: 1000,
+                }}>
+                  {extensionTiles.map(ext => (
+                    <button
+                      key={ext.type}
+                      onClick={() => { onAddExtensionTile?.(ext.type); setShowExtMenu(false) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        width: '100%', padding: '6px 10px', borderRadius: 6,
+                        border: 'none', background: 'transparent',
+                        color: '#ccc', fontSize: 12, cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#fff' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#ccc' }}
+                    >
+                      <span style={{ fontSize: 13, width: 18, textAlign: 'center', flexShrink: 0 }}>{ext.icon ?? '🧩'}</span>
+                      <span>{ext.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

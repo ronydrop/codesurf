@@ -1651,6 +1651,8 @@ function App(): JSX.Element {
                 onNewKanban={() => addTile('kanban')}
                 onNewBrowser={() => addTile('browser')}
                 onNewChat={() => addTile('chat')}
+                extensionTiles={extensionTiles}
+                onAddExtensionTile={(type) => addTile(type as TileType)}
                 collapsed={sidebarCollapsed}
                 width={sidebarWidth}
                 onWidthChange={setSidebarWidth}

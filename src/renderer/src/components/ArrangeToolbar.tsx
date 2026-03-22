@@ -8,16 +8,6 @@ const SLIDEOUT_RESERVE_WIDTH = 272
 
 type Mode = 'grid' | 'column' | 'row'
 
-type ArrangeItem = {
-  id: string
-  kind: 'tile' | 'group'
-  x: number
-  y: number
-  width: number
-  height: number
-  tileIds: string[]
-}
-
 interface Props {
   tiles: TileState[]
   groups: GroupState[]
@@ -30,181 +20,56 @@ interface Props {
   activeCanvasMode?: Mode | null
 }
 
-function arrangeGrid(items: ArrangeItem[]): ArrangeItem[] {
-  if (items.length === 0) return items
-
-  const originX = Math.min(...items.map(t => t.x))
-  const originY = Math.min(...items.map(t => t.y))
-
-  // Uniform cell size — all tiles get the same dimensions
-  const cellW = Math.max(...items.map(t => t.width))
-  const cellH = Math.max(...items.map(t => t.height))
-
-  // Optimal columns: try to make a square-ish grid
-  const cols = Math.max(1, Math.round(Math.sqrt(items.length)))
-
-  // Sort by original position: top-to-bottom, left-to-right
-  const sorted = [...items].sort((a, b) => {
-    const rowA = Math.round(a.y / 100)
-    const rowB = Math.round(b.y / 100)
-    if (rowA !== rowB) return rowA - rowB
-    return a.x - b.x
-  })
-
-  const placed = new Map<string, ArrangeItem>()
-
-  for (let i = 0; i < sorted.length; i++) {
-    const col = i % cols
-    const row = Math.floor(i / cols)
-    const item = sorted[i]
-    // Place at exact grid position — all same size, perfectly aligned
-    placed.set(item.id, {
-      ...item,
-      x: originX + col * (cellW + GAP),
-      y: originY + row * (cellH + GAP),
-      width: cellW,
-      height: cellH,
-    })
-  }
-
-  return items.map(item => placed.get(item.id) ?? item)
-}
-
-function arrangeColumn(items: ArrangeItem[]): ArrangeItem[] {
-  if (items.length === 0) return items
-  const sorted = [...items].sort((a, b) => a.y - b.y)
-  const originX = Math.min(...items.map(t => t.x))
-  let cursor = Math.min(...items.map(t => t.y))
-  return sorted.map(item => {
-    const placed = { ...item, x: originX, y: cursor }
-    cursor += item.height + GAP
-    return placed
-  })
-}
-
-function arrangeRow(items: ArrangeItem[]): ArrangeItem[] {
-  if (items.length === 0) return items
-  const sorted = [...items].sort((a, b) => a.x - b.x)
-  const originY = Math.min(...items.map(t => t.y))
-  let cursor = Math.min(...items.map(t => t.x))
-  return sorted.map(item => {
-    const placed = { ...item, x: cursor, y: originY }
-    cursor += item.width + GAP
-    return placed
-  })
-}
-
 function getArrangeWidth(tile: TileState): number {
   const reserve = tile.type === 'terminal' || tile.type === 'chat' ? SLIDEOUT_RESERVE_WIDTH : 0
   return tile.width + reserve
 }
 
-function buildArrangeItems(tiles: TileState[], groups: GroupState[]): ArrangeItem[] {
-  const groupMap = new Map(groups.map(group => [group.id, group]))
-  const childrenByGroup = new Map<string, string[]>()
-  for (const group of groups) {
-    if (!group.parentGroupId) continue
-    const siblings = childrenByGroup.get(group.parentGroupId) ?? []
-    siblings.push(group.id)
-    childrenByGroup.set(group.parentGroupId, siblings)
-  }
+// ─── ELK-based layout ────────────────────────────────────────────────────────
 
-  const collectGroupTileIds = (groupId: string): string[] => {
-    const direct = tiles.filter(tile => tile.groupId === groupId).map(tile => tile.id)
-    const childGroups = childrenByGroup.get(groupId) ?? []
-    return [...direct, ...childGroups.flatMap(childId => collectGroupTileIds(childId))]
-  }
+// ─── Pure-math layouts (no elkjs dependency) ─────────────────────────────────
 
-  const findRootGroupId = (groupId?: string): string | undefined => {
-    let current = groupId
-    while (current) {
-      const group = groupMap.get(current)
-      if (!group?.parentGroupId || !groupMap.has(group.parentGroupId)) return current
-      current = group.parentGroupId
-    }
-    return undefined
-  }
+function arrangeTiles(
+  tiles: TileState[],
+  _groups: GroupState[],
+  mode: Mode
+): TileState[] {
+  if (tiles.length === 0) return tiles
 
-  const topLevelGroups = groups.filter(group => !group.parentGroupId || !groupMap.has(group.parentGroupId))
-  const groupedTileIds = new Set<string>()
-  const items: ArrangeItem[] = []
-
-  for (const group of topLevelGroups) {
-    const tileIds = collectGroupTileIds(group.id)
-    if (tileIds.length === 0) continue
-    const members = tiles.filter(tile => tileIds.includes(tile.id))
-    if (members.length === 0) continue
-    tileIds.forEach(id => groupedTileIds.add(id))
-    const minX = Math.min(...members.map(tile => tile.x)) - GROUP_PAD
-    const minY = Math.min(...members.map(tile => tile.y)) - GROUP_PAD
-    const maxX = Math.max(...members.map(tile => tile.x + getArrangeWidth(tile))) + GROUP_PAD
-    const maxY = Math.max(...members.map(tile => tile.y + tile.height)) + GROUP_PAD
-    items.push({
-      id: group.id,
-      kind: 'group',
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-      tileIds,
+  if (mode === 'column') {
+    let y = 0
+    return tiles.map(t => {
+      const out = { ...t, x: 0, y }
+      y += t.height + GAP
+      return out
     })
   }
 
-  for (const tile of tiles) {
-    const rootGroupId = findRootGroupId(tile.groupId)
-    if (rootGroupId && groupedTileIds.has(tile.id)) continue
-    items.push({
-      id: tile.id,
-      kind: 'tile',
-      x: tile.x,
-      y: tile.y,
-      width: getArrangeWidth(tile),
-      height: tile.height,
-      tileIds: [tile.id],
+  if (mode === 'row') {
+    let x = 0
+    return tiles.map(t => {
+      const w = getArrangeWidth(t)
+      const out = { ...t, x, y: 0 }
+      x += w + GAP
+      return out
     })
   }
 
-  return items
-}
+  // Grid: uniform cells, ~1.6 aspect ratio
+  const uniformW = Math.max(...tiles.map(t => getArrangeWidth(t)))
+  const uniformH = Math.max(...tiles.map(t => t.height))
+  const cols = Math.max(1, Math.round(Math.sqrt(tiles.length * 1.6)))
 
-function applyArrangement(tiles: TileState[], groups: GroupState[], mode: Mode): TileState[] {
-  const items = buildArrangeItems(tiles, groups)
-  if (items.length === 0) return tiles
-
-  const arranged = mode === 'grid'
-    ? arrangeGrid(items)
-    : mode === 'column'
-      ? arrangeColumn(items)
-      : arrangeRow(items)
-
-  const originalById = new Map(items.map(item => [item.id, item]))
-  const updateByTileId = new Map<string, { dx: number; dy: number; width?: number; height?: number }>()
-
-  for (const item of arranged) {
-    const original = originalById.get(item.id)
-    if (!original) continue
-    const dx = item.x - original.x
-    const dy = item.y - original.y
-    // For single-tile items, propagate size changes (grid normalizes sizes)
-    const sizeChanged = item.width !== original.width || item.height !== original.height
-    for (const tileId of original.tileIds) {
-      updateByTileId.set(tileId, {
-        dx, dy,
-        ...(sizeChanged && original.kind === 'tile' ? { width: item.width, height: item.height } : {}),
-      })
-    }
-  }
-
-  return tiles.map(tile => {
-    const update = updateByTileId.get(tile.id)
-    if (!update) return tile
-    const reserve = tile.type === 'terminal' || tile.type === 'chat' ? SLIDEOUT_RESERVE_WIDTH : 0
+  return tiles.map((t, i) => {
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    const reserve = t.type === 'terminal' || t.type === 'chat' ? SLIDEOUT_RESERVE_WIDTH : 0
     return {
-      ...tile,
-      x: tile.x + update.dx,
-      y: tile.y + update.dy,
-      ...(update.width != null ? { width: update.width - reserve } : {}),
-      ...(update.height != null ? { height: update.height } : {}),
+      ...t,
+      x: col * (uniformW + GAP),
+      y: row * (uniformH + GAP),
+      width: uniformW - reserve,
+      height: uniformH,
     }
   })
 }
@@ -298,11 +163,11 @@ const RowIcon = () => (
 export function ArrangeToolbar({ tiles, groups, onArrange, zoom, onZoomToggle, onToggleTabs, onOpenSettings, isTabbedView = false, activeCanvasMode = null }: Props): JSX.Element {
   const [loading, setLoading] = useState(false)
 
-  const run = (mode: Mode) => {
+  const run = async (mode: Mode) => {
     if (tiles.length < 2 || loading) return
     setLoading(true)
     try {
-      const updated = applyArrangement(tiles, groups, mode)
+      const updated = arrangeTiles(tiles, groups, mode)
       onArrange(updated, mode)
     } finally {
       setLoading(false)
@@ -378,9 +243,9 @@ export function ArrangeToolbar({ tiles, groups, onArrange, zoom, onZoomToggle, o
       >
         <Btn label={<TabsIcon />}   title="Tabbed view"              active={isTabbedView}                              loading={false}   onClick={onToggleTabs} />
         <div style={{ width: 1, height: 14, background: '#2d2d2d', margin: '0 1px' }} />
-        <Btn label={<GridIcon />}   title="Grid layout (auto-wrap)"  active={!isTabbedView && activeCanvasMode === 'grid'}   loading={loading} onClick={() => run('grid')} />
-        <Btn label={<ColumnIcon />} title="Stack in column"          active={!isTabbedView && activeCanvasMode === 'column'} loading={loading} onClick={() => run('column')} />
-        <Btn label={<RowIcon />}    title="Arrange in row"           active={!isTabbedView && activeCanvasMode === 'row'}    loading={loading} onClick={() => run('row')} />
+        <Btn label={<GridIcon />}   title="Grid layout (ELK)"        active={!isTabbedView && activeCanvasMode === 'grid'}   loading={loading} onClick={() => run('grid')} />
+        <Btn label={<ColumnIcon />} title="Stack in column (ELK)"    active={!isTabbedView && activeCanvasMode === 'column'} loading={loading} onClick={() => run('column')} />
+        <Btn label={<RowIcon />}    title="Arrange in row (ELK)"     active={!isTabbedView && activeCanvasMode === 'row'}    loading={loading} onClick={() => run('row')} />
         <div style={{ width: 1, height: 14, background: '#2d2d2d', margin: '0 1px' }} />
         <button
           onClick={onZoomToggle}

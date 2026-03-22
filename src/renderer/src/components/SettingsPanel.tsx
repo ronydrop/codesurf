@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import type { AppSettings, FontConfig, FontSettings } from '../../../shared/types'
+import type { AppSettings, FontSettings, FontToken } from '../../../shared/types'
 import { DEFAULT_SETTINGS, DEFAULT_FONTS, withDefaultSettings } from '../../../shared/types'
 import { Settings, Type, Monitor, Terminal, FolderOpen, Sliders, Network, Plus, Trash2, ChevronDown, ChevronRight, FileJson, AlertTriangle, Check, Copy, RotateCcw, FormInput, Code2 } from 'lucide-react'
 import { useAppFonts } from '../FontContext'
@@ -47,7 +47,7 @@ interface MCPConfig {
 }
 
 // ─── Control components ────────────────────────────────────────────────────────
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }): JSX.Element {
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }): React.JSX.Element {
   return (
     <div
       onClick={() => onChange(!value)}
@@ -69,7 +69,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   )
 }
 
-function NumInput({ value, min, max, step = 1, onChange }: { value: number; min: number; max: number; step?: number; onChange: (v: number) => void }): JSX.Element {
+function NumInput({ value, min, max, step = 1, onChange }: { value: number; min: number; max: number; step?: number; onChange: (v: number) => void }): React.JSX.Element {
   return (
     <input
       type="number" value={value} min={min} max={max} step={step}
@@ -84,7 +84,7 @@ function NumInput({ value, min, max, step = 1, onChange }: { value: number; min:
   )
 }
 
-function RangeInput({ value, min, max, step = 0.01, onChange }: { value: number; min: number; max: number; step?: number; onChange: (v: number) => void }): JSX.Element {
+function RangeInput({ value, min, max, step = 0.01, onChange }: { value: number; min: number; max: number; step?: number; onChange: (v: number) => void }): React.JSX.Element {
   const clamped = Math.max(min, Math.min(max, value))
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -114,7 +114,7 @@ function RangeInput({ value, min, max, step = 0.01, onChange }: { value: number;
   )
 }
 
-function TextInput({ value, onChange, width = 240 }: { value: string; onChange: (v: string) => void; width?: number }): JSX.Element {
+function TextInput({ value, onChange, width = 240 }: { value: string; onChange: (v: string) => void; width?: number }): React.JSX.Element {
   return (
     <input
       type="text" value={value}
@@ -128,7 +128,7 @@ function TextInput({ value, onChange, width = 240 }: { value: string; onChange: 
   )
 }
 
-function ColorSwatch({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
+function ColorSwatch({ value, onChange }: { value: string; onChange: (v: string) => void }): React.JSX.Element {
   const fonts = useAppFonts()
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -145,7 +145,28 @@ function ColorSwatch({ value, onChange }: { value: string; onChange: (v: string)
   )
 }
 
-const SANS_FONTS = [
+/** Extract display name from a font stack for sorting/display */
+function fontDisplayName(stack: string): string {
+  const first = stack.split(',')[0].trim().replace(/^"|"$/g, '')
+  if (first.startsWith('-apple-system') || first === 'system-ui') return 'System Default'
+  if (first === 'monospace') return 'System Monospace'
+  return first
+}
+
+/** Sort font stacks alphabetically by display name, generic/system fonts last */
+function sortFonts(fonts: string[]): string[] {
+  return [...fonts].sort((a, b) => {
+    const na = fontDisplayName(a)
+    const nb = fontDisplayName(b)
+    const aGeneric = na.startsWith('System')
+    const bGeneric = nb.startsWith('System')
+    if (aGeneric && !bGeneric) return 1
+    if (bGeneric && !aGeneric) return -1
+    return na.localeCompare(nb)
+  })
+}
+
+const SANS_FONTS = sortFonts([
   '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
   '"SF Pro Display", "Segoe UI", "Helvetica Neue", sans-serif',
   '"Helvetica Neue", Helvetica, Arial, sans-serif',
@@ -167,9 +188,9 @@ const SANS_FONTS = [
   '"Tektur", sans-serif',
   '"Rajdhani", sans-serif',
   'system-ui, sans-serif',
-]
+])
 
-const MONO_FONTS = [
+const MONO_FONTS = sortFonts([
   '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", "Fira Code", monospace',
   '"IBM Plex Mono", monospace',
   '"Fira Code", "JetBrains Mono", monospace',
@@ -178,13 +199,10 @@ const MONO_FONTS = [
   '"Source Code Pro", "Menlo", monospace',
   '"Geist Mono", "SF Mono", monospace',
   'monospace',
-]
+])
 
-function FontSelect({ value, onChange, fonts }: { value: string; onChange: (v: string) => void; fonts: string[] }): JSX.Element {
-  const displayName = (stack: string) => {
-    const first = stack.split(',')[0].trim().replace(/^"|"$/g, '')
-    return first.startsWith('-apple-system') ? 'System Default' : first
-  }
+function FontSelect({ value, onChange, fonts }: { value: string; onChange: (v: string) => void; fonts: string[] }): React.JSX.Element {
+  const displayName = fontDisplayName
   return (
     <select
       value={value}
@@ -210,30 +228,10 @@ function FontSelect({ value, onChange, fonts }: { value: string; onChange: (v: s
   )
 }
 
-function FontGroup({ label, font, onChange, fonts }: {
-  label: string
-  font: FontConfig
-  onChange: (f: FontConfig) => void
-  fonts: string[]
-}): JSX.Element {
-  return (
-    <>
-      <SectionLabel label={label} />
-      <SettingRow label="Font family" description="Select from common font stacks">
-        <FontSelect value={font.family} onChange={v => onChange({ ...font, family: v })} fonts={fonts} />
-      </SettingRow>
-      <SettingRow label="Font size" description="Size in pixels">
-        <NumInput value={font.size} min={8} max={32} onChange={v => onChange({ ...font, size: v })} />
-      </SettingRow>
-      <SettingRow label="Line height" description="Line height multiplier">
-        <NumInput value={font.lineHeight} min={1} max={3} step={0.1} onChange={v => onChange({ ...font, lineHeight: v })} />
-      </SettingRow>
-    </>
-  )
-}
+/* FontGroup removed — token-based rows replaced it */
 
 // ─── Setting row ──────────────────────────────────────────────────────────────
-function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }): JSX.Element {
+function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }): React.JSX.Element {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -249,7 +247,7 @@ function SettingRow({ label, description, children }: { label: string; descripti
   )
 }
 
-function SectionLabel({ label }: { label: string }): JSX.Element {
+function SectionLabel({ label }: { label: string }): React.JSX.Element {
   return (
     <div style={{
       fontSize: 11, fontWeight: 600, color: '#555',
@@ -262,7 +260,7 @@ function SectionLabel({ label }: { label: string }): JSX.Element {
 }
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
-export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Props): JSX.Element {
+export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Props): React.JSX.Element {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [section, setSection] = useState<Section>('general')
   const [mcpConfig, setMcpConfig] = useState<MCPConfig | null>(null)
@@ -279,8 +277,8 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
     window.electron.settings?.get().then((s: AppSettings) => {
       if (s) setSettings(withDefaultSettings(s))
     })
-    window.electron.mcp?.getConfig?.().then((cfg: MCPConfig) => {
-      if (cfg) setMcpConfig(cfg)
+    window.electron.mcp?.getConfig?.().then((cfg: unknown) => {
+      if (cfg) setMcpConfig(cfg as MCPConfig)
     })
   }, [])
 
@@ -995,7 +993,7 @@ function SliderField({ value, min, max, step, onChange, format }: {
   step: number
   onChange: (value: number) => void
   format?: (value: number) => string
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 140 }}>
       <input
@@ -1020,7 +1018,7 @@ function CompactFontRow({ label, description, token, fontOptions, onChange }: {
   token: FontToken
   fontOptions: string[]
   onChange: (next: FontToken) => void
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div style={{
       display: 'grid',
@@ -1056,7 +1054,7 @@ function DisplaySettingsEditor({
   updateState: { checking: boolean; downloading: boolean; result: null | { ok: boolean; currentVersion: string; status: string; updateAvailable: boolean; updateInfo?: { version?: string; releaseName?: string; releaseDate?: string } } }
   onCheckForUpdates: () => void
   onDownloadUpdate: () => void
-}): JSX.Element {
+}): React.JSX.Element {
   const fonts = useAppFonts()
   const [view, setView] = useState<'display' | 'json'>('display')
   const [rawJson, setRawJson] = useState(() => buildDisplayJson(settings))
@@ -1294,10 +1292,10 @@ function DisplaySettingsEditor({
 
 // ─── Font Token JSON Editor ─────────────────────────────────────────────────
 
-function FontTokenEditor({ settings, onSettingsChange }: {
+export function FontTokenEditor({ settings, onSettingsChange }: {
   settings: AppSettings
   onSettingsChange: (s: AppSettings) => void
-}): JSX.Element {
+}): React.JSX.Element {
   const [rawJson, setRawJson] = useState('')
   const [configPath, setConfigPath] = useState('')
   const [error, setError] = useState<string | null>(null)

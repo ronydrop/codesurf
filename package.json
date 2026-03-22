@@ -48,6 +48,7 @@
     "@xterm/xterm": "^6.0.0",
     "chokidar": "^5.0.0",
     "electron-updater": "^6.8.3",
+    "elkjs": "^0.11.1",
     "lucide-react": "^0.468.0",
     "node-pty": "^1.1.0",
     "react-file-icon": "^1.5.0",

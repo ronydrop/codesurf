@@ -17,11 +17,11 @@ interface StoreState {
 const stores = new Map<string, StoreState>()
 
 function storePath(workspaceId: string): string {
-  return join(CONTEX_DIR, 'workspaces', workspaceId, 'activity.json')
+  return join(CONTEX_DIR, 'workspaces', workspaceId, '.contex', 'activity.json')
 }
 
 async function ensureDir(workspaceId: string): Promise<void> {
-  await fs.mkdir(join(CONTEX_DIR, 'workspaces', workspaceId), { recursive: true })
+  await fs.mkdir(join(CONTEX_DIR, 'workspaces', workspaceId, '.contex'), { recursive: true })
 }
 
 async function loadStore(workspaceId: string): Promise<StoreState> {

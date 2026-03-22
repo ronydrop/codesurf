@@ -7,21 +7,51 @@ function assertSafeId(id: string): void {
   if (/[\/\\]|\.\./.test(id)) throw new Error(`Unsafe ID: ${id}`)
 }
 
+/**
+ * Migrate legacy flat files into .contex/ subfolder.
+ * Runs once per workspace on first canvas load — moves canvas-state, tile-state-*, kanban-* files.
+ */
+async function migrateToContexDir(workspaceId: string): Promise<void> {
+  assertSafeId(workspaceId)
+  const wsDir = join(CONTEX_HOME, 'workspaces', workspaceId)
+  const dotDir = join(wsDir, '.contex')
+  try { await fs.mkdir(dotDir, { recursive: true }) } catch {}
+  try {
+    const entries = await fs.readdir(wsDir)
+    const migratable = entries.filter(name =>
+      name === 'canvas-state.json' ||
+      name === 'activity.json' ||
+      name.startsWith('tile-state-') ||
+      name.startsWith('kanban-')
+    )
+    for (const name of migratable) {
+      const src = join(wsDir, name)
+      const dest = join(dotDir, name)
+      try {
+        await fs.access(dest) // already migrated
+      } catch {
+        await fs.rename(src, dest)
+      }
+    }
+  } catch {} // workspace dir may not exist yet
+}
+const migratedWorkspaces = new Set<string>()
+
 function canvasStatePath(workspaceId: string): string {
   assertSafeId(workspaceId)
-  return join(CONTEX_HOME, 'workspaces', workspaceId, 'canvas-state.json')
+  return join(CONTEX_HOME, 'workspaces', workspaceId, '.contex', 'canvas-state.json')
 }
 
 function kanbanStatePath(workspaceId: string, tileId: string): string {
   assertSafeId(workspaceId)
   assertSafeId(tileId)
-  return join(CONTEX_HOME, 'workspaces', workspaceId, `kanban-${tileId}.json`)
+  return join(CONTEX_HOME, 'workspaces', workspaceId, '.contex', `kanban-${tileId}.json`)
 }
 
 function tileStatePath(workspaceId: string, tileId: string): string {
   assertSafeId(workspaceId)
   assertSafeId(tileId)
-  return join(CONTEX_HOME, 'workspaces', workspaceId, `tile-state-${tileId}.json`)
+  return join(CONTEX_HOME, 'workspaces', workspaceId, '.contex', `tile-state-${tileId}.json`)
 }
 
 async function deleteFileIfExists(path: string): Promise<void> {
@@ -34,6 +64,11 @@ async function deleteFileIfExists(path: string): Promise<void> {
 
 export function registerCanvasIPC(): void {
   ipcMain.handle('canvas:load', async (_, workspaceId: string) => {
+    // Migrate legacy flat files into .contex/ on first access
+    if (!migratedWorkspaces.has(workspaceId)) {
+      migratedWorkspaces.add(workspaceId)
+      await migrateToContexDir(workspaceId)
+    }
     try {
       const raw = await fs.readFile(canvasStatePath(workspaceId), 'utf8')
       return JSON.parse(raw)
@@ -44,7 +79,7 @@ export function registerCanvasIPC(): void {
 
   ipcMain.handle('canvas:save', async (_, workspaceId: string, state: unknown) => {
     const path = canvasStatePath(workspaceId)
-    await fs.mkdir(join(CONTEX_HOME, 'workspaces', workspaceId), { recursive: true })
+    await fs.mkdir(join(CONTEX_HOME, 'workspaces', workspaceId, '.contex'), { recursive: true })
     await fs.writeFile(path, JSON.stringify(state, null, 2))
   })
 
@@ -59,7 +94,7 @@ export function registerCanvasIPC(): void {
 
   ipcMain.handle('kanban:save', async (_, workspaceId: string, tileId: string, state: unknown) => {
     const path = kanbanStatePath(workspaceId, tileId)
-    await fs.mkdir(join(CONTEX_HOME, 'workspaces', workspaceId), { recursive: true })
+    await fs.mkdir(join(CONTEX_HOME, 'workspaces', workspaceId, '.contex'), { recursive: true })
     await fs.writeFile(path, JSON.stringify(state, null, 2))
   })
 
@@ -74,7 +109,7 @@ export function registerCanvasIPC(): void {
 
   ipcMain.handle('canvas:saveTileState', async (_, workspaceId: string, tileId: string, state: unknown) => {
     const path = tileStatePath(workspaceId, tileId)
-    await fs.mkdir(join(CONTEX_HOME, 'workspaces', workspaceId), { recursive: true })
+    await fs.mkdir(join(CONTEX_HOME, 'workspaces', workspaceId, '.contex'), { recursive: true })
     await fs.writeFile(path, JSON.stringify(state, null, 2))
   })
 

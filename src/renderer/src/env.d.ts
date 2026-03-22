@@ -152,9 +152,8 @@ interface ElectronAPI {
   }
 }
 
-declare const __VERSION__: string
-
 declare global {
+  const __VERSION__: string
   interface Window {
     electron: ElectronAPI
   }
