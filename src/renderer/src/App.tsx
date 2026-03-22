@@ -269,6 +269,8 @@ function App(): JSX.Element {
   const canvasRef = useRef<HTMLDivElement>(null)
   const dotGlowSmallRef = useRef<HTMLDivElement>(null)
   const dotGlowLargeRef = useRef<HTMLDivElement>(null)
+  const canvasGlowRafRef = useRef<number | null>(null)
+  const canvasGlowPointRef = useRef<{ clientX: number; clientY: number } | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const spaceHeld = useRef(false)
   const skipHistory = useRef(false)
@@ -501,8 +503,8 @@ function App(): JSX.Element {
     const newTile: TileState = {
       id: `tile-${Date.now()}`,
       type,
-      x: snap(center.x - width / 2),
-      y: snap(center.y - height / 2),
+      x: snapValue(center.x - width / 2),
+      y: snapValue(center.y - height / 2),
       width,
       height,
       zIndex: nextZIndex,
@@ -521,7 +523,7 @@ function App(): JSX.Element {
     if (panelLayout && activePanelId) {
       setPanelLayout(prev => prev ? addTabToLeaf(prev, activePanelId, newTile.id) : prev)
     }
-  }, [nextZIndex, viewport, viewportCenter, saveCanvas, panelLayout, activePanelId, getInitialTileSize])
+  }, [nextZIndex, viewport, viewportCenter, saveCanvas, panelLayout, activePanelId, getInitialTileSize, snapValue])
 
   useEffect(() => {
     if (!tiles.some(tile => tile.width < getMinTileWidth(tile) || tile.height < getMinTileHeight(tile))) return
@@ -822,10 +824,10 @@ function App(): JSX.Element {
           const relY = s.y - ib.y
           return {
             ...t,
-            x: snap(nx + relX * scaleX),
-            y: snap(ny + relY * scaleY),
-            width: Math.max(minW, snap(s.width * scaleX)),
-            height: Math.max(minH, snap(s.height * scaleY)),
+            x: snapValue(nx + relX * scaleX),
+            y: snapValue(ny + relY * scaleY),
+            width: Math.max(minW, snapValue(s.width * scaleX)),
+            height: Math.max(minH, snapValue(s.height * scaleY)),
           }
         }))
       } else if (dragState.type === 'group') {
@@ -834,7 +836,7 @@ function App(): JSX.Element {
         setTiles(prev => prev.map(t => {
           const snap2 = dragState.snapshots.find(s => s.id === t.id)
           if (!snap2) return t
-          return { ...t, x: snap(snap2.x + wdx), y: snap(snap2.y + wdy) }
+          return { ...t, x: snapValue(snap2.x + wdx), y: snapValue(snap2.y + wdy) }
         }))
       } else if (dragState.type === 'select') {
         const rect = canvasRef.current?.getBoundingClientRect()
@@ -845,8 +847,8 @@ function App(): JSX.Element {
       } else if (dragState.type === 'tile') {
         const wdx = dx / viewport.zoom
         const wdy = dy / viewport.zoom
-        const newX = snap(dragState.initX + wdx)
-        const newY = snap(dragState.initY + wdy)
+        const newX = snapValue(dragState.initX + wdx)
+        const newY = snapValue(dragState.initY + wdy)
         const ddx = newX - dragState.initX
         const ddy = newY - dragState.initY
         setTiles(prev => {
@@ -883,7 +885,7 @@ function App(): JSX.Element {
           return prev.map(t => {
             if (t.id === dragState.tileId) return { ...t, x: newX, y: newY }
             const snap2 = dragState.groupSnapshots.find(g => g.id === t.id)
-            if (snap2) return { ...t, x: snap(snap2.x + ddx), y: snap(snap2.y + ddy) }
+            if (snap2) return { ...t, x: snapValue(snap2.x + ddx), y: snapValue(snap2.y + ddy) }
             return t
           })
         })
@@ -896,10 +898,10 @@ function App(): JSX.Element {
           const minW = getMinTileWidth(t)
           const minH = getMinTileHeight(t)
           let { x, y, width: w, height: h } = t
-          if (dir.includes('e'))  w = Math.max(minW, snap(dragState.initW + wdx))
-          if (dir.includes('s'))  h = Math.max(minH, snap(dragState.initH + wdy))
-          if (dir.includes('w')) { w = Math.max(minW, snap(dragState.initW - wdx)); x = snap(dragState.initX + wdx) }
-          if (dir.includes('n')) { h = Math.max(minH, snap(dragState.initH - wdy)); y = snap(dragState.initY + wdy) }
+          if (dir.includes('e'))  w = Math.max(minW, snapValue(dragState.initW + wdx))
+          if (dir.includes('s'))  h = Math.max(minH, snapValue(dragState.initH + wdy))
+          if (dir.includes('w')) { w = Math.max(minW, snapValue(dragState.initW - wdx)); x = snapValue(dragState.initX + wdx) }
+          if (dir.includes('n')) { h = Math.max(minH, snapValue(dragState.initH - wdy)); y = snapValue(dragState.initY + wdy) }
           return { ...t, x, y, width: w, height: h }
         }))
       }
@@ -1256,11 +1258,11 @@ function App(): JSX.Element {
       ...t,
       id: `tile-${Date.now()}-${i}`,
       x: pos
-        ? snap(center.x + (t.x - srcMinX) - (Math.max(...clipboard.current.map(t2 => t2.x + t2.width)) - srcMinX) / 2)
-        : snap(t.x + OFFSET),
+        ? snapValue(center.x + (t.x - srcMinX) - (Math.max(...clipboard.current.map(t2 => t2.x + t2.width)) - srcMinX) / 2)
+        : snapValue(t.x + OFFSET),
       y: pos
-        ? snap(center.y + (t.y - srcMinY) - (Math.max(...clipboard.current.map(t2 => t2.y + t2.height)) - srcMinY) / 2)
-        : snap(t.y + OFFSET),
+        ? snapValue(center.y + (t.y - srcMinY) - (Math.max(...clipboard.current.map(t2 => t2.y + t2.height)) - srcMinY) / 2)
+        : snapValue(t.y + OFFSET),
       zIndex: nextZIndex + i,
       groupId: targetGroup
     }))
@@ -1272,7 +1274,7 @@ function App(): JSX.Element {
     setNextZIndex(newNZ)
     setSelectedTileIds(new Set(newTiles.map(t => t.id)))
     setSelectedTileId(null)
-  }, [viewport, nextZIndex, viewportCenter, saveCanvas, groups])
+  }, [viewport, nextZIndex, viewportCenter, saveCanvas, groups, snapValue])
 
   const duplicateTiles = useCallback((ids?: string[]) => {
     const targets = ids
@@ -1283,8 +1285,8 @@ function App(): JSX.Element {
     const newTiles = targets.map((t, i) => ({
       ...t,
       id: `tile-${Date.now()}-${i}`,
-      x: snap(t.x + 40),
-      y: snap(t.y + 40),
+      x: snapValue(t.x + 40),
+      y: snapValue(t.y + 40),
       zIndex: nextZIndex + i,
       groupId: undefined
     }))
@@ -1296,7 +1298,7 @@ function App(): JSX.Element {
     setNextZIndex(newNZ)
     setSelectedTileIds(new Set(newTiles.map(t => t.id)))
     setSelectedTileId(null)
-  }, [tiles, getActiveTiles, viewport, nextZIndex, saveCanvas])
+  }, [tiles, getActiveTiles, viewport, nextZIndex, saveCanvas, snapValue])
 
   // ─── Group frame bounds (recursive — includes child group tiles) ─────────
   const groupBounds = useCallback((groupId: string): { x: number; y: number; w: number; h: number } | null => {
@@ -1565,6 +1567,10 @@ function App(): JSX.Element {
 
   const fontTokens = React.useMemo(() => settings.fonts, [settings.fonts])
   const theme = React.useMemo(() => getThemeById(settings.themeId), [settings.themeId])
+  const canvasGlowEnabled = settings.canvasGlowEnabled
+  const snapValue = React.useCallback((value: number) => (
+    settings.snapToGrid ? snap(value, settings.gridSize) : value
+  ), [settings.snapToGrid, settings.gridSize])
   const translucentBackgroundOpacity = Math.max(0.05, Math.min(1, settings.translucentBackgroundOpacity ?? 1))
   const canvasBackground = withAlpha(settings.canvasBackground, translucentBackgroundOpacity)
   const canvasLayerBackground = theme.canvas.backgroundEffect
@@ -1578,6 +1584,46 @@ function App(): JSX.Element {
   const openSidebarToolbarPadding = sidebarWidth + 16
   const openSidebarPillLeft = sidebarWidth + 18
   const expandedLayoutLeft = sidebarWidth + 8
+
+  const hideCanvasGlow = React.useCallback(() => {
+    if (canvasGlowRafRef.current !== null) {
+      cancelAnimationFrame(canvasGlowRafRef.current)
+      canvasGlowRafRef.current = null
+    }
+    canvasGlowPointRef.current = null
+    if (dotGlowSmallRef.current) dotGlowSmallRef.current.style.opacity = '0'
+    if (dotGlowLargeRef.current) dotGlowLargeRef.current.style.opacity = '0'
+  }, [])
+
+  const updateCanvasGlow = React.useCallback((clientX: number, clientY: number) => {
+    if (!canvasGlowEnabled) return
+    canvasGlowPointRef.current = { clientX, clientY }
+    if (canvasGlowRafRef.current !== null) return
+    canvasGlowRafRef.current = requestAnimationFrame(() => {
+      canvasGlowRafRef.current = null
+      const rect = canvasRef.current?.getBoundingClientRect()
+      const point = canvasGlowPointRef.current
+      if (!rect || !point) return
+      const x = point.clientX - rect.left
+      const y = point.clientY - rect.top
+      const mask = `radial-gradient(circle 120px at ${x}px ${y}px, rgba(0,0,0,1) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0) 100%)`
+      if (dotGlowSmallRef.current) {
+        dotGlowSmallRef.current.style.maskImage = mask
+        dotGlowSmallRef.current.style.webkitMaskImage = mask
+        dotGlowSmallRef.current.style.opacity = '1'
+      }
+      if (dotGlowLargeRef.current) {
+        dotGlowLargeRef.current.style.maskImage = mask
+        dotGlowLargeRef.current.style.webkitMaskImage = mask
+        dotGlowLargeRef.current.style.opacity = '1'
+      }
+    })
+  }, [canvasGlowEnabled])
+
+  useEffect(() => {
+    if (!canvasGlowEnabled) hideCanvasGlow()
+    return () => hideCanvasGlow()
+  }, [canvasGlowEnabled, hideCanvasGlow])
 
   return (
     <ThemeProvider value={theme}>
@@ -1832,27 +1878,8 @@ function App(): JSX.Element {
           onDoubleClick={handleCanvasDoubleClick}
           onContextMenu={handleCanvasContextMenu}
           onWheel={handleWheel}
-          onMouseMove={e => {
-            const rect = canvasRef.current?.getBoundingClientRect()
-            if (!rect) return
-            const x = e.clientX - rect.left
-            const y = e.clientY - rect.top
-            const mask = `radial-gradient(circle 120px at ${x}px ${y}px, rgba(0,0,0,1) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0) 100%)`
-            if (dotGlowSmallRef.current) {
-              dotGlowSmallRef.current.style.maskImage = mask
-              dotGlowSmallRef.current.style.webkitMaskImage = mask
-              dotGlowSmallRef.current.style.opacity = '1'
-            }
-            if (dotGlowLargeRef.current) {
-              dotGlowLargeRef.current.style.maskImage = mask
-              dotGlowLargeRef.current.style.webkitMaskImage = mask
-              dotGlowLargeRef.current.style.opacity = '1'
-            }
-          }}
-          onMouseLeave={() => {
-            if (dotGlowSmallRef.current) dotGlowSmallRef.current.style.opacity = '0'
-            if (dotGlowLargeRef.current) dotGlowLargeRef.current.style.opacity = '0'
-          }}
+          onMouseMove={e => updateCanvasGlow(e.clientX, e.clientY)}
+          onMouseLeave={hideCanvasGlow}
           onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
           onDrop={e => {
             e.preventDefault()
@@ -1917,29 +1944,33 @@ function App(): JSX.Element {
           />
 
           {/* Dot grid glow - small (cursor proximity light) */}
-          <div
-            ref={dotGlowSmallRef}
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: `radial-gradient(circle, ${theme.canvas.gridGlowSmall} 1px, transparent 1px)`,
-              backgroundSize: `${settings.gridSpacingSmall * viewport.zoom}px ${settings.gridSpacingSmall * viewport.zoom}px`,
-              backgroundPosition: `${viewport.tx % (settings.gridSpacingSmall * viewport.zoom)}px ${viewport.ty % (settings.gridSpacingSmall * viewport.zoom)}px`,
-              opacity: 0,
-              transition: 'opacity 0.3s ease-out',
-            }}
-          />
+          {canvasGlowEnabled && (
+            <div
+              ref={dotGlowSmallRef}
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `radial-gradient(circle, ${theme.canvas.gridGlowSmall} 1px, transparent 1px)`,
+                backgroundSize: `${settings.gridSpacingSmall * viewport.zoom}px ${settings.gridSpacingSmall * viewport.zoom}px`,
+                backgroundPosition: `${viewport.tx % (settings.gridSpacingSmall * viewport.zoom)}px ${viewport.ty % (settings.gridSpacingSmall * viewport.zoom)}px`,
+                opacity: 0,
+                transition: 'opacity 0.3s ease-out',
+              }}
+            />
+          )}
           {/* Dot grid glow - large (cursor proximity light) */}
-          <div
-            ref={dotGlowLargeRef}
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: `radial-gradient(circle, ${theme.canvas.gridGlowLarge} 2px, transparent 2px)`,
-              backgroundSize: `${settings.gridSpacingLarge * viewport.zoom}px ${settings.gridSpacingLarge * viewport.zoom}px`,
-              backgroundPosition: `${viewport.tx % (settings.gridSpacingLarge * viewport.zoom)}px ${viewport.ty % (settings.gridSpacingLarge * viewport.zoom)}px`,
-              opacity: 0,
-              transition: 'opacity 0.3s ease-out',
-            }}
-          />
+          {canvasGlowEnabled && (
+            <div
+              ref={dotGlowLargeRef}
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `radial-gradient(circle, ${theme.canvas.gridGlowLarge} 2px, transparent 2px)`,
+                backgroundSize: `${settings.gridSpacingLarge * viewport.zoom}px ${settings.gridSpacingLarge * viewport.zoom}px`,
+                backgroundPosition: `${viewport.tx % (settings.gridSpacingLarge * viewport.zoom)}px ${viewport.ty % (settings.gridSpacingLarge * viewport.zoom)}px`,
+                opacity: 0,
+                transition: 'opacity 0.3s ease-out',
+              }}
+            />
+          )}
 
           {/* World container */}
           <div
@@ -2294,7 +2325,7 @@ function App(): JSX.Element {
                   const newTile: TileState = {
                     id: `tile-${Date.now()}`,
                     type: tileType as TileState['type'],
-                    x: snap(center.x - w / 2), y: snap(center.y - h / 2),
+                    x: snapValue(center.x - w / 2), y: snapValue(center.y - h / 2),
                     width: w, height: h, zIndex: nextZIndex,
                   }
                   setTiles(prev => [...prev, newTile])
