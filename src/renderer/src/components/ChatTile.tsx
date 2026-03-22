@@ -1284,7 +1284,6 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
                     key={m.id}
                     icon={PROVIDER_ICON[provider]}
                     label={m.label}
-                    sublabel={m.id}
                     active={model === m.id}
                     onClick={() => { setModel(m.id); setShowModelMenu(false) }}
                   />

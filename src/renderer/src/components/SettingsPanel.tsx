@@ -479,6 +479,9 @@ export function SettingsPanel({ onClose, onSettingsChange, workspaces = [] }: Pr
             <SettingRow label="Canvas translucency" description="Slide left for see-through vibrancy, all the way right for fully opaque">
               <RangeInput value={settings.translucentBackgroundOpacity} min={0.05} max={1} step={0.01} onChange={v => update('translucentBackgroundOpacity', Number(v.toFixed(2)))} />
             </SettingRow>
+            <SettingRow label="Cursor glow" description="Show or hide the cursor-proximity glow over the canvas grid">
+              <Toggle value={settings.canvasGlowEnabled} onChange={v => update('canvasGlowEnabled', v)} />
+            </SettingRow>
             <SectionLabel label="Grid" />
             <SettingRow label="Small dot colour" description="Color of the small grid dots">
               <ColorSwatch value={settings.gridColorSmall} onChange={v => update('gridColorSmall', v)} />

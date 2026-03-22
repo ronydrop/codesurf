@@ -230,6 +230,7 @@ export interface AppSettings {
   themeId: string
   // Canvas
   canvasBackground: string
+  canvasGlowEnabled: boolean
   gridColorSmall: string
   gridColorLarge: string
   gridSpacingSmall: number
@@ -260,6 +261,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   monoFont: { family: MONO_STACK, size: 13, lineHeight: 1.5 },
   themeId: 'default-dark',
   canvasBackground: '#15171a',
+  canvasGlowEnabled: true,
   gridColorSmall: '#2a2e35',
   gridColorLarge: '#3a3f48',
   gridSpacingSmall: 20,
