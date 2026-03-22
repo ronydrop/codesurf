@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { autoUpdater } from 'electron-updater'
 import { initWorkspaces, registerWorkspaceIPC } from './ipc/workspace'
 import { registerFsIPC } from './ipc/fs'
 import { registerCanvasIPC } from './ipc/canvas'
@@ -9,11 +10,45 @@ import { startMCPServer, getMCPPort } from './mcp-server'
 import { registerAgentsIPC } from './ipc/agents'
 import { registerStreamIPC } from './ipc/stream'
 import { registerGitIPC } from './ipc/git'
+import { registerBusIPC } from './ipc/bus'
+import { registerChatIPC } from './ipc/chat'
+import { registerActivityIPC } from './ipc/activity'
+import { registerCollabIPC, stopAllCollabWatchers } from './ipc/collab'
+import { flushAll as flushActivityStore } from './activity-store'
+import { detectAllAgents, registerAgentPathsIPC } from './agent-paths'
+import { ExtensionRegistry } from './extensions/registry'
+import { registerExtensionProtocol } from './extensions/protocol'
+import { registerExtensionIPC } from './ipc/extensions'
+import { applyWindowAppearance, getWindowAppearanceOptions } from './windowAppearance'
+import { migrateLegacyStorage } from './migration'
+import { APP_ID, APP_NAME, CONTEX_HOME } from './paths'
 // browserTile BrowserView IPC was removed — renderer uses <webview> tag directly
 
-function createWindow(asTab = false): BrowserWindow {
-  const focused = BrowserWindow.getFocusedWindow()
+// Per-window display titles (webContents.id → label set by renderer via workspace name)
+const windowTitles = new Map<number, string>()
+let extensionRegistry: ExtensionRegistry | null = null
 
+function getLiveWindows(): BrowserWindow[] {
+  return BrowserWindow.getAllWindows().filter(w => !w.isDestroyed() && !w.webContents.isDestroyed())
+}
+
+function broadcastWindowList(): void {
+  const wins = getLiveWindows()
+  const focused = BrowserWindow.getFocusedWindow()
+  const focusedId = focused && !focused.isDestroyed() && !focused.webContents.isDestroyed()
+    ? focused.webContents.id
+    : undefined
+  const list = wins.map(w => ({
+    id: w.webContents.id,
+    title: windowTitles.get(w.webContents.id) ?? 'Contex',
+    focused: w.webContents.id === focusedId,
+  }))
+  for (const w of wins) {
+    w.webContents.send('window:list-changed', list)
+  }
+}
+
+function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -22,9 +57,8 @@ function createWindow(asTab = false): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#1a1a1a',
-    // macOS native tabs — all windows share the same tabbing group
-    tabbingIdentifier: 'collaborator',
+    trafficLightPosition: { x: 16, y: 18 },
+    ...getWindowAppearanceOptions(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -33,17 +67,22 @@ function createWindow(asTab = false): BrowserWindow {
       webviewTag: true
     }
   })
+  const windowId = win.webContents.id
 
   win.on('ready-to-show', () => {
-    // Add as a tab to the focused window if requested and on macOS
-    if (asTab && focused && process.platform === 'darwin') {
-      focused.addTabbedWindow(win)
-    }
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
+    applyWindowAppearance(win)
+    win.setTitle('') // hide native title text; our pill tabs show workspace name
     win.show()
+    broadcastWindowList()
   })
 
+  win.on('focus', () => broadcastWindowList())
+  win.on('blur', () => broadcastWindowList())
+
   win.on('closed', () => {
-    // nothing to clean up — webview sessions are handled by Chromium
+    windowTitles.delete(windowId)
+    broadcastWindowList()
   })
 
   win.webContents.setWindowOpenHandler((details) => {
@@ -61,11 +100,14 @@ function createWindow(asTab = false): BrowserWindow {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.vibeclaw.collaborator')
+  app.setName(APP_NAME)
+  electronApp.setAppUserModelId(APP_ID)
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  await migrateLegacyStorage()
 
   // Init workspace dirs + register all IPC handlers
   await initWorkspaces()
@@ -76,6 +118,20 @@ app.whenReady().then(async () => {
   registerAgentsIPC()
   registerStreamIPC()
   registerGitIPC()
+  registerBusIPC()
+  registerChatIPC()
+  registerActivityIPC()
+  registerCollabIPC()
+  registerAgentPathsIPC()
+
+  // Load extensions (global + workspace)
+  extensionRegistry = new ExtensionRegistry()
+  await extensionRegistry.scan()
+  registerExtensionProtocol(extensionRegistry)
+  registerExtensionIPC(extensionRegistry)
+
+  // Detect agent binaries (claude, codex, opencode) — uses real shell PATH
+  detectAllAgents().catch(err => console.error('[AgentPaths] Detection failed:', err))
   // registerBrowserTileIPC() — removed, renderer uses <webview> tag directly
 
   // Start local MCP server for agent→kanban callbacks
@@ -88,8 +144,8 @@ app.whenReady().then(async () => {
 
   // MCP config read/write
   const { join: pjoin } = await import('path')
-  const mcpConfigPath = pjoin(app.getPath('home'), 'clawd-collab', 'mcp-server.json')
-  const getRuntimeCollaboratorBase = (): string | undefined => {
+  const mcpConfigPath = pjoin(CONTEX_HOME, 'mcp-server.json')
+  const getRuntimeContexBase = (): string | undefined => {
     const port = getMCPPort()
     return port ? `http://127.0.0.1:${port}/mcp` : undefined
   }
@@ -140,14 +196,14 @@ app.whenReady().then(async () => {
       const { promises: fsP } = await import('fs')
       const raw = await fsP.readFile(mcpConfigPath, 'utf8')
       const cfg = JSON.parse(raw) as { mcpServers?: Record<string, unknown>, url?: string }
-      const collaboratorBase = (typeof cfg.url === 'string' ? `${cfg.url.replace(/\/$/, '')}/mcp` : undefined) ?? getRuntimeCollaboratorBase()
+      const contexBase = (typeof cfg.url === 'string' ? `${cfg.url.replace(/\/$/, '')}/mcp` : undefined) ?? getRuntimeContexBase()
       const globalServers = cfg.mcpServers ?? {}
       const normalizedServers = normalizeMcpServers(globalServers, (name) => {
-        if (name === 'collaborator' && collaboratorBase) return collaboratorBase
+        if (name === 'contex' && contexBase) return contexBase
         return undefined
       })
-      if (collaboratorBase && !normalizedServers['collaborator']) {
-        normalizedServers['collaborator'] = { type: 'http', url: collaboratorBase }
+      if (contexBase && !normalizedServers['contex']) {
+        normalizedServers['contex'] = { type: 'http', url: contexBase }
       }
       return { ...cfg, mcpServers: normalizedServers }
     } catch { return null }
@@ -158,11 +214,11 @@ app.whenReady().then(async () => {
       const { promises: fsP } = await import('fs')
       const raw = await fsP.readFile(mcpConfigPath, 'utf8')
       const cfg = JSON.parse(raw) as { mcpServers?: Record<string, unknown>, url?: string }
-      const collaboratorBase = (typeof cfg.url === 'string' ? `${cfg.url.replace(/\/$/, '')}/mcp` : undefined) ?? getRuntimeCollaboratorBase()
-      const collaborator = normalizeMcpServer(cfg.mcpServers?.collaborator ?? { url: collaboratorBase }, collaboratorBase)
+      const contexBase = (typeof cfg.url === 'string' ? `${cfg.url.replace(/\/$/, '')}/mcp` : undefined) ?? getRuntimeContexBase()
+      const contexServer = normalizeMcpServer(cfg.mcpServers?.contex ?? { url: contexBase }, contexBase)
       const customServers = normalizeMcpServers(servers)
       cfg.mcpServers = {
-        collaborator,
+        contex: contexServer,
         ...customServers
       }
       cfg.updatedAt = new Date().toISOString()
@@ -175,7 +231,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('mcp:getWorkspaceServers', async (_, workspaceId: string) => {
     try {
       const { promises: fsP } = await import('fs')
-      const p = pjoin(app.getPath('home'), 'clawd-collab', 'workspaces', workspaceId, 'mcp-servers.json')
+      const p = pjoin(CONTEX_HOME, 'workspaces', workspaceId, 'mcp-servers.json')
       const raw = await fsP.readFile(p, 'utf8')
       return JSON.parse(raw)
     } catch { return {} }
@@ -184,7 +240,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('mcp:saveWorkspaceServers', async (_, workspaceId: string, servers: Record<string, unknown>) => {
     try {
       const { promises: fsP } = await import('fs')
-      const dir = pjoin(app.getPath('home'), 'clawd-collab', 'workspaces', workspaceId)
+      const dir = pjoin(CONTEX_HOME, 'workspaces', workspaceId)
       await fsP.mkdir(dir, { recursive: true })
       const p = pjoin(dir, 'mcp-servers.json')
       const normalized = normalizeMcpServers(servers)
@@ -209,7 +265,7 @@ app.whenReady().then(async () => {
       // Workspace servers
       let wsServers: Record<string, unknown> = {}
       try {
-        const wsPath = pjoin(app.getPath('home'), 'clawd-collab', 'workspaces', workspaceId, 'mcp-servers.json')
+        const wsPath = pjoin(CONTEX_HOME, 'workspaces', workspaceId, 'mcp-servers.json')
         const raw = await fsP.readFile(wsPath, 'utf8')
         wsServers = JSON.parse(raw)
       } catch { /**/ }
@@ -217,14 +273,14 @@ app.whenReady().then(async () => {
       // Merge: global mcpServers + workspace servers
       const globalServers = (globalCfg as Record<string, Record<string, unknown>>).mcpServers ?? {}
       const globalCfgUrl = (globalCfg as { url?: string }).url
-      const collaboratorBase = (typeof globalCfgUrl === 'string' ? `${String(globalCfgUrl).replace(/\/$/, '')}/mcp` : undefined) ?? getRuntimeCollaboratorBase()
+      const contexBase = (typeof globalCfgUrl === 'string' ? `${String(globalCfgUrl).replace(/\/$/, '')}/mcp` : undefined) ?? getRuntimeContexBase()
 
       const normalizedGlobal = normalizeMcpServers(globalServers, (name) => {
-        if (name === 'collaborator' && collaboratorBase) return collaboratorBase
+        if (name === 'contex' && contexBase) return contexBase
         return undefined
       })
-      if (collaboratorBase && !normalizedGlobal['collaborator']) {
-        normalizedGlobal['collaborator'] = { type: 'http', url: collaboratorBase }
+      if (contexBase && !normalizedGlobal['contex']) {
+        normalizedGlobal['contex'] = { type: 'http', url: contexBase }
       }
       const normalizedWorkspace = normalizeMcpServers(wsServers)
 
@@ -238,11 +294,11 @@ app.whenReady().then(async () => {
         mergedAt: new Date().toISOString()
       }
 
-      // Also write a merged file the workspace dir so agents can reference it
-      const wsDir = pjoin(app.getPath('home'), 'clawd-collab', 'workspaces', workspaceId)
-      await fsP.mkdir(wsDir, { recursive: true })
+      // Also write a merged file inside .contex so it doesn't pollute the workspace root
+      const wsContex = pjoin(CONTEX_HOME, 'workspaces', workspaceId, '.contex')
+      await fsP.mkdir(wsContex, { recursive: true })
       await fsP.writeFile(
-        pjoin(wsDir, 'mcp-merged.json'),
+        pjoin(wsContex, 'mcp-merged.json'),
         JSON.stringify(merged, null, 2)
       )
 
@@ -250,9 +306,87 @@ app.whenReady().then(async () => {
     } catch (e) { return null }
   })
 
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+
+  ipcMain.handle('updater:check', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      const info = result?.updateInfo
+      const updateAvailable = !!info && info.version !== app.getVersion()
+      return {
+        ok: true,
+        currentVersion: app.getVersion(),
+        status: updateAvailable ? 'update-available' : 'up-to-date',
+        updateAvailable,
+        updateInfo: info ? {
+          version: info.version,
+          releaseName: info.releaseName,
+          releaseDate: info.releaseDate,
+        } : undefined,
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        currentVersion: app.getVersion(),
+        status: error instanceof Error ? error.message : 'update-check-failed',
+        updateAvailable: false,
+      }
+    }
+  })
+
+  ipcMain.handle('updater:download', async () => {
+    try {
+      await autoUpdater.downloadUpdate()
+      return { ok: true, status: 'downloaded' }
+    } catch (error) {
+      return { ok: false, status: error instanceof Error ? error.message : 'download-failed' }
+    }
+  })
+
+  ipcMain.handle('updater:quitAndInstall', async () => {
+    setImmediate(() => autoUpdater.quitAndInstall())
+    return { ok: true }
+  })
+
   // Window management
-  ipcMain.handle('window:new', () => { createWindow(false); return null })
-  ipcMain.handle('window:newTab', () => { createWindow(true); return null })
+  ipcMain.handle('window:new', () => { createWindow(); return null })
+  ipcMain.handle('window:newTab', () => { createWindow(); return null })
+
+  ipcMain.handle('window:list', () => {
+    const wins = getLiveWindows()
+    const focused = BrowserWindow.getFocusedWindow()
+    const focusedId = focused && !focused.isDestroyed() && !focused.webContents.isDestroyed()
+      ? focused.webContents.id
+      : undefined
+    return wins.map(w => ({
+      id: w.webContents.id,
+      title: windowTitles.get(w.webContents.id) ?? APP_NAME,
+      focused: w.webContents.id === focusedId,
+    }))
+  })
+
+  ipcMain.handle('window:getCurrentId', (event) => event.sender.id)
+
+  ipcMain.handle('window:setTitle', (event, title: string) => {
+    windowTitles.set(event.sender.id, title)
+    broadcastWindowList()
+  })
+
+  ipcMain.handle('window:focusById', (_, id: number) => {
+    const win = getLiveWindows().find(w => w.webContents.id === id)
+    win?.focus()
+  })
+
+  ipcMain.handle('window:closeById', (_, id: number) => {
+    const win = getLiveWindows().find(w => w.webContents.id === id)
+    win?.close()
+  })
+
+  ipcMain.handle('app:relaunch', () => {
+    app.relaunch()
+    app.quit()
+  })
 
   // Native app menu with Cmd+N / Cmd+T
   const menu = Menu.buildFromTemplate([
@@ -276,12 +410,12 @@ app.whenReady().then(async () => {
         {
           label: 'New Window',
           accelerator: 'CmdOrCtrl+N',
-          click: () => createWindow(false)
+          click: () => createWindow()
         },
         {
           label: 'New Tab',
           accelerator: 'CmdOrCtrl+T',
-          click: () => createWindow(true)
+          click: () => createWindow()
         },
         { type: 'separator' },
         { role: 'close' }
@@ -336,6 +470,12 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('before-quit', () => {
+  flushActivityStore()
+  stopAllCollabWatchers()
+  extensionRegistry?.deactivateAll()
 })
 
 app.on('window-all-closed', () => {

@@ -1,23 +1,52 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Unlink, Layers, Scissors, ClipboardPaste, Map, AppWindow, SquarePlus, Server, Settings2 } from 'lucide-react'
-import { Tooltip } from './components/Tooltip'
-import type { TileState, GroupState, CanvasState, Workspace } from '../../shared/types'
-import { withDefaultSettings } from '../../shared/types'
-import { Sidebar } from './components/Sidebar'
-import { TileChrome } from './components/TileChrome'
-import { TerminalTile } from './components/TerminalTile'
-import { CodeTile } from './components/CodeTile'
-import { NoteTile } from './components/NoteTile'
-import { ImageTile } from './components/ImageTile'
-import { KanbanTile } from './components/KanbanTile'
-import { BrowserTile } from './components/BrowserTile'
-import { MCPPanel } from './components/MCPPanel'
-import { ArrangeToolbar } from './components/ArrangeToolbar'
-import { Minimap } from './components/Minimap'
-import { ContextMenu, MenuItem } from './components/ContextMenu'
-import { SettingsPanel } from './components/SettingsPanel'
-import type { AppSettings } from '../../shared/types'
-import { DEFAULT_SETTINGS } from '../../shared/types'
+import React, { useState, useRef, useCallback, useEffect, useMemo, Suspense } from 'react'
+import { Ungroup, Grid2x2X, Scissors, ClipboardPaste } from 'lucide-react'
+import type { TileState, GroupState, CanvasState, Workspace, AppSettings, TileType } from '../../shared/types'
+import { withDefaultSettings, DEFAULT_SETTINGS } from '../../shared/types'
+import type { MenuItem } from './components/ContextMenu'
+import { useExtensions } from './hooks/useExtensions'
+import { FontProvider, FontTokenProvider, SANS_DEFAULT, MONO_DEFAULT } from './FontContext'
+import { ThemeProvider } from './ThemeContext'
+import { getThemeById } from './theme'
+import type { PanelNode } from './components/PanelLayout'
+import { createLeaf, removeTileFromTree, addTabToLeaf, getAllTileIds, splitLeaf, closeOthersInLeaf, closeToRightInLeaf, findLeafById } from './components/PanelLayout'
+import { getDroppedPaths } from './utils/dnd'
+
+const LazyPanelLayout = React.lazy(() => import('./components/PanelLayout').then(m => ({ default: m.PanelLayout })))
+
+const textIconStyle = (size: number): React.CSSProperties => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: size,
+  height: size,
+  fontSize: Math.max(10, size - 2),
+  lineHeight: 1,
+  userSelect: 'none'
+})
+
+const Icon = ({ glyph, size = 15 }: { glyph: string; size?: number }): JSX.Element => (
+  <span style={textIconStyle(size)}>{glyph}</span>
+)
+
+const LazyTileChrome = React.lazy(() => import('./components/TileChrome').then(m => ({ default: m.TileChrome })))
+const LazySidebar = React.lazy(() => import('./components/Sidebar').then(m => ({ default: m.Sidebar })))
+const LazySidebarFooter = React.lazy(() => import('./components/Sidebar').then(m => ({ default: m.SidebarFooter })))
+const LazyContextMenu = React.lazy(() => import('./components/ContextMenu').then(m => ({ default: m.ContextMenu })))
+const LazyImageTile = React.lazy(() => import('./components/ImageTile').then(m => ({ default: m.ImageTile })))
+const LazyBrowserTile = React.lazy(() => import('./components/BrowserTile').then(m => ({ default: m.BrowserTile })))
+const LazyKanbanTile = React.lazy(() => import('./components/KanbanTile').then(m => ({ default: m.KanbanTile })))
+const LazyMCPPanel = React.lazy(() => import('./components/MCPPanel').then(m => ({ default: m.MCPPanel })))
+const LazyArrangeToolbar = React.lazy(() => import('./components/ArrangeToolbar').then(m => ({ default: m.ArrangeToolbar })))
+const LazyMinimap = React.lazy(() => import('./components/Minimap').then(m => ({ default: m.Minimap })))
+const LazySettingsPanel = React.lazy(() => import('./components/SettingsPanel').then(m => ({ default: m.SettingsPanel })))
+const LazyTerminalTile = React.lazy(() => import('./components/TerminalTile').then(m => ({ default: m.TerminalTile })))
+const LazyCodeTile = React.lazy(() => import('./components/CodeTile').then(m => ({ default: m.CodeTile })))
+const LazyNoteTile = React.lazy(() => import('./components/NoteTile').then(m => ({ default: m.NoteTile })))
+const LazyChatTile = React.lazy(() => import('./components/ChatTile').then(m => ({ default: m.ChatTile })))
+const LazyFileTile = React.lazy(() => import('./components/FileTile').then(m => ({ default: m.FileTile })))
+const LazyExtensionTile = React.lazy(() => import('./components/ExtensionTile').then(m => ({ default: m.ExtensionTile })))
+const LazyClusoWidgetMount = React.lazy(() => import('./components/ClusoWidgetMount').then(m => ({ default: m.ClusoWidgetMount })))
+const LazyAgentSetup = React.lazy(() => import('./components/AgentSetup').then(m => ({ default: m.AgentSetup })))
 
 type DragState =
   | { type: null }
@@ -31,18 +60,102 @@ type DragState =
 const GRID = 20 // default, overridden by settings at runtime
 const snap = (v: number, grid = GRID) => Math.round(v / grid) * grid
 
+function findFirstLeafId(node: PanelNode): string | null {
+  if (node.type === 'leaf') return node.id
+  for (const child of node.children) {
+    const found = findFirstLeafId(child)
+    if (found) return found
+  }
+  return null
+}
+
+function sanitizePanelLayout(root: PanelNode | null | undefined, tileIds: string[]): { layout: PanelNode | null; fallbackActivePanelId: string | null } {
+  if (!root) return { layout: null, fallbackActivePanelId: null }
+
+  const validTileIds = new Set(tileIds)
+  let next: PanelNode | null = root
+
+  for (const tileId of getAllTileIds(root)) {
+    if (!validTileIds.has(tileId)) {
+      next = next ? (removeTileFromTree(next, tileId) ?? createLeaf([])) : createLeaf([])
+    }
+  }
+
+  return {
+    layout: next,
+    fallbackActivePanelId: next ? findFirstLeafId(next) : null,
+  }
+}
+
 function extToType(filePath: string): TileState['type'] {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   if (['ts', 'tsx', 'js', 'jsx', 'json', 'py', 'rs', 'go', 'cpp', 'c', 'java', 'css', 'html', 'sh', 'bash', 'yaml', 'yml', 'toml', 'xml'].includes(ext)) return 'code'
   if (['md', 'txt', 'markdown', 'mdx'].includes(ext)) return 'note'
   if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return 'image'
+  // Files with no extension or unrecognized extensions default to code editor
+  if (!filePath.includes('.')) return 'code'
   return 'terminal'
+}
+
+function withAlpha(color: string, alpha: number): string {
+  const trimmed = color.trim()
+
+  if (trimmed.startsWith('#')) {
+    const hex = trimmed.slice(1)
+    if (hex.length === 3) {
+      const [r, g, b] = hex.split('').map(ch => parseInt(ch + ch, 16))
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16)
+      const g = parseInt(hex.slice(2, 4), 16)
+      const b = parseInt(hex.slice(4, 6), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+  }
+
+  const rgbMatch = trimmed.match(/^rgba?\(([^)]+)\)$/i)
+  if (rgbMatch) {
+    const [r = '0', g = '0', b = '0'] = rgbMatch[1].split(',').map(part => part.trim())
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  }
+
+  return color
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT'
+    || tag === 'TEXTAREA'
+    || el.isContentEditable
+    || !!el.closest('.monaco-editor')
+}
+
+function getMinTileWidth(tileOrType: TileState | TileState['type']): number {
+  const type = typeof tileOrType === 'string' ? tileOrType : tileOrType.type
+  if (type === 'chat') return 450
+  if (type === 'file') return 200
+  if (type.startsWith('ext:')) return 150
+  return 200
+}
+
+function getMinTileHeight(tileOrType: TileState | TileState['type']): number {
+  const type = typeof tileOrType === 'string' ? tileOrType : tileOrType.type
+  if (type === 'file') return 200
+  if (type.startsWith('ext:')) return 100
+  return 150
 }
 
 function App(): JSX.Element {
   const [tiles, setTiles] = useState<TileState[]>([])
   const [groups, setGroups] = useState<GroupState[]>([])
   const [viewport, setViewport] = useState({ tx: 0, ty: 0, zoom: 1 })
+  const prevZoomRef = React.useRef(1)
+  const panVelocityRef = useRef({ vx: 0, vy: 0 })
+  const panLastPos = useRef({ x: 0, y: 0, t: 0 })
+  const panInertiaRaf = useRef<number>(0)
   const [nextZIndex, setNextZIndex] = useState(1)
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null)
   const [selectedTileIds, setSelectedTileIds] = useState<Set<string>>(new Set())
@@ -53,9 +166,70 @@ function App(): JSX.Element {
   const [showSettings, setShowSettings] = useState(false)
   const [showMinimap, setShowMinimap] = useState(false)
   const [expandedTileId, setExpandedTileId] = useState<string | null>(null)
+  const [panelLayout, setPanelLayout] = useState<PanelNode | null>(null)
+  const [activePanelId, setActivePanelId] = useState<string | null>(null)
+  const savedLayoutRef = useRef<PanelNode | null>(null)
+  const panelLayoutRef = useRef<PanelNode | null>(null)
+  const activePanelIdRef = useRef<string | null>(null)
+  const expandedTileIdRef = useRef<string | null>(null)
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(280)
+  const [sidebarResizing, setSidebarResizing] = useState(false)
+  const [sidebarPillVisible, setSidebarPillVisible] = useState(true)
+  const [sidebarSelectedPath, setSidebarSelectedPath] = useState<string | null>(null)
+  const [canvasArrangeMode, setCanvasArrangeMode] = useState<'grid' | 'column' | 'row' | null>(null)
   const [guides, setGuides] = useState<{ x?: number; y?: number }[]>([])
+  const [showAgentSetup, setShowAgentSetup] = useState(false)
+  const { extensionTiles } = useExtensions()
+
+  useEffect(() => { panelLayoutRef.current = panelLayout }, [panelLayout])
+  useEffect(() => { activePanelIdRef.current = activePanelId }, [activePanelId])
+  useEffect(() => { expandedTileIdRef.current = expandedTileId }, [expandedTileId])
+
+  const selectedWorkspaceFilePath = useMemo(() => {
+    if (!workspace?.path) return null
+
+    const tileById = new Map(tiles.map(tile => [tile.id, tile]))
+    const toWorkspaceFilePath = (tileId: string | null | undefined): string | null => {
+      if (!tileId) return null
+      const filePath = tileById.get(tileId)?.filePath
+      return filePath && filePath.startsWith(workspace.path) ? filePath : null
+    }
+
+    if (panelLayout && activePanelId) {
+      const leaf = findLeafById(panelLayout, activePanelId)
+      const panelPath = toWorkspaceFilePath(leaf?.activeTab)
+      if (panelPath) return panelPath
+    }
+
+    const expandedPath = toWorkspaceFilePath(expandedTileId)
+    if (expandedPath) return expandedPath
+
+    const selectedPath = toWorkspaceFilePath(selectedTileId)
+    if (selectedPath) return selectedPath
+
+    for (const tileId of selectedTileIds) {
+      const multiSelectedPath = toWorkspaceFilePath(tileId)
+      if (multiSelectedPath) return multiSelectedPath
+    }
+
+    return null
+  }, [workspace?.path, tiles, panelLayout, activePanelId, expandedTileId, selectedTileId, selectedTileIds])
+
+  useEffect(() => {
+    setSidebarSelectedPath(null)
+  }, [workspace?.id])
+
+  useEffect(() => {
+    if (selectedWorkspaceFilePath) setSidebarSelectedPath(selectedWorkspaceFilePath)
+  }, [selectedWorkspaceFilePath])
+
+  // Workspace pill tabs — open workspace ids within this window
+  const [openWorkspaceIds, setOpenWorkspaceIds] = useState<string[]>([])
+  useEffect(() => {
+    if (workspace?.id) setOpenWorkspaceIds(prev => prev.includes(workspace.id) ? prev : [...prev, workspace.id])
+  }, [workspace?.id])
 
   // Internal clipboard — stores tile snapshots (not OS clipboard)
   const clipboard = useRef<TileState[]>([])
@@ -78,9 +252,14 @@ function App(): JSX.Element {
   const tilesRef = useRef<TileState[]>(tiles)
   const groupsRef = useRef<GroupState[]>(groups)
 
-  // Keep tilesRef / groupsRef in sync with state
+  const viewportRef = useRef(viewport)
+  const nextZIndexRef = useRef(nextZIndex)
+
+  // Keep tilesRef / groupsRef / viewportRef / nextZIndexRef in sync with state
   tilesRef.current = tiles
   groupsRef.current = groups
+  viewportRef.current = viewport
+  nextZIndexRef.current = nextZIndex
 
   // Context menus
   type CtxMenu = { x: number; y: number; items: MenuItem[] }
@@ -88,6 +267,8 @@ function App(): JSX.Element {
   const closeCtx = useCallback(() => setCtxMenu(null), [])
 
   const canvasRef = useRef<HTMLDivElement>(null)
+  const dotGlowSmallRef = useRef<HTMLDivElement>(null)
+  const dotGlowLargeRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const spaceHeld = useRef(false)
   const skipHistory = useRef(false)
@@ -109,23 +290,101 @@ function App(): JSX.Element {
       setWorkspace(active)
       if (active) {
         const saved: CanvasState | null = await window.electron.canvas.load(active.id)
+        const savedTiles = saved?.tiles ?? []
+        void window.electron.collab.pruneOrphanedTileDirs(active.path, savedTiles.map(tile => tile.id))
         if (saved) {
-          setTiles(saved.tiles ?? [])
+          const sanitizedPanel = sanitizePanelLayout((saved.panelLayout as PanelNode | null) ?? null, savedTiles.map(tile => tile.id))
+          const nextActivePanelId = saved.activePanelId && sanitizedPanel.layout && findLeafById(sanitizedPanel.layout, saved.activePanelId)
+            ? saved.activePanelId
+            : sanitizedPanel.fallbackActivePanelId
+          setTiles(savedTiles)
           setGroups(saved.groups ?? [])
           setViewport(saved.viewport
             ? { tx: saved.viewport.tx, ty: saved.viewport.ty, zoom: saved.viewport.zoom }
             : { tx: 0, ty: 0, zoom: 1 })
           setNextZIndex(saved.nextZIndex ?? 1)
+          savedLayoutRef.current = sanitizedPanel.layout
+          setPanelLayout(saved.tabViewActive ? (sanitizedPanel.layout ?? createLeaf([])) : null)
+          setActivePanelId(saved.tabViewActive ? nextActivePanelId : null)
+          setExpandedTileId(saved.expandedTileId ?? null)
         }
       }
     }
     init()
+
+    // Check if agent setup is needed (first run or paths not confirmed)
+    // Force with: CONTEX_SHOW_SETUP=1 npm run dev
+    const forceSetup = import.meta.env.VITE_SHOW_SETUP === '1'
+    if (forceSetup) {
+      setShowAgentSetup(true)
+    } else {
+      window.electron?.agentPaths?.needsSetup?.().then((needs: boolean) => {
+        if (needs) setShowAgentSetup(true)
+      }).catch(() => {})
+    }
   }, [])
 
   // ─── Escape to collapse expanded tile ────────────────────────────────────
+  const exitExpandedMode = useCallback(() => {
+    // Save layout before clearing so re-entry can restore it
+    setPanelLayout(prev => { savedLayoutRef.current = prev; return null })
+    setExpandedTileId(null)
+    setActivePanelId(null)
+  }, [])
+
+  const enterExpandedMode = useCallback((tileId: string) => {
+    // All open tiles become tabs, with the expanded tile as the active one
+    const allIds = tilesRef.current.map(t => t.id)
+    const leaf = createLeaf(allIds, tileId)
+    setExpandedTileId(tileId)
+    setPanelLayout(leaf)
+    setActivePanelId(leaf.id)
+  }, [])
+
+  const enterTabbedView = useCallback(() => {
+    const currentIds = tilesRef.current.map(t => t.id)
+    const currentIdSet = new Set(currentIds)
+
+    if (savedLayoutRef.current) {
+      // Restore saved layout — prune removed tiles, append any new ones
+      let restored: PanelNode = savedLayoutRef.current
+
+      // Remove tiles that no longer exist on canvas
+      const savedIds = getAllTileIds(savedLayoutRef.current)
+      for (const id of savedIds) {
+        if (!currentIdSet.has(id)) {
+          restored = removeTileFromTree(restored, id) ?? restored
+        }
+      }
+
+      // Append new tiles (not in saved layout) to the first leaf
+      const restoredIds = new Set(getAllTileIds(restored))
+      const newIds = currentIds.filter(id => !restoredIds.has(id))
+      // Find active panel id from restored tree
+      const firstLeaf = (function find(n: PanelNode): string | null {
+        if (n.type === 'leaf') return n.id
+        return find(n.children[0])
+      })(restored)
+
+      for (const id of newIds) {
+        if (firstLeaf) restored = addTabToLeaf(restored, firstLeaf, id)
+      }
+
+      setPanelLayout(restored)
+      setActivePanelId(firstLeaf)
+      setExpandedTileId(null)
+    } else {
+      // No saved layout — fresh leaf with all tiles
+      const leaf = createLeaf(currentIds, currentIds[0])
+      setPanelLayout(leaf)
+      setActivePanelId(leaf.id)
+      setExpandedTileId(null)
+    }
+  }, [])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setExpandedTileId(null)
+      if (e.key === 'Escape') exitExpandedMode()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -133,16 +392,22 @@ function App(): JSX.Element {
 
   // ─── Space key for pan mode ───────────────────────────────────────────────
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
-        if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') return
+        if (isEditableTarget(e.target)) return
         e.preventDefault()
-        spaceHeld.current = e.type === 'keydown'
+        spaceHeld.current = true
       }
     }
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('keyup', (e) => { if (e.code === 'Space') spaceHeld.current = false })
-    return () => window.removeEventListener('keydown', onKey)
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') spaceHeld.current = false
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
   }, [])
 
   // ─── Cmd+0 reset zoom ─────────────────────────────────────────────────────
@@ -158,6 +423,26 @@ function App(): JSX.Element {
   }, [])
 
   // ─── Auto-save canvas state ───────────────────────────────────────────────
+  const persistCanvasState = useCallback((tileList: TileState[], vp: { tx: number; ty: number; zoom: number }, nz: number, grps?: GroupState[]) => {
+    if (!workspace) return
+    const resolvedGroups = grps ?? groupsRef.current
+
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      const state: CanvasState = {
+        tiles: tileList,
+        groups: resolvedGroups,
+        viewport: vp,
+        nextZIndex: nz,
+        panelLayout: panelLayoutRef.current ?? savedLayoutRef.current,
+        activePanelId: activePanelIdRef.current,
+        tabViewActive: Boolean(panelLayoutRef.current),
+        expandedTileId: expandedTileIdRef.current,
+      }
+      window.electron.canvas.save(workspace.id, state)
+    }, 500)
+  }, [workspace])
+
   const saveCanvas = useCallback((tileList: TileState[], vp: { tx: number; ty: number; zoom: number }, nz: number, grps?: GroupState[]) => {
     if (!workspace) return
     // Use explicitly passed groups, or fall back to current groups state
@@ -165,19 +450,20 @@ function App(): JSX.Element {
 
     // Push to undo history unless this save was triggered by undo/redo itself
     if (!skipHistory.current) {
-      historyBack.current.push({ tiles: tileList, groups: resolvedGroups })
+      historyBack.current.push({ tiles: tilesRef.current, groups: groupsRef.current })
       if (historyBack.current.length > 50) historyBack.current.shift()
       historyForward.current = []
     }
 
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      const state: CanvasState = { tiles: tileList, groups: resolvedGroups, viewport: vp, nextZIndex: nz }
-      window.electron.canvas.save(workspace.id, state)
-    }, 500)
-  }, [workspace])
+    persistCanvasState(tileList, vp, nz, resolvedGroups)
+  }, [workspace, persistCanvasState])
 
   // ─── Coordinate helpers ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!workspace) return
+    persistCanvasState(tiles, viewport, nextZIndex, groups)
+  }, [workspace, panelLayout, activePanelId, expandedTileId, persistCanvasState, tiles, viewport, nextZIndex, groups])
+
   const screenToWorld = useCallback((sx: number, sy: number) => {
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return { x: 0, y: 0 }
@@ -193,28 +479,70 @@ function App(): JSX.Element {
     return screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2)
   }, [screenToWorld])
 
+  const getInitialTileSize = useCallback((type: TileState['type']) => {
+    const configured = settings.defaultTileSizes[type]
+    if (configured) return configured
+    if (type.startsWith('ext:')) {
+      const extDefault = extensionTiles.find(ext => ext.type === type)?.defaultSize
+      if (extDefault) return extDefault
+      return { w: 360, h: 280 }
+    }
+    return { w: 600, h: 400 }
+  }, [settings.defaultTileSizes, extensionTiles])
+
   // ─── Tile creation ────────────────────────────────────────────────────────
   const addTile = useCallback((type: TileState['type'], filePath?: string, pos?: { x: number; y: number }) => {
     const center = pos ?? viewportCenter()
-    const defaultSizes = settings.defaultTileSizes
-    const { w, h } = defaultSizes[type]
+    const { w, h } = getInitialTileSize(type)
+    const minW = getMinTileWidth(type)
+    const minH = getMinTileHeight(type)
+    const width = Math.max(w, minW)
+    const height = Math.max(h, minH)
     const newTile: TileState = {
       id: `tile-${Date.now()}`,
       type,
-      x: snap(center.x - w / 2),
-      y: snap(center.y - h / 2),
-      width: w,
-      height: h,
+      x: snap(center.x - width / 2),
+      y: snap(center.y - height / 2),
+      width,
+      height,
       zIndex: nextZIndex,
       filePath
     }
-    const updated = [...tiles, newTile]
     const newNZ = nextZIndex + 1
-    setTiles(updated)
+    setTiles(prev => {
+      const updated = [...prev, newTile]
+      saveCanvas(updated, viewport, newNZ)
+      return updated
+    })
     setNextZIndex(newNZ)
     setSelectedTileId(newTile.id)
-    saveCanvas(updated, viewport, newNZ)
-  }, [tiles, nextZIndex, viewport, viewportCenter, saveCanvas])
+
+    // If in expanded/tabbed mode, add as a tab to the active panel
+    if (panelLayout && activePanelId) {
+      setPanelLayout(prev => prev ? addTabToLeaf(prev, activePanelId, newTile.id) : prev)
+    }
+  }, [nextZIndex, viewport, viewportCenter, saveCanvas, panelLayout, activePanelId, getInitialTileSize])
+
+  useEffect(() => {
+    if (!tiles.some(tile => tile.width < getMinTileWidth(tile) || tile.height < getMinTileHeight(tile))) return
+    setTiles(prev => {
+      let changed = false
+      const updated = prev.map(tile => {
+        const minW = getMinTileWidth(tile)
+        const minH = getMinTileHeight(tile)
+        if (tile.width >= minW && tile.height >= minH) return tile
+        changed = true
+        return {
+          ...tile,
+          width: Math.max(tile.width, minW),
+          height: Math.max(tile.height, minH),
+        }
+      })
+      if (!changed) return prev
+      saveCanvas(updated, viewport, nextZIndex)
+      return updated
+    })
+  }, [tiles, viewport, nextZIndex, saveCanvas])
 
   // ─── MCP canvas tool handlers (must be after addTile) ────────────────────
   useEffect(() => {
@@ -245,11 +573,32 @@ function App(): JSX.Element {
   }, [tiles, addTile])
 
   const closeTile = useCallback((id: string) => {
-    const updated = tiles.filter(t => t.id !== id)
-    setTiles(updated)
+    const tile = tilesRef.current.find(t => t.id === id)
+    if (tile?.type === 'terminal') {
+      window.electron.terminal.destroy(id)
+    }
+    if (workspace?.id) {
+      void Promise.allSettled([
+        window.electron.canvas.deleteTileArtifacts(workspace.id, id),
+        window.electron.activity.clearTile(workspace.id, id),
+        workspace.path ? window.electron.collab.removeTileDir(workspace.path, id) : Promise.resolve(true),
+      ])
+    }
+    setTiles(prev => {
+      const updated = prev.filter(t => t.id !== id)
+      saveCanvas(updated, viewport, nextZIndex)
+      return updated
+    })
+    setPanelLayout(prev => {
+      if (!prev) return prev
+      const next = removeTileFromTree(prev, id)
+      if (next) return next
+      const emptyLeaf = createLeaf([])
+      setActivePanelId(emptyLeaf.id)
+      return emptyLeaf
+    })
     if (selectedTileId === id) setSelectedTileId(null)
-    saveCanvas(updated, viewport, nextZIndex)
-  }, [tiles, selectedTileId, viewport, nextZIndex, saveCanvas])
+  }, [workspace?.id, workspace?.path, selectedTileId, viewport, nextZIndex, saveCanvas])
 
   const bringToFront = useCallback((id: string) => {
     const nz = nextZIndex
@@ -272,6 +621,9 @@ function App(): JSX.Element {
     e.preventDefault()
     const isPan = e.button === 1 || (e.button === 0 && (e.metaKey || spaceHeld.current))
     if (isPan) {
+      cancelAnimationFrame(panInertiaRaf.current)
+      panVelocityRef.current = { vx: 0, vy: 0 }
+      panLastPos.current = { x: e.clientX, y: e.clientY, t: performance.now() }
       setDragState({ type: 'pan', startX: e.clientX, startY: e.clientY, initTx: viewport.tx, initTy: viewport.ty })
       setSelectedTileId(null)
       return
@@ -288,15 +640,18 @@ function App(): JSX.Element {
     }
   }, [viewport])
 
-  // Double-click on canvas creates a terminal
+  // Double-click on blank canvas creates a terminal (not in tab view, not over a tile)
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (panelLayout) return
+    if (e.target !== e.currentTarget) return
     const world = screenToWorld(e.clientX, e.clientY)
     addTile('terminal', undefined, world)
-  }, [screenToWorld, addTile])
+  }, [screenToWorld, addTile, panelLayout])
 
   // Right-click on empty canvas
   const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
+    if (panelLayout) return
     const world = screenToWorld(e.clientX, e.clientY)
     const hitGroup = groups.find(g => {
       const b = groupBoundsRef.current(g.id)
@@ -308,6 +663,16 @@ function App(): JSX.Element {
       { label: 'New Browser',  action: () => addTile('browser',  undefined, world) },
       { label: 'New Board',    action: () => addTile('kanban',   undefined, world) },
     ]
+    // Extension tile types
+    if (extensionTiles.length > 0) {
+      items.push({ label: '', action: () => {}, divider: true })
+      for (const ext of extensionTiles) {
+        items.push({
+          label: ext.label,
+          action: () => addTile(ext.type as TileType, undefined, world),
+        })
+      }
+    }
     if (clipboard.current.length > 0) {
       items.push({ label: '', action: () => {}, divider: true })
       items.push({ label: 'Paste', action: () => pasteTilesRef.current(world) })
@@ -320,7 +685,7 @@ function App(): JSX.Element {
       items.push({ label: `Group ${selectedTileIds.size} tiles`, action: () => groupSelectedTilesRef.current() })
     }
     setCtxMenu({ x: e.clientX, y: e.clientY, items })
-  }, [screenToWorld, addTile, selectedTileIds, groups])
+  }, [screenToWorld, addTile, selectedTileIds, groups, panelLayout, extensionTiles])
 
   // Right-click on a tile titlebar
   const handleTileContextMenu = useCallback((e: React.MouseEvent, tile: TileState) => {
@@ -370,6 +735,13 @@ function App(): JSX.Element {
       })
       items.push({ label: '', action: () => {}, divider: true })
     }
+    if (tile.type === 'file' && tile.filePath && workspace?.path && !tile.filePath.startsWith(workspace.path)) {
+      items.push({
+        label: 'Add to workspace',
+        action: () => { void importFileToWorkspace(tile.filePath!, tile.id) }
+      })
+      items.push({ label: '', action: () => {}, divider: true })
+    }
     items.push({ label: 'Close', action: () => closeTile(tile.id), danger: true })
     setCtxMenu({ x: e.clientX, y: e.clientY, items })
   }, [closeTile, groups, viewport, nextZIndex, saveCanvas])
@@ -380,11 +752,9 @@ function App(): JSX.Element {
     // Snapshot positions of all tiles in the same group for co-movement
     const groupSnapshots: { id: string; x: number; y: number }[] = []
     if (tile.groupId) {
-      setTiles(prev => {
-        prev.filter(t => t.groupId === tile.groupId && t.id !== tile.id)
-          .forEach(t => groupSnapshots.push({ id: t.id, x: t.x, y: t.y }))
-        return prev
-      })
+      tilesRef.current
+        .filter(t => t.groupId === tile.groupId && t.id !== tile.id)
+        .forEach(t => groupSnapshots.push({ id: t.id, x: t.x, y: t.y }))
     }
     setDragState({
       type: 'tile',
@@ -416,6 +786,16 @@ function App(): JSX.Element {
       const dy = e.clientY - dragState.startY
 
       if (dragState.type === 'pan') {
+        const now = performance.now()
+        const dt = now - panLastPos.current.t
+        if (dt > 0) {
+          const decay = 0.4
+          panVelocityRef.current = {
+            vx: decay * panVelocityRef.current.vx + (1 - decay) * (e.clientX - panLastPos.current.x) / dt * 16,
+            vy: decay * panVelocityRef.current.vy + (1 - decay) * (e.clientY - panLastPos.current.y) / dt * 16,
+          }
+        }
+        panLastPos.current = { x: e.clientX, y: e.clientY, t: now }
         setViewport(prev => ({ ...prev, tx: dragState.initTx + dx, ty: dragState.initTy + dy }))
       } else if (dragState.type === 'group-resize') {
         const wdx = dx / viewport.zoom
@@ -435,6 +815,8 @@ function App(): JSX.Element {
         setTiles(prev => prev.map(t => {
           const s = snaps.find(s2 => s2.id === t.id)
           if (!s) return t
+          const minW = getMinTileWidth(t)
+          const minH = getMinTileHeight(t)
           // Scale position relative to group origin
           const relX = s.x - ib.x
           const relY = s.y - ib.y
@@ -442,8 +824,8 @@ function App(): JSX.Element {
             ...t,
             x: snap(nx + relX * scaleX),
             y: snap(ny + relY * scaleY),
-            width:  Math.max(120, snap(s.width  * scaleX)),
-            height: Math.max(80,  snap(s.height * scaleY)),
+            width: Math.max(minW, snap(s.width * scaleX)),
+            height: Math.max(minH, snap(s.height * scaleY)),
           }
         }))
       } else if (dragState.type === 'group') {
@@ -511,11 +893,13 @@ function App(): JSX.Element {
         const dir = dragState.dir
         setTiles(prev => prev.map(t => {
           if (t.id !== dragState.tileId) return t
+          const minW = getMinTileWidth(t)
+          const minH = getMinTileHeight(t)
           let { x, y, width: w, height: h } = t
-          if (dir.includes('e'))  w = Math.max(200, snap(dragState.initW + wdx))
-          if (dir.includes('s'))  h = Math.max(150, snap(dragState.initH + wdy))
-          if (dir.includes('w')) { w = Math.max(200, snap(dragState.initW - wdx)); x = snap(dragState.initX + wdx) }
-          if (dir.includes('n')) { h = Math.max(150, snap(dragState.initH - wdy)); y = snap(dragState.initY + wdy) }
+          if (dir.includes('e'))  w = Math.max(minW, snap(dragState.initW + wdx))
+          if (dir.includes('s'))  h = Math.max(minH, snap(dragState.initH + wdy))
+          if (dir.includes('w')) { w = Math.max(minW, snap(dragState.initW - wdx)); x = snap(dragState.initX + wdx) }
+          if (dir.includes('n')) { h = Math.max(minH, snap(dragState.initH - wdy)); y = snap(dragState.initY + wdy) }
           return { ...t, x, y, width: w, height: h }
         }))
       }
@@ -588,6 +972,21 @@ function App(): JSX.Element {
           })
         }
       }
+      // Kick off inertia when releasing a pan
+      if (dragState.type === 'pan') {
+        const { vx, vy } = panVelocityRef.current
+        if (Math.abs(vx) > 0.5 || Math.abs(vy) > 0.5) {
+          const friction = 0.92
+          const animate = () => {
+            const v = panVelocityRef.current
+            if (Math.abs(v.vx) < 0.5 && Math.abs(v.vy) < 0.5) return
+            setViewport(prev => ({ ...prev, tx: prev.tx + v.vx, ty: prev.ty + v.vy }))
+            panVelocityRef.current = { vx: v.vx * friction, vy: v.vy * friction }
+            panInertiaRaf.current = requestAnimationFrame(animate)
+          }
+          panInertiaRaf.current = requestAnimationFrame(animate)
+        }
+      }
       setGuides([])
       setDragState({ type: null })
     }
@@ -630,16 +1029,30 @@ function App(): JSX.Element {
     setWorkspace(ws)
     if (ws) {
       const saved = await window.electron.canvas.load(id)
+      const savedTiles = saved?.tiles ?? []
+      void window.electron.collab.pruneOrphanedTileDirs(ws.path, savedTiles.map(tile => tile.id))
       if (saved) {
-        setTiles(saved.tiles ?? [])
+        const sanitizedPanel = sanitizePanelLayout((saved.panelLayout as PanelNode | null) ?? null, savedTiles.map(tile => tile.id))
+        const nextActivePanelId = saved.activePanelId && sanitizedPanel.layout && findLeafById(sanitizedPanel.layout, saved.activePanelId)
+          ? saved.activePanelId
+          : sanitizedPanel.fallbackActivePanelId
+        setTiles(savedTiles)
         setGroups(saved.groups ?? [])
         setViewport(saved.viewport ? { tx: saved.viewport.tx, ty: saved.viewport.ty, zoom: saved.viewport.zoom } : { tx: 0, ty: 0, zoom: 1 })
         setNextZIndex(saved.nextZIndex ?? 1)
+        savedLayoutRef.current = sanitizedPanel.layout
+        setPanelLayout(saved.tabViewActive ? (sanitizedPanel.layout ?? createLeaf([])) : null)
+        setActivePanelId(saved.tabViewActive ? nextActivePanelId : null)
+        setExpandedTileId(saved.expandedTileId ?? null)
       } else {
         setTiles([])
         setGroups([])
         setViewport({ tx: 0, ty: 0, zoom: 1 })
         setNextZIndex(1)
+        savedLayoutRef.current = null
+        setPanelLayout(null)
+        setActivePanelId(null)
+        setExpandedTileId(null)
       }
     }
   }, [workspaces])
@@ -652,9 +1065,35 @@ function App(): JSX.Element {
     await handleSwitchWorkspace(ws.id)
   }, [handleSwitchWorkspace])
 
+  const handleOpenFolder = useCallback(async () => {
+    const folderPath = await window.electron.workspace.openFolder()
+    if (!folderPath) return
+    const ws = await window.electron.workspace.createFromFolder(folderPath)
+    const updated = await window.electron.workspace.list()
+    setWorkspaces(updated)
+    await handleSwitchWorkspace(ws.id)
+  }, [handleSwitchWorkspace])
+
   const handleOpenFile = useCallback((filePath: string) => {
+    setSidebarSelectedPath(filePath)
     addTile(extToType(filePath), filePath)
   }, [addTile])
+
+  const importFileToWorkspace = useCallback(async (sourcePath: string, tileId?: string) => {
+    if (!workspace?.path) return null
+    const { path: importedPath } = await window.electron.fs.copyIntoDir(sourcePath, workspace.path)
+
+    if (tileId) {
+      setTiles(prev => {
+        const updated = prev.map(tile => tile.id === tileId ? { ...tile, filePath: importedPath } : tile)
+        saveCanvas(updated, viewport, nextZIndex)
+        return updated
+      })
+    }
+
+    setSidebarSelectedPath(importedPath)
+    return importedPath
+  }, [workspace?.path, viewport, nextZIndex, saveCanvas])
 
   // Rebuild merged MCP config whenever workspace changes
   useEffect(() => {
@@ -704,8 +1143,7 @@ function App(): JSX.Element {
   // ─── Cmd+G to group ───────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (isEditableTarget(e.target)) return
       if ((e.metaKey || e.ctrlKey) && e.key === 'g') {
         e.preventDefault()
         if (selectedTileIds.size >= 2) groupSelectedTiles()
@@ -897,8 +1335,7 @@ function App(): JSX.Element {
   // ─── Copy / Cut / Paste / Duplicate / Delete shortcuts ───────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (isEditableTarget(e.target)) return
       const mod = e.metaKey || e.ctrlKey
       if (mod && e.key === 'c') { e.preventDefault(); copyTiles(false) }
       if (mod && e.key === 'x') { e.preventDefault(); copyTiles(true) }
@@ -927,8 +1364,7 @@ function App(): JSX.Element {
   // ─── Undo / redo ─────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (isEditableTarget(e.target)) return
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
 
@@ -947,7 +1383,7 @@ function App(): JSX.Element {
         if (workspace) {
           if (saveTimer.current) clearTimeout(saveTimer.current)
           saveTimer.current = setTimeout(() => {
-            const state: CanvasState = { tiles: prev.tiles, groups: prev.groups, viewport: viewport, nextZIndex: nextZIndex }
+            const state: CanvasState = { tiles: prev.tiles, groups: prev.groups, viewport: viewportRef.current, nextZIndex: nextZIndexRef.current }
             window.electron.canvas.save(workspace.id, state)
             skipHistory.current = false
           }, 500)
@@ -966,7 +1402,7 @@ function App(): JSX.Element {
         if (workspace) {
           if (saveTimer.current) clearTimeout(saveTimer.current)
           saveTimer.current = setTimeout(() => {
-            const state: CanvasState = { tiles: next.tiles, groups: next.groups, viewport: viewport, nextZIndex: nextZIndex }
+            const state: CanvasState = { tiles: next.tiles, groups: next.groups, viewport: viewportRef.current, nextZIndex: nextZIndexRef.current }
             window.electron.canvas.save(workspace.id, state)
             skipHistory.current = false
           }, 500)
@@ -981,45 +1417,59 @@ function App(): JSX.Element {
 
   // ─── Arrange handler ──────────────────────────────────────────────────────
   const handleArrange = useCallback((updated: TileState[]) => {
-    // Merge positions back — preserve zIndex / other fields from current state
+    const getArrangeWidth = (tile: TileState) => tile.width + ((tile.type === 'terminal' || tile.type === 'chat') ? 272 : 0)
+
+    // Merge positions + sizes back — preserve zIndex / other fields from current state
     setTiles(prev => {
-      const posIndex: Record<string, { x: number; y: number }> = {}
-      for (const t of updated) posIndex[t.id] = { x: t.x, y: t.y }
+      const updateIndex: Record<string, { x: number; y: number; width?: number; height?: number }> = {}
+      for (const t of updated) updateIndex[t.id] = { x: t.x, y: t.y, width: t.width, height: t.height }
       const merged = prev.map(t => {
-        const pos = posIndex[t.id]
-        return pos ? { ...t, ...pos } : t
+        const upd = updateIndex[t.id]
+        if (!upd) return t
+        return {
+          ...t,
+          x: upd.x,
+          y: upd.y,
+          ...(upd.width != null ? { width: upd.width } : {}),
+          ...(upd.height != null ? { height: upd.height } : {}),
+        }
       })
       saveCanvas(merged, viewport, nextZIndex)
 
-      // Zoom to fit all arranged tiles with a 10% zoom-out from fit level
+      // Zoom to fit — compensate for sidebar width if open
       const rect = canvasRef.current?.getBoundingClientRect()
       if (rect && merged.length > 0) {
+        const sidebarOffset = sidebarCollapsed ? 0 : sidebarWidth + 8
+        const availableWidth = rect.width - sidebarOffset
         const minX = Math.min(...merged.map(t => t.x))
         const minY = Math.min(...merged.map(t => t.y))
-        const maxX = Math.max(...merged.map(t => t.x + t.width))
+        const maxX = Math.max(...merged.map(t => t.x + getArrangeWidth(t)))
         const maxY = Math.max(...merged.map(t => t.y + t.height))
         const PAD = 60
         const fitZoom = Math.min(
-          rect.width  / (maxX - minX + PAD * 2),
-          rect.height / (maxY - minY + PAD * 2),
+          availableWidth / (maxX - minX + PAD * 2),
+          rect.height   / (maxY - minY + PAD * 2),
           2
         )
         const newZoom = fitZoom * 0.9
-        const tx = rect.width  / 2 - ((minX + maxX) / 2) * newZoom
+        // Center within the available area (shifted right by sidebar)
+        const centerX = sidebarOffset + availableWidth / 2
+        const tx = centerX - ((minX + maxX) / 2) * newZoom
         const ty = rect.height / 2 - ((minY + maxY) / 2) * newZoom
         setViewport({ tx, ty, zoom: newZoom })
       }
 
       return merged
     })
-  }, [viewport, nextZIndex, saveCanvas])
+  }, [viewport, nextZIndex, saveCanvas, sidebarCollapsed, sidebarWidth])
 
   // ─── Render tile body ─────────────────────────────────────────────────────
-  const renderTileBody = (tile: TileState): React.ReactNode => {
+  const renderTileBody = (tile: TileState, options?: { isInteracting?: boolean }): React.ReactNode => {
+    const isTileInteracting = dragState.type !== null || Boolean(options?.isInteracting)
     switch (tile.type) {
       case 'terminal':
         return (
-          <TerminalTile
+          <LazyTerminalTile
             tileId={tile.id}
             workspaceDir={workspace?.path ?? ''}
             width={tile.width}
@@ -1029,17 +1479,20 @@ function App(): JSX.Element {
           />
         )
       case 'code':
-        return <CodeTile filePath={tile.filePath} />
+        return <LazyCodeTile filePath={tile.filePath} />
       case 'note':
-        return <NoteTile filePath={tile.filePath} />
+        return <LazyNoteTile filePath={tile.filePath} />
       case 'image':
-        return tile.filePath ? <ImageTile filePath={tile.filePath} /> : null
+        return tile.filePath ? <LazyImageTile filePath={tile.filePath} /> : null
       case 'browser':
-        return <BrowserTile tileId={tile.id} initialUrl={tile.filePath ?? ''} width={tile.width} height={tile.height} zIndex={tile.zIndex} />
+        return (
+          <LazyBrowserTile tileId={tile.id} workspaceId={workspace?.id ?? ''} initialUrl={tile.filePath ?? ''} width={tile.width} height={tile.height} zIndex={tile.zIndex} isInteracting={isTileInteracting} />
+        )
       case 'kanban':
         return (
-          <KanbanTile
+          <LazyKanbanTile
             tileId={tile.id}
+            workspaceId={workspace?.id ?? ''}
             workspaceDir={workspace?.path ?? ''}
             width={tile.width}
             height={tile.height}
@@ -1057,134 +1510,349 @@ function App(): JSX.Element {
             }}
           />
         )
+      case 'chat':
+        return (
+          <LazyChatTile
+            tileId={tile.id}
+            workspaceId={workspace?.id ?? ''}
+            workspaceDir={workspace?.path ?? ''}
+            width={tile.width}
+            height={tile.height}
+            settings={settings}
+          />
+        )
       default:
+        if (tile.type.startsWith('ext:')) {
+          return (
+            <LazyExtensionTile
+              tileId={tile.id}
+              extType={tile.type}
+              width={tile.width}
+              height={tile.height}
+              workspaceId={workspace?.id ?? ''}
+              workspacePath={workspace?.path ?? ''}
+            />
+          )
+        }
         return null
     }
   }
 
+  // Set of tile IDs currently in the panel tree — these should not render on canvas
+  const panelTileIds = React.useMemo(() => {
+    if (!panelLayout) return new Set<string>()
+    return new Set(getAllTileIds(panelLayout))
+  }, [panelLayout])
+
   const isDraggingCanvas = dragState.type === 'pan'
 
-  return (
-    <div className="w-full h-full flex flex-col" style={{ background: '#1e1e1e', color: '#d4d4d4', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' }}>
-      {/* Titlebar — traffic lights area */}
-      <div
-        className="flex items-center flex-shrink-0"
-        style={{
-          height: 44,
-          background: '#1e1e1e',
-          borderBottom: '1px solid #2d2d2d',
-          // @ts-ignore
-          WebkitAppRegion: 'drag',
-          paddingLeft: 80 // leave space for traffic lights
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <span style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>
-            {workspace?.name ?? 'Collaborator'}
-          </span>
-          {workspace && (
-            <span style={{ fontSize: 11, color: '#555' }}>{workspace.path}</span>
-          )}
-        </div>
-        <div style={{ marginLeft: 'auto', marginRight: 16, display: 'flex', gap: 4, alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          {/* Stats */}
-          <span style={{ fontSize: 11, color: '#777', marginRight: 8 }}>
-            {Math.round(viewport.zoom * 100)}% · {tiles.length} tile{tiles.length !== 1 ? 's' : ''}
-          </span>
+  const appFonts = React.useMemo(() => ({
+    sans: settings.fonts?.sans?.family ?? settings.primaryFont?.family ?? SANS_DEFAULT,
+    mono: settings.fonts?.mono?.family ?? settings.monoFont?.family ?? MONO_DEFAULT,
+    size: settings.fonts?.sans?.size ?? settings.primaryFont?.size ?? 13,
+    monoSize: settings.fonts?.mono?.size ?? settings.monoFont?.size ?? 13,
+  }), [settings.fonts, settings.primaryFont, settings.monoFont])
 
-          {/* Icon buttons */}
-          {([
-            { icon: <AppWindow size={15} />, label: 'New Window (⌘N)', action: () => window.electron.window?.new(), active: false },
-            { icon: <SquarePlus size={15} />, label: 'New Tab (⌘T)', action: () => window.electron.window?.newTab(), active: false },
-            { icon: <Map size={15} />, label: 'Minimap', action: () => setShowMinimap(p => !p), active: showMinimap },
-            { icon: <Server size={15} />, label: 'MCP Servers', action: () => { setShowSettings(true) }, active: false },
-            { icon: <Settings2 size={15} />, label: 'Settings', action: () => setShowSettings(true), active: false },
-          ] as { icon: React.ReactNode; label: string; action: () => void; active: boolean }[]).map(btn => (
-            <Tooltip key={btn.label} label={btn.label} side="bottom">
+  useEffect(() => {
+    if (sidebarResizing) {
+      setSidebarPillVisible(false)
+      return
+    }
+
+    const timer = window.setTimeout(() => setSidebarPillVisible(true), 90)
+    return () => window.clearTimeout(timer)
+  }, [sidebarResizing])
+
+  const fontTokens = React.useMemo(() => settings.fonts, [settings.fonts])
+  const theme = React.useMemo(() => getThemeById(settings.themeId), [settings.themeId])
+  const translucentBackgroundOpacity = Math.max(0.05, Math.min(1, settings.translucentBackgroundOpacity ?? 1))
+  const canvasBackground = withAlpha(settings.canvasBackground, translucentBackgroundOpacity)
+  const canvasLayerBackground = theme.canvas.backgroundEffect
+    ? `${theme.canvas.backgroundEffect}, ${canvasBackground}`
+    : canvasBackground
+  const sidebarPanelTop = 36
+  const sidebarFooterBottom = 0
+  const sidebarFooterLeft = 20
+  const sidebarFooterHeight = 45
+  const sidebarPanelBottomOffset = sidebarFooterBottom + sidebarFooterHeight - 1
+  const openSidebarToolbarPadding = sidebarWidth + 16
+  const openSidebarPillLeft = sidebarWidth + 18
+  const expandedLayoutLeft = sidebarWidth + 8
+
+  return (
+    <ThemeProvider value={theme}>
+    <FontTokenProvider value={fontTokens}>
+    <FontProvider value={appFonts}>
+    <div className="w-full h-full" style={{ position: 'relative', color: theme.text.primary, fontFamily: appFonts.sans, fontSize: appFonts.size, background: theme.surface.app }}>
+      {/* Sidebar inset panel — floats over the canvas */}
+      <div style={{
+        position: 'absolute',
+        top: sidebarPanelTop,
+        left: 0,
+        bottom: sidebarPanelBottomOffset,
+        padding: '8px 0 8px 8px',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 100,
+        pointerEvents: 'none',
+      }}>
+        <div style={{
+          height: '100%',
+          background: theme.surface.sidebarOverlay,
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: 10,
+          border: sidebarCollapsed ? 'none' : `1px solid ${theme.border.strong}`,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          pointerEvents: 'auto',
+        }}>
+          {/* Traffic light drag zone — sits inside the sidebar panel */}
+          <div
+            style={{
+              height: 52,
+              flexShrink: 0,
+              position: 'relative',
+              // @ts-ignore
+              WebkitAppRegion: 'drag',
+            }}
+          >
+            {panelLayout && (
               <button
-                onClick={btn.action}
+                onClick={() => setSidebarCollapsed(p => !p)}
+                title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
                 style={{
-                  width: 30, height: 30, borderRadius: 6,
-                  background: btn.active ? 'rgba(74,158,255,0.15)' : 'transparent',
-                  border: btn.active ? '1px solid rgba(74,158,255,0.3)' : '1px solid transparent',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: btn.active ? '#4a9eff' : '#666',
-                  transition: 'all 0.1s'
+                  position: 'absolute', top: '50%', right: 8,
+                  transform: 'translateY(-50%)',
+                  width: 22, height: 22, borderRadius: 5,
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: theme.text.disabled,
+                  // @ts-ignore
+                  WebkitAppRegion: 'no-drag',
                 }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = btn.active ? 'rgba(74,158,255,0.2)' : 'rgba(255,255,255,0.06)'
-                  e.currentTarget.style.color = btn.active ? '#4a9eff' : '#ccc'
-                  e.currentTarget.style.borderColor = btn.active ? 'rgba(74,158,255,0.4)' : 'rgba(255,255,255,0.1)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = btn.active ? 'rgba(74,158,255,0.15)' : 'transparent'
-                  e.currentTarget.style.color = btn.active ? '#4a9eff' : '#666'
-                  e.currentTarget.style.borderColor = btn.active ? 'rgba(74,158,255,0.3)' : 'transparent'
-                }}
+                onMouseEnter={e => { e.currentTarget.style.background = theme.surface.hover; e.currentTarget.style.color = theme.text.muted }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = theme.text.disabled }}
               >
-                {btn.icon}
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  {sidebarCollapsed
+                    ? <path d="M5 2H12V12H5M2 7H8M5 4L2 7L5 10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                    : <path d="M5 2H12V12H5M8 4L11 7L8 10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                  }
+                </svg>
               </button>
-            </Tooltip>
-          ))}
+            )}
+          </div>
+          {/* Sidebar content */}
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Suspense fallback={
+              <div style={{
+                flex: 1,
+                color: theme.text.disabled,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11
+              }}>
+                Loading sidebar…
+              </div>
+            }>
+              <LazySidebar
+                workspace={workspace}
+                workspaces={workspaces}
+                onSwitchWorkspace={handleSwitchWorkspace}
+                onNewWorkspace={handleNewWorkspace}
+                onOpenFolder={handleOpenFolder}
+                onOpenFile={handleOpenFile}
+                selectedPath={sidebarSelectedPath}
+                onSelectPath={setSidebarSelectedPath}
+                onNewTerminal={() => addTile('terminal')}
+                onNewKanban={() => addTile('kanban')}
+                onNewBrowser={() => addTile('browser')}
+                onNewChat={() => addTile('chat')}
+                extensionTiles={extensionTiles}
+                onAddExtensionTile={(type) => addTile(type as TileType)}
+                collapsed={sidebarCollapsed}
+                width={sidebarWidth}
+                onWidthChange={setSidebarWidth}
+                onResizeStateChange={setSidebarResizing}
+                onToggleCollapse={() => setSidebarCollapsed(p => !p)}
+                showFooter={false}
+              />
+            </Suspense>
+          </div>
         </div>
       </div>
 
-      {/* Main layout */}
-      <div className="flex-1 flex overflow-hidden" style={{ position: 'relative' }}>
-        <Sidebar
-          workspace={workspace}
-          workspaces={workspaces}
-          onSwitchWorkspace={handleSwitchWorkspace}
-          onNewWorkspace={handleNewWorkspace}
-          onOpenFile={handleOpenFile}
-          onNewTerminal={() => addTile('terminal')}
-          onNewKanban={() => addTile('kanban')}
-          onNewBrowser={() => addTile('browser')}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(p => !p)}
-        />
+      <div style={{
+        position: 'absolute',
+        left: sidebarFooterLeft,
+        bottom: sidebarFooterBottom,
+        zIndex: 105,
+        pointerEvents: 'auto',
+      }}>
+        <Suspense fallback={null}>
+          <LazySidebarFooter
+            onNewTerminal={() => addTile('terminal')}
+            onNewKanban={() => addTile('kanban')}
+            onNewBrowser={() => addTile('browser')}
+            onNewChat={() => addTile('chat')}
+            extensionTiles={extensionTiles}
+            onAddExtensionTile={(type) => addTile(type as TileType)}
+          />
+        </Suspense>
+      </div>
 
-        {/* Sidebar collapse pill — floats over the canvas left edge, always visible */}
+      {/* Main area — toolbar overlays top, canvas fills entire window */}
+      <div className="absolute inset-0 flex flex-col" style={{ position: 'absolute' }}>
+        {/* Toolbar row — floats over canvas */}
+        <div
+          className="flex items-center flex-shrink-0"
+          style={{
+            height: 38,
+            // @ts-ignore
+            WebkitAppRegion: 'drag',
+            paddingLeft: 90,
+            transition: 'padding-left 0.15s ease',
+            position: 'relative',
+            zIndex: 90,
+            paddingTop: 8,
+          }}
+        >
+          {/* Workspace pill tabs */}
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            {openWorkspaceIds.map(id => {
+              const ws = workspaces.find(w => w.id === id)
+              if (!ws) return null
+              const isActive = id === workspace?.id
+              return (
+                <button
+                  key={id}
+                  title={ws.name}
+                  onClick={() => { if (!isActive) handleSwitchWorkspace(id) }}
+                  style={{
+                    height: 26, paddingLeft: 12, paddingRight: openWorkspaceIds.length > 1 ? 6 : 12,
+                    borderRadius: 8,
+                    background: 'transparent',
+                    border: '1px solid transparent',
+                    color: isActive ? theme.text.primary : theme.text.disabled,
+                    fontSize: 12, fontWeight: isActive ? 700 : 400,
+                    cursor: isActive ? 'default' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    whiteSpace: 'nowrap', transition: 'color 0.1s',
+                    boxShadow: 'none',
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = theme.accent.hover }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = theme.text.disabled }}
+                >
+                  <span style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>{ws.name}</span>
+                  {openWorkspaceIds.length > 1 && (
+                    <span
+                      onClick={e => {
+                        e.stopPropagation()
+                        setOpenWorkspaceIds(prev => {
+                          const next = prev.filter(x => x !== id)
+                          if (isActive && next.length > 0) handleSwitchWorkspace(next[next.length - 1])
+                          return next
+                        })
+                      }}
+                      style={{ fontSize: 14, lineHeight: 1, color: isActive ? theme.text.muted : theme.text.disabled, cursor: 'pointer', padding: '0 2px' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = theme.accent.hover }}
+                      onMouseLeave={e => { e.currentTarget.style.color = isActive ? theme.text.muted : theme.text.disabled }}
+                    >×</span>
+                  )}
+                </button>
+              )
+            })}
+            {/* Add workspace — picks the first unopened one */}
+            {workspaces.some(w => !openWorkspaceIds.includes(w.id)) && (
+              <button
+                title="Open another workspace"
+                onClick={() => {
+                  const next = workspaces.find(w => !openWorkspaceIds.includes(w.id))
+                  if (next) { setOpenWorkspaceIds(prev => [...prev, next.id]); handleSwitchWorkspace(next.id) }
+                }}
+                style={{
+                  width: 26, height: 26, borderRadius: 8,
+                  background: 'transparent', border: '1px solid transparent',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: theme.text.disabled, transition: 'all 0.1s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = theme.surface.hover; e.currentTarget.style.color = theme.text.secondary }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = theme.text.disabled }}
+              >
+                <Icon glyph="+" size={18} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar collapse pill — floats over the canvas left edge; hidden in tab mode */}
         <div
           onClick={() => setSidebarCollapsed(p => !p)}
           style={{
+            display: panelLayout || !sidebarPillVisible ? 'none' : 'flex',
             position: 'absolute',
-            left: 0,
+            left: sidebarCollapsed ? 8 : openSidebarPillLeft,
             top: '50%',
             transform: 'translateY(-50%)',
-            width: 16,
+            transition: 'opacity 0.12s ease',
+            width: 8,
             height: 40,
-            background: '#252525',
-            border: '1px solid #333',
-            borderLeft: 'none',
-            borderRadius: '0 6px 6px 0',
+            background: theme.surface.panelElevated,
+            border: `1px solid ${theme.border.strong}`,
+            borderRadius: 9999,
             cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#555',
+            alignItems: 'center', justifyContent: 'center',
+            color: theme.text.disabled,
             fontSize: 9,
             userSelect: 'none',
             zIndex: 200,
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#aaa' }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#252525'; e.currentTarget.style.color = '#555' }}
+          onMouseEnter={e => { e.currentTarget.style.background = theme.surface.panelMuted }}
+          onMouseLeave={e => { e.currentTarget.style.background = theme.surface.panelElevated }}
         >
-          {sidebarCollapsed ? '▸' : '◂'}
+          {''}
         </div>
 
-        {/* Canvas */}
+        {/* Canvas — fills entire window, sits behind sidebar & toolbar */}
         <div
           ref={canvasRef}
-          className="flex-1 relative overflow-hidden"
+          className="absolute inset-0 overflow-hidden"
           style={{
-            background: settings.canvasBackground,
+            background: canvasLayerBackground,
             cursor: isDraggingCanvas ? 'grabbing' : (spaceHeld.current ? 'grab' : 'default'),
             userSelect: 'none',
             WebkitUserSelect: 'none',
+            zIndex: 0,
           } as React.CSSProperties}
           onMouseDown={handleCanvasMouseDown}
           onDoubleClick={handleCanvasDoubleClick}
           onContextMenu={handleCanvasContextMenu}
           onWheel={handleWheel}
+          onMouseMove={e => {
+            const rect = canvasRef.current?.getBoundingClientRect()
+            if (!rect) return
+            const x = e.clientX - rect.left
+            const y = e.clientY - rect.top
+            const mask = `radial-gradient(circle 120px at ${x}px ${y}px, rgba(0,0,0,1) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0) 100%)`
+            if (dotGlowSmallRef.current) {
+              dotGlowSmallRef.current.style.maskImage = mask
+              dotGlowSmallRef.current.style.webkitMaskImage = mask
+              dotGlowSmallRef.current.style.opacity = '1'
+            }
+            if (dotGlowLargeRef.current) {
+              dotGlowLargeRef.current.style.maskImage = mask
+              dotGlowLargeRef.current.style.webkitMaskImage = mask
+              dotGlowLargeRef.current.style.opacity = '1'
+            }
+          }}
+          onMouseLeave={() => {
+            if (dotGlowSmallRef.current) dotGlowSmallRef.current.style.opacity = '0'
+            if (dotGlowLargeRef.current) dotGlowLargeRef.current.style.opacity = '0'
+          }}
           onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
           onDrop={e => {
             e.preventDefault()
@@ -1222,13 +1890,54 @@ function App(): JSX.Element {
             if (filePath) addTile(extToType(filePath), filePath, world)
           }}
         >
-          {/* Dot grid */}
+          {/* Canvas content wrapper — fades out when in expanded/tabbed mode */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            opacity: panelLayout ? 0 : 1,
+            transition: 'opacity 0.3s ease',
+            pointerEvents: panelLayout ? 'none' : 'auto',
+          }}>
+          {/* Dot grid - small */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              backgroundImage: `radial-gradient(circle, #4a4a4a 1.5px, transparent 1.5px)`,
-              backgroundSize: `${settings.gridSize * viewport.zoom}px ${settings.gridSize * viewport.zoom}px`,
-              backgroundPosition: `${viewport.tx % (settings.gridSize * viewport.zoom)}px ${viewport.ty % (settings.gridSize * viewport.zoom)}px`
+              backgroundImage: `radial-gradient(circle, ${settings.gridColorSmall} 1px, transparent 1px)`,
+              backgroundSize: `${settings.gridSpacingSmall * viewport.zoom}px ${settings.gridSpacingSmall * viewport.zoom}px`,
+              backgroundPosition: `${viewport.tx % (settings.gridSpacingSmall * viewport.zoom)}px ${viewport.ty % (settings.gridSpacingSmall * viewport.zoom)}px`
+            }}
+          />
+          {/* Dot grid - large */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: `radial-gradient(circle, ${settings.gridColorLarge} 2px, transparent 2px)`,
+              backgroundSize: `${settings.gridSpacingLarge * viewport.zoom}px ${settings.gridSpacingLarge * viewport.zoom}px`,
+              backgroundPosition: `${viewport.tx % (settings.gridSpacingLarge * viewport.zoom)}px ${viewport.ty % (settings.gridSpacingLarge * viewport.zoom)}px`
+            }}
+          />
+
+          {/* Dot grid glow - small (cursor proximity light) */}
+          <div
+            ref={dotGlowSmallRef}
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: `radial-gradient(circle, ${theme.canvas.gridGlowSmall} 1px, transparent 1px)`,
+              backgroundSize: `${settings.gridSpacingSmall * viewport.zoom}px ${settings.gridSpacingSmall * viewport.zoom}px`,
+              backgroundPosition: `${viewport.tx % (settings.gridSpacingSmall * viewport.zoom)}px ${viewport.ty % (settings.gridSpacingSmall * viewport.zoom)}px`,
+              opacity: 0,
+              transition: 'opacity 0.3s ease-out',
+            }}
+          />
+          {/* Dot grid glow - large (cursor proximity light) */}
+          <div
+            ref={dotGlowLargeRef}
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: `radial-gradient(circle, ${theme.canvas.gridGlowLarge} 2px, transparent 2px)`,
+              backgroundSize: `${settings.gridSpacingLarge * viewport.zoom}px ${settings.gridSpacingLarge * viewport.zoom}px`,
+              backgroundPosition: `${viewport.tx % (settings.gridSpacingLarge * viewport.zoom)}px ${viewport.ty % (settings.gridSpacingLarge * viewport.zoom)}px`,
+              opacity: 0,
+              transition: 'opacity 0.3s ease-out',
             }}
           />
 
@@ -1278,15 +1987,32 @@ function App(): JSX.Element {
                   >
                     {/* Label bar */}
                     <div
+                      draggable
                       onMouseDown={e => e.stopPropagation()}
+                      onDragStart={e => {
+                        e.stopPropagation()
+                        const memberTiles = tiles.filter(t => t.groupId === g.id)
+                        e.dataTransfer.setData('application/group-id', g.id)
+                        e.dataTransfer.setData('application/group-label', g.label ?? 'group')
+                        e.dataTransfer.setData('application/group-tile-ids', JSON.stringify(memberTiles.map(t => t.id)))
+                        e.dataTransfer.setData('application/group-tile-types', JSON.stringify(memberTiles.map(t => t.type)))
+                        e.dataTransfer.effectAllowed = 'link'
+                        const ghost = document.createElement('div')
+                        ghost.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px'
+                        document.body.appendChild(ghost)
+                        e.dataTransfer.setDragImage(ghost, 0, 0)
+                        setTimeout(() => ghost.remove(), 0)
+                      }}
                       style={{
-                        position: 'absolute', top: -28, left: 0,
+                        position: 'absolute', top: -24 / viewport.zoom, left: 0,
                         display: 'flex', gap: 6, alignItems: 'center',
                         userSelect: 'none', pointerEvents: 'all',
-                        background: 'rgba(18,18,18,0.85)',
-                        border: '1px solid #333',
-                        borderRadius: 6, padding: '3px 8px',
-                        backdropFilter: 'blur(4px)',
+                        background: 'none',
+                        border: 'none',
+                        padding: '3px 0',
+                        cursor: 'grab',
+                        transform: `scale(${1 / viewport.zoom})`,
+                        transformOrigin: 'left top',
                       }}>
                       {/* Color swatch / picker */}
                       <div style={{ position: 'relative' }}>
@@ -1338,33 +2064,33 @@ function App(): JSX.Element {
                         {g.label ?? 'group'}
                       </span>
 
-                      <span style={{ width: 1, height: 10, background: '#444' }} />
+                      <span style={{ width: 1, height: 10, background: color, opacity: 0.3 }} />
 
                       {([
-                        { icon: <Unlink size={11} />, label: 'Ungroup', action: () => ungroupTilesRef.current(g.id) },
-                        { icon: <Layers size={11} />, label: 'Ungroup all', action: () => ungroupAllRef.current(g.id) },
-                        { icon: <Scissors size={11} />, label: 'Cut', action: () => {
+                        { icon: <Ungroup size={12} />, label: 'Ungroup', action: () => ungroupTilesRef.current(g.id) },
+                        { icon: <Grid2x2X size={12} />, label: 'Ungroup all', action: () => ungroupAllRef.current(g.id) },
+                        { icon: <Scissors size={12} />, label: 'Cut', action: () => {
                           const ids = collectGroupTileIds(g.id)
                           setSelectedTileIds(new Set(ids))
                           setSelectedTileId(null)
                           setTimeout(() => copyTilesRef.current(true), 0)
                         }},
-                        ...(clipboard.current.length > 0 ? [{ icon: <ClipboardPaste size={11} />, label: 'Paste in', action: () => pasteTilesRef.current(undefined, g.id) }] : [])
+                        ...(clipboard.current.length > 0 ? [{ icon: <ClipboardPaste size={12} />, label: 'Paste in', action: () => pasteTilesRef.current(undefined, g.id) }] : [])
                       ] as { icon: React.ReactNode; label: string; action: () => void }[]).map(btn => (
-                        <Tooltip key={btn.label} label={btn.label} side="bottom">
-                          <div
-                            onClick={e => { e.stopPropagation(); btn.action() }}
-                            style={{
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              width: 20, height: 20, borderRadius: 4, cursor: 'pointer',
-                              color: '#999',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
-                            onMouseLeave={e => (e.currentTarget.style.color = '#999')}
-                          >
-                            {btn.icon}
-                          </div>
-                        </Tooltip>
+                        <div
+                          key={btn.label}
+                          title={btn.label}
+                          onClick={e => { e.stopPropagation(); btn.action() }}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 20, height: 20, borderRadius: 4, cursor: 'pointer',
+                            color: labelColor, opacity: 0.6,
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
+                        >
+                          {btn.icon}
+                        </div>
                       ))}
                     </div>
 
@@ -1453,7 +2179,7 @@ function App(): JSX.Element {
               )
             )}
 
-            {tiles.map(tile => {
+            {tiles.filter(tile => !panelTileIds.has(tile.id)).map(tile => {
               // Tile being dragged (or part of a group being dragged) gets max z-index
               const isActiveDrag =
                 (dragState.type === 'tile' && (dragState.tileId === tile.id || dragState.groupSnapshots.some(s => s.id === tile.id))) ||
@@ -1461,35 +2187,30 @@ function App(): JSX.Element {
                 ((dragState.type === 'group' || dragState.type === 'group-resize') && tile.groupId === dragState.groupId)
               const activeTile = isActiveDrag ? { ...tile, zIndex: 99990 } : tile
               return (
-                <TileChrome
+                <Suspense
                   key={tile.id}
-                  tile={activeTile}
-                  onClose={() => closeTile(tile.id)}
-                  onTitlebarMouseDown={e => handleTileMouseDown(e, tile)}
-                  onResizeMouseDown={(e, dir) => handleResizeMouseDown(e, tile, dir)}
-                  onContextMenu={e => handleTileContextMenu(e, tile)}
-                  isSelected={tile.id === selectedTileId || selectedTileIds.has(tile.id)}
-                  forceExpanded={expandedTileId === tile.id}
-                  onExpandChange={expanded => setExpandedTileId(expanded ? tile.id : null)}
+                  fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panel }}>Loading tile frame…</div>}
                 >
-                  {renderTileBody(tile)}
-                </TileChrome>
+                  <LazyTileChrome
+                    tile={activeTile}
+                    workspaceId={workspace?.id}
+                    workspaceDir={workspace?.path}
+                    onClose={() => closeTile(tile.id)}
+                    onTitlebarMouseDown={e => handleTileMouseDown(e, tile)}
+                    onResizeMouseDown={(e, dir) => handleResizeMouseDown(e, tile, dir)}
+                    onContextMenu={e => handleTileContextMenu(e, tile)}
+                    isSelected={tile.id === selectedTileId || selectedTileIds.has(tile.id)}
+                    forceExpanded={panelTileIds.has(tile.id)}
+                    onExpandChange={expanded => expanded ? enterExpandedMode(tile.id) : exitExpandedMode()}
+                  >
+                    <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panelMuted }}>Loading tile…</div>}>
+                      {renderTileBody(tile)}
+                    </Suspense>
+                  </LazyTileChrome>
+                </Suspense>
               )
             })}
           </div>
-
-          {/* Zoom indicator */}
-          {viewport.zoom !== 1 && (
-            <div style={{
-              position: 'absolute', bottom: 62, right: 16,
-              background: 'rgba(30,30,30,0.85)', border: '1px solid #3a3a3a',
-              borderRadius: 6, padding: '4px 10px',
-              fontSize: 12, color: '#888',
-              pointerEvents: 'none'
-            }}>
-              {Math.round(viewport.zoom * 100)}%
-            </div>
-          )}
 
           {/* Group button — appears when 2+ tiles are rubber-band selected */}
           {selectedTileIds.size >= 2 && (
@@ -1498,29 +2219,29 @@ function App(): JSX.Element {
               style={{
               position: 'absolute', bottom: 62, left: '50%', transform: 'translateX(-50%)',
               display: 'flex', gap: 8, alignItems: 'center',
-              background: 'rgba(20,20,20,0.92)', border: '1px solid #2d2d2d',
+              background: theme.surface.overlay, border: `1px solid ${theme.border.default}`,
               borderRadius: 8, padding: '5px 12px',
               backdropFilter: 'blur(8px)',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              boxShadow: theme.shadow.panel,
               zIndex: 1000
             }}>
-              <span style={{ fontSize: 11, color: '#666' }}>{selectedTileIds.size} selected</span>
+              <span style={{ fontSize: 11, color: theme.text.muted }}>{selectedTileIds.size} selected</span>
               <button
                 onClick={groupSelectedTiles}
                 style={{
-                  fontSize: 11, color: '#4a9eff', background: 'rgba(74,158,255,0.1)',
-                  border: '1px solid rgba(74,158,255,0.3)', borderRadius: 5,
+                  fontSize: 11, color: theme.accent.base, background: theme.accent.soft,
+                  border: `1px solid ${theme.border.accent}`, borderRadius: 5,
                   padding: '3px 10px', cursor: 'pointer'
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(74,158,255,0.2)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(74,158,255,0.1)'}
+                onMouseEnter={e => e.currentTarget.style.background = theme.surface.selection}
+                onMouseLeave={e => e.currentTarget.style.background = theme.accent.soft}
               >
                 Group
               </button>
               <button
                 onClick={() => setSelectedTileIds(new Set())}
                 style={{
-                  fontSize: 11, color: '#555', background: 'transparent',
+                  fontSize: 11, color: theme.text.disabled, background: 'transparent',
                   border: 'none', cursor: 'pointer', padding: '3px 6px'
                 }}
               >
@@ -1529,71 +2250,142 @@ function App(): JSX.Element {
             </div>
           )}
 
-          {/* Expanded tile — fills the canvas panel, canvas disabled */}
-          {expandedTileId && (() => {
-            const tile = tiles.find(t => t.id === expandedTileId)
-            if (!tile) return null
-            return (
-              <div style={{
-                position: 'absolute', inset: 0,
-                zIndex: 99990,
-                background: '#1e1e1e',
-                display: 'flex', flexDirection: 'column',
-                borderLeft: '1px solid #2d2d2d',
-              }}>
-                {/* Titlebar — position:relative + z-index keeps it above the webview
-                    compositor layer when a browser tile is expanded */}
-                <div style={{
-                  height: 36, background: '#252525', borderBottom: '1px solid #2d2d2d',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '0 12px 0 12px', userSelect: 'none', flexShrink: 0,
-                  position: 'relative', zIndex: 1
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: '#cccccc' }}>
-                    {tile.filePath?.replace(/\\/g, '/').split('/').pop() ?? tile.type.charAt(0).toUpperCase() + tile.type.slice(1)}
-                  </span>
-                  <button
-                    onClick={() => setExpandedTileId(null)}
-                    style={{
-                      width: 14, height: 14, borderRadius: '50%', background: '#444',
-                      border: 'none', cursor: 'pointer', transition: 'background 0.1s'
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#ff5f56')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '#444')}
-                  />
-                </div>
-                {/* Content — position:relative is required so that BrowserTile's
-                    position:absolute inset:0 is contained here, not the overlay.
-                    Without it the webview escapes up and covers the titlebar. */}
-                <div style={{ flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
-                  {renderTileBody(tile)}
-                </div>
-              </div>
-            )
-          })()}
+          </div>{/* end canvas content wrapper */}
+
+          {/* Expanded panel layout — VS Code-style tabs + splits, inset to avoid sidebar + toolbar */}
+          {panelLayout && (
+            <div style={{
+              position: 'absolute',
+              top: 44,
+              left: sidebarCollapsed ? 0 : expandedLayoutLeft,
+              right: 0,
+              bottom: 0,
+              zIndex: 50,
+              transition: 'left 0.15s ease',
+            }}>
+            <Suspense fallback={null}>
+              <LazyPanelLayout
+                root={panelLayout}
+                getTileLabel={(tileId) => {
+                  const t = tiles.find(ti => ti.id === tileId)
+                  if (!t) return 'Unknown'
+                  return t.filePath?.replace(/\\/g, '/').split('/').pop()
+                    ?? t.type.charAt(0).toUpperCase() + t.type.slice(1)
+                }}
+                renderTile={(tileId) => {
+                  const t = tiles.find(ti => ti.id === tileId)
+                  if (!t) return null
+                  return (
+                    <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panelMuted }}>Loading tile…</div>}>
+                      {renderTileBody(t)}
+                    </Suspense>
+                  )
+                }}
+                onLayoutChange={setPanelLayout}
+                onCloseTab={closeTile}
+                onAddTile={(type) => addTile(type as TileState['type'])}
+                onExit={exitExpandedMode}
+                activePanelId={activePanelId}
+                onActivePanelChange={setActivePanelId}
+                getTileType={(tileId) => tiles.find(t => t.id === tileId)?.type ?? 'note'}
+                onSplitNew={(panelId, tileType, zone) => {
+                  const center = viewportCenter()
+                  const { w, h } = getInitialTileSize(tileType as TileState['type'])
+                  const newTile: TileState = {
+                    id: `tile-${Date.now()}`,
+                    type: tileType as TileState['type'],
+                    x: snap(center.x - w / 2), y: snap(center.y - h / 2),
+                    width: w, height: h, zIndex: nextZIndex,
+                  }
+                  setTiles(prev => [...prev, newTile])
+                  setNextZIndex(prev => prev + 1)
+                  setPanelLayout(prev => prev ? splitLeaf(prev, panelId, newTile.id, zone) : prev)
+                }}
+                onCloseOthers={(panelId, tileId) => {
+                  setPanelLayout(prev => prev ? closeOthersInLeaf(prev, panelId, tileId) : prev)
+                }}
+                onCloseToRight={(panelId, tileId) => {
+                  setPanelLayout(prev => prev ? closeToRightInLeaf(prev, panelId, tileId) : prev)
+                }}
+              />
+            </Suspense>
+            </div>
+          )}
 
           {/* Minimap */}
           {showMinimap && (
-            <Minimap
-              tiles={tiles}
-              viewport={viewport}
-              canvasSize={{
-                w: canvasRef.current?.clientWidth ?? 1200,
-                h: canvasRef.current?.clientHeight ?? 800
-              }}
-              onPan={(tx, ty) => setViewport(prev => ({ ...prev, tx, ty }))}
-            />
+            <Suspense fallback={null}>
+              <LazyMinimap
+                tiles={tiles}
+                viewport={viewport}
+                canvasSize={{
+                  w: canvasRef.current?.clientWidth ?? 1200,
+                  h: canvasRef.current?.clientHeight ?? 800
+                }}
+                onPan={(tx, ty) => setViewport(prev => ({ ...prev, tx, ty }))}
+              />
+            </Suspense>
           )}
 
-          {/* Arrange toolbar */}
-          <ArrangeToolbar tiles={tiles} onArrange={handleArrange} />
         </div>
+
+        {/* Arrange toolbar — render above the titlebar drag layer */}
+        <Suspense fallback={null}>
+          <LazyArrangeToolbar
+            tiles={tiles}
+            groups={groups}
+            onArrange={(updated, mode) => {
+              if (panelLayout) exitExpandedMode()
+              setCanvasArrangeMode(mode)
+              handleArrange(updated)
+            }}
+            zoom={viewport.zoom}
+            isTabbedView={!!panelLayout}
+            activeCanvasMode={canvasArrangeMode}
+            onToggleTabs={() => {
+              if (panelLayout) exitExpandedMode()
+              else enterTabbedView()
+            }}
+            onZoomToggle={() => {
+              setViewport(prev => {
+                if (prev.zoom === 1) {
+                  return { ...prev, zoom: prevZoomRef.current !== 1 ? prevZoomRef.current : 1 }
+                }
+                prevZoomRef.current = prev.zoom
+                return { ...prev, zoom: 1 }
+              })
+            }}
+            onOpenSettings={() => setShowSettings(true)}
+          />
+        </Suspense>
       </div>
-      {showMCP && <MCPPanel onClose={() => setShowMCP(false)} />}
-      {/* showMCP now opens Settings on MCP tab — kept for backwards compat */}
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} onSettingsChange={s => setSettings(s)} workspaces={workspaces} />}
-      {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={closeCtx} />}
+      {showMCP && (
+        <Suspense fallback={null}>
+          <LazyMCPPanel onClose={() => setShowMCP(false)} />
+        </Suspense>
+      )}
+      {showSettings && (
+        <Suspense fallback={null}>
+          <LazySettingsPanel onClose={() => setShowSettings(false)} onSettingsChange={s => setSettings(s)} workspaces={workspaces} />
+        </Suspense>
+      )}
+      {ctxMenu && (
+        <Suspense fallback={null}>
+          <LazyContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={closeCtx} />
+        </Suspense>
+      )}
+      <Suspense fallback={null}>
+        <LazyClusoWidgetMount />
+      </Suspense>
+      {showAgentSetup && (
+        <Suspense fallback={null}>
+          <LazyAgentSetup onComplete={() => setShowAgentSetup(false)} />
+        </Suspense>
+      )}
     </div>
+    </FontProvider>
+    </FontTokenProvider>
+    </ThemeProvider>
   )
 }
 

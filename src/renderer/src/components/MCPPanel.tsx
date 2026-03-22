@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useAppFonts } from '../FontContext'
 
 interface MCPServer {
   name: string
@@ -27,7 +28,7 @@ interface MCPConfig {
   updatedAt: string
 }
 
-const CONFIG_PATH = '~/clawd-collab/mcp-server.json'
+const CONFIG_PATH = '~/.contex/mcp-server.json'
 
 function serverCommandFromConfig(s: Partial<MCPServer>): string | undefined {
   if (typeof s.cmd === 'string' && s.cmd.trim()) return s.cmd.trim()
@@ -91,6 +92,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
   const [newServer, setNewServer] = useState<Partial<MCPServer>>({ name: '', enabled: true })
   const [adding, setAdding] = useState(false)
   const [saved, setSaved] = useState(false)
+  const fonts = useAppFonts()
 
   const applyConfig = useCallback((cfg: MCPConfig) => {
     setConfig(cfg)
@@ -111,7 +113,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
         }
       } catch { /**/ }
 
-      const path = `${(window as any).process?.env?.HOME ?? '~'}/clawd-collab/mcp-server.json`
+      const path = `${(window as any).process?.env?.HOME ?? '~'}/.contex/mcp-server.json`
       try {
         const raw = await window.electron.fs.readFile(path.replace('~', (window as any).__HOME__ ?? '/Users/' + ((window as any).process?.env?.USER ?? '')))
         applyConfig(JSON.parse(raw) as MCPConfig)
@@ -126,7 +128,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
   const save = useCallback(async (updatedServers: MCPServer[]) => {
     const userServers: Record<string, Omit<MCPServer, 'name' | 'enabled'> > = {}
     for (const s of updatedServers) {
-      if (s.name === 'collaborator') continue
+      if (s.name === 'contex') continue
       const entry: Omit<MCPServer, 'name' | 'enabled'> = {
         ...(s.type || s.url ? { type: s.type || (s.url ? 'http' : 'stdio') } : {}),
         ...(s.url ? { url: s.url } : {}),
@@ -144,13 +146,13 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
     } else if (config) {
       // Fallback legacy path if IPC changed in future
       const mcpServers: MCPConfig['mcpServers'] = {}
-      mcpServers['collaborator'] = config.mcpServers['collaborator'] ?? { type: 'http', url: `${config.url.replace(/\/$/, '')}/mcp` }
+      mcpServers['contex'] = config.mcpServers['contex'] ?? { type: 'http', url: `${config.url.replace(/\/$/, '')}/mcp` }
       for (const [name, entry] of Object.entries(userServers)) {
         mcpServers[name] = entry as MCPConfig['mcpServers'][string]
       }
       updatedCfg = { ...config, mcpServers, updatedAt: new Date().toISOString() }
       const home = (window as any).process?.env?.HOME ?? ''
-      await window.electron.fs.writeFile(`${home}/clawd-collab/mcp-server.json`, JSON.stringify(updatedCfg, null, 2))
+      await window.electron.fs.writeFile(`${home}/.contex/mcp-server.json`, JSON.stringify(updatedCfg, null, 2))
     }
 
     if (updatedCfg) {
@@ -204,13 +206,13 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#e6edf3' }}>MCP Configuration</div>
-            <div style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', marginTop: 2 }}>{CONFIG_PATH}</div>
+            <div style={{ fontSize: 10, color: '#555', fontFamily: fonts.mono, marginTop: 2 }}>{CONFIG_PATH}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {port && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3fb950', boxShadow: '0 0 5px #3fb950', display: 'inline-block' }} />
-                <span style={{ fontSize: 10, color: '#3fb950', fontFamily: 'monospace' }}>:{port}</span>
+                <span style={{ fontSize: 10, color: '#3fb950', fontFamily: fonts.mono }}>:{port}</span>
               </div>
             )}
             {saved && <span style={{ fontSize: 10, color: '#3fb950' }}>saved</span>}
@@ -226,7 +228,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
           {/* Built-in server */}
           <Section label="BUILT-IN">
             <ServerRow
-              name="collaborator"
+              name="contex"
               description="Canvas, kanban, files, tiles — always running"
               url={config?.url}
               enabled={true}
@@ -241,7 +243,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
               <div style={{ fontSize: 11, color: '#444', padding: '8px 0' }}>Loading…</div>
             ) : (
               <>
-                {servers.filter(s => s.name !== 'collaborator').map((s, i) => (
+                {servers.filter(s => s.name !== 'contex').map((s, i) => (
                   <EditableServerRow
                     key={s.name}
                     server={s}
@@ -256,11 +258,11 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
                       <input value={newServer.name ?? ''} onChange={e => setNewServer(p => ({ ...p, name: e.target.value }))}
                         placeholder="server name" autoFocus style={{ ...inputStyle, flex: '0 0 120px' }} />
                       <input value={newServer.url ?? ''} onChange={e => setNewServer(p => ({ ...p, url: e.target.value, cmd: undefined }))}
-                        placeholder="http://..." style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 10, color: '#3fb950' }} />
+                        placeholder="http://..." style={{ ...inputStyle, flex: 1, fontFamily: fonts.mono, fontSize: 10, color: '#3fb950' }} />
                     </div>
                     <input value={newServer.cmd ?? ''} onChange={e => setNewServer(p => ({ ...p, cmd: e.target.value, url: undefined }))}
                       placeholder="or stdio command: npx @modelcontextprotocol/server-name"
-                      style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 10, marginBottom: 8 }} />
+                      style={{ ...inputStyle, fontFamily: fonts.mono, fontSize: 10, marginBottom: 8 }} />
                     <input value={newServer.description ?? ''} onChange={e => setNewServer(p => ({ ...p, description: e.target.value }))}
                       placeholder="Description (optional)" style={{ ...inputStyle, marginBottom: 8 }} />
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -305,10 +307,10 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
             <Section label="ENDPOINTS">
               {Object.entries(config.endpoints ?? {}).map(([key, url]) => (
                 <div key={key} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '3px 0' }}>
-                  <span style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', width: 60, flexShrink: 0 }}>{key}</span>
-                  <span style={{ fontSize: 10, color: '#3fb950', fontFamily: 'monospace', flex: 1 }}>{url}</span>
+                  <span style={{ fontSize: 10, color: '#555', fontFamily: fonts.mono, width: 60, flexShrink: 0 }}>{key}</span>
+                  <span style={{ fontSize: 10, color: '#3fb950', fontFamily: fonts.mono, flex: 1 }}>{url}</span>
                   <button onClick={() => navigator.clipboard.writeText(url)}
-                    style={{ fontSize: 9, color: '#444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace' }}
+                    style={{ fontSize: 9, color: '#444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                     onMouseEnter={e => (e.currentTarget.style.color = '#58a6ff')}
                     onMouseLeave={e => (e.currentTarget.style.color = '#444')}>copy</button>
                 </div>
@@ -326,7 +328,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
 function Section({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
   return (
     <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 9, color: '#388bfd', fontFamily: 'monospace', letterSpacing: 1, fontWeight: 700, marginBottom: 8 }}>{label}</div>
+      <div style={{ fontSize: 9, color: '#388bfd', fontFamily: 'inherit', letterSpacing: 1, fontWeight: 700, marginBottom: 8 }}>{label}</div>
       {children}
     </div>
   )
@@ -335,19 +337,20 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 function ServerRow({ name, description, url, cmd, enabled, builtin, tools }: {
   name: string; description?: string; url?: string; cmd?: string; enabled: boolean; builtin?: boolean; tools?: string[]
 }): JSX.Element {
+  const fonts = useAppFonts()
   return (
     <div style={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 6, padding: '10px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: description ? 4 : 0 }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: enabled ? '#3fb950' : '#333', flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 600, color: '#e6edf3' }}>{name}</span>
-        {builtin && <span style={{ fontSize: 9, color: '#388bfd', background: '#0d2137', border: '1px solid #1f3a5f', borderRadius: 3, padding: '1px 6px', fontFamily: 'monospace' }}>built-in</span>}
-        <span style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', marginLeft: 'auto' }}>{url ?? cmd}</span>
+        {builtin && <span style={{ fontSize: 9, color: '#388bfd', background: '#0d2137', border: '1px solid #1f3a5f', borderRadius: 3, padding: '1px 6px', fontFamily: 'inherit' }}>built-in</span>}
+        <span style={{ fontSize: 10, color: '#555', fontFamily: fonts.mono, marginLeft: 'auto' }}>{url ?? cmd}</span>
       </div>
       {description && <div style={{ fontSize: 10, color: '#555', marginBottom: tools?.length ? 6 : 0 }}>{description}</div>}
       {tools && (
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {tools.map(t => (
-            <span key={t} style={{ fontSize: 9, color: '#444', background: '#0d1117', border: '1px solid #21262d', borderRadius: 3, padding: '1px 6px', fontFamily: 'monospace' }}>{t}</span>
+            <span key={t} style={{ fontSize: 9, color: '#444', background: '#0d1117', border: '1px solid #21262d', borderRadius: 3, padding: '1px 6px', fontFamily: fonts.mono }}>{t}</span>
           ))}
         </div>
       )}
@@ -358,6 +361,7 @@ function ServerRow({ name, description, url, cmd, enabled, builtin, tools }: {
 function EditableServerRow({ server, onUpdate, onRemove }: {
   server: MCPServer; onUpdate: (p: Partial<MCPServer>) => void; onRemove: () => void
 }): JSX.Element {
+  const fonts = useAppFonts()
   const [expanded, setExpanded] = useState(false)
   return (
     <div style={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 6, marginBottom: 6, overflow: 'hidden' }}>
@@ -365,11 +369,11 @@ function EditableServerRow({ server, onUpdate, onRemove }: {
         <button onClick={() => onUpdate({ enabled: !server.enabled })}
           style={{ width: 12, height: 12, borderRadius: '50%', background: server.enabled ? '#3fb950' : '#333', border: 'none', cursor: 'pointer', flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 600, color: '#e6edf3', flex: 1 }}>{server.name}</span>
-        <span style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
+        <span style={{ fontSize: 10, color: '#555', fontFamily: fonts.mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
           {server.url ?? server.cmd}
         </span>
         <button onClick={() => setExpanded(p => !p)}
-          style={{ fontSize: 9, color: '#444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace' }}
+          style={{ fontSize: 9, color: '#444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
           onMouseEnter={e => (e.currentTarget.style.color = '#888')}
           onMouseLeave={e => (e.currentTarget.style.color = '#444')}>
           {expanded ? 'less' : 'edit'}
@@ -382,25 +386,25 @@ function EditableServerRow({ server, onUpdate, onRemove }: {
       {expanded && (
         <div style={{ padding: '0 12px 10px', display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid #21262d' }}>
           <div style={{ paddingTop: 8 }}>
-            <label style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', display: 'block', marginBottom: 3 }}>URL</label>
+            <label style={{ fontSize: 9, color: '#444', fontFamily: 'inherit', display: 'block', marginBottom: 3 }}>URL</label>
             <input value={server.url ?? ''} onChange={e => onUpdate({
                 url: e.target.value || undefined,
                 cmd: undefined,
                 type: e.target.value ? 'http' : 'stdio'
               })}
-              placeholder="http://localhost:3000" style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 10, color: '#3fb950' }} />
+              placeholder="http://localhost:3000" style={{ ...inputStyle, fontFamily: fonts.mono, fontSize: 10, color: '#3fb950' }} />
           </div>
           <div>
-            <label style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', display: 'block', marginBottom: 3 }}>STDIO COMMAND</label>
+            <label style={{ fontSize: 9, color: '#444', fontFamily: 'inherit', display: 'block', marginBottom: 3 }}>STDIO COMMAND</label>
             <input value={server.cmd ?? ''} onChange={e => onUpdate({
                 cmd: e.target.value || undefined,
                 url: undefined,
                 type: e.target.value ? 'stdio' : 'http'
               })}
-              placeholder="npx @modelcontextprotocol/server-name" style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 10 }} />
+              placeholder="npx @modelcontextprotocol/server-name" style={{ ...inputStyle, fontFamily: fonts.mono, fontSize: 10 }} />
           </div>
           <div>
-            <label style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', display: 'block', marginBottom: 3 }}>DESCRIPTION</label>
+            <label style={{ fontSize: 9, color: '#444', fontFamily: 'inherit', display: 'block', marginBottom: 3 }}>DESCRIPTION</label>
             <input value={server.description ?? ''} onChange={e => onUpdate({ description: e.target.value })}
               placeholder="What does this server provide?" style={inputStyle} />
           </div>
@@ -414,6 +418,7 @@ function CatalogueView({ installed, onAdd }: {
   installed: string[]
   onAdd: (s: MCPServer) => void
 }): JSX.Element {
+  const fonts = useAppFonts()
   const [filter, setFilter] = useState('')
   const [cat, setCat] = useState<string | null>(null)
 
@@ -454,11 +459,11 @@ function CatalogueView({ installed, onAdd }: {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: isInstalled ? '#555' : '#c9d1d9' }}>{s.name}</span>
-                  <span style={{ fontSize: 9, color: '#388bfd', background: '#0d2137', border: '1px solid #1f3a5f', borderRadius: 3, padding: '0 5px', fontFamily: 'monospace' }}>{s.category}</span>
-                  {isInstalled && <span style={{ fontSize: 9, color: '#3fb950', fontFamily: 'monospace' }}>added</span>}
+                  <span style={{ fontSize: 9, color: '#388bfd', background: '#0d2137', border: '1px solid #1f3a5f', borderRadius: 3, padding: '0 5px', fontFamily: 'inherit' }}>{s.category}</span>
+                  {isInstalled && <span style={{ fontSize: 9, color: '#3fb950', fontFamily: 'inherit' }}>added</span>}
                 </div>
                 <div style={{ fontSize: 10, color: '#555', marginTop: 1 }}>{s.description}</div>
-                <div style={{ fontSize: 9, color: '#2d3a2d', fontFamily: 'monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 9, color: '#2d3a2d', fontFamily: fonts.mono, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {s.cmd ?? s.url}
                 </div>
               </div>

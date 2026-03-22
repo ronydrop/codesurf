@@ -1,12 +1,20 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { KanbanCard, KanbanCardData, buildLaunchCmd } from './KanbanCard'
+import { KanbanCard, KanbanCardData } from './KanbanCard'
 import { buildAgentBrief } from '../utils/agentBrief'
 import { ActivityFeed, ActivityEvent } from './ActivityFeed'
+import type { ActivityRecord } from '../../../shared/types'
+import { useTheme } from '../ThemeContext'
 
 interface KanbanColumn { id: string; title: string }
 
+interface KanbanSavedState {
+  columns: KanbanColumn[]
+  cards: KanbanCardData[]
+}
+
 interface Props {
   tileId: string
+  workspaceId: string
   workspaceDir: string
   width: number
   height: number
@@ -16,20 +24,266 @@ interface Props {
 const COLORS = ['#0d2137','#0d2a1a','#2a0d1a','#1a1a0d','#1a0d2a','#0d1a2a','#2a1a0d','#0d2a2a']
 const ACTIVE_TTL = 4000
 
-const DONE_PATTERNS = [
-  /task complete/i, /all done/i, /completed successfully/i,
-  /ready for review/i, /✓\s*(done|complete)/i,
-  /\$ $/, /❯ $/, /% $/
+const TERMINAL_POLL_MS = 450
+const MAX_TASK_LOG = 240
+const MAX_TASK_ENTRIES = 240
+const MAX_BUFFER_BYTES = 8192
+
+function normalizeTerminalData(data: string): string {
+  // Strip ANSI escapes and control chars to keep terminal task logs readable
+  const ansi = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g
+  return data
+    .replace(ansi, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/\r\n?/g, '\n')
+    .trim()
+}
+
+function trimTaskMessage(message: string): string {
+  const noNewlines = message.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (noNewlines.length <= MAX_TASK_LOG) return noNewlines
+  return `${noNewlines.slice(0, MAX_TASK_LOG - 1)}…`
+}
+
+const DEFAULT_COLUMNS: KanbanColumn[] = [
+  { id: 'backlog', title: 'Backlog' },
+  { id: 'running', title: 'Running' },
+  { id: 'review',  title: 'Review' },
+  { id: 'done',    title: 'Done' }
 ]
 
-export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }: Props): JSX.Element {
-  const [columns, setColumns] = useState<KanbanColumn[]>([
-    { id: 'backlog', title: 'Backlog' },
-    { id: 'running', title: 'Running' },
-    { id: 'review',  title: 'Review' },
-    { id: 'done',    title: 'Done' }
-  ])
+type KanbanMode = 'board' | 'overview'
+
+// ─── Agent Overview (auto-generated from activity store) ────────────────────
+
+const STATUS_ORDER: Record<string, number> = { running: 0, pending: 1, error: 2, done: 3 }
+const TYPE_ICONS: Record<string, string> = {
+  task: 'T', tool: 'W', file: 'F', note: 'N',
+}
+
+function getStatusColor(theme: ReturnType<typeof useTheme>, status: string): string {
+  switch (status) {
+    case 'running':
+      return theme.accent.base
+    case 'done':
+      return theme.status.success
+    case 'error':
+      return theme.status.danger
+    case 'pending':
+    default:
+      return theme.text.muted
+  }
+}
+
+function AgentOverview({ workspaceId, onFocusTile }: {
+  workspaceId: string
+  onFocusTile?: (tileId: string) => void
+}): JSX.Element {
+  const theme = useTheme()
+  const [groups, setGroups] = useState<Record<string, ActivityRecord[]>>({})
+  const [loading, setLoading] = useState(true)
+  const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const refresh = useCallback(() => {
+    if (!workspaceId || !window.electron?.activity) return
+    window.electron.activity.byAgent(workspaceId).then((result: Record<string, ActivityRecord[]>) => {
+      setGroups(result)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [workspaceId])
+
+  useEffect(() => {
+    refresh()
+    refreshTimer.current = setInterval(refresh, 3000)
+    return () => { if (refreshTimer.current) clearInterval(refreshTimer.current) }
+  }, [refresh])
+
+  const agentKeys = Object.keys(groups).sort((a, b) => {
+    // Named agents first, tile:xxx fallbacks last
+    const aIsTile = a.startsWith('tile:')
+    const bIsTile = b.startsWith('tile:')
+    if (aIsTile !== bIsTile) return aIsTile ? 1 : -1
+    return a.localeCompare(b)
+  })
+
+  if (loading) {
+    return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.disabled, fontSize: 12 }}>Loading activity...</div>
+  }
+
+  if (agentKeys.length === 0) {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: theme.text.muted }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="4" />
+          <path d="M9 12h6M12 9v6" strokeLinecap="round" />
+        </svg>
+        <span style={{ fontSize: 12 }}>No activity yet</span>
+        <span style={{ fontSize: 10, color: theme.text.disabled, maxWidth: 200, textAlign: 'center', lineHeight: 1.4 }}>
+          Activity from terminals and chats will appear here automatically, grouped by agent
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden' }}>
+      {agentKeys.map((agentKey, i) => {
+        const records = groups[agentKey]
+        const sorted = [...records].sort((a, b) => {
+          const sa = STATUS_ORDER[a.status] ?? 9
+          const sb = STATUS_ORDER[b.status] ?? 9
+          if (sa !== sb) return sa - sb
+          return b.updatedAt - a.updatedAt
+        })
+        const running = records.filter(r => r.status === 'running').length
+        const pending = records.filter(r => r.status === 'pending').length
+        const done = records.filter(r => r.status === 'done').length
+        const isAgent = !agentKey.startsWith('tile:')
+        const label = isAgent ? agentKey : agentKey.replace('tile:', '').slice(0, 8)
+
+        return (
+          <div
+            key={agentKey}
+            style={{
+              flex: 1, minWidth: 200, maxWidth: 320,
+              display: 'flex', flexDirection: 'column',
+              borderRight: i < agentKeys.length - 1 ? `1px solid ${theme.border.subtle}` : 'none',
+            }}
+          >
+            {/* Column header */}
+            <div style={{
+              padding: '8px 10px 6px', flexShrink: 0,
+              display: 'flex', alignItems: 'center', gap: 6,
+              borderBottom: `1px solid ${theme.border.subtle}`,
+            }}>
+              {running > 0 && (
+                <span style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: theme.accent.base, boxShadow: `0 0 6px ${theme.accent.base}`,
+                  display: 'inline-block', flexShrink: 0,
+                }} />
+              )}
+              <span style={{
+                flex: 1, fontSize: 11, fontWeight: 700,
+                color: isAgent ? theme.accent.base : theme.text.muted,
+                textTransform: 'uppercase', letterSpacing: 0.5,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {label}
+              </span>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                {running > 0 && <StatusPill count={running} color={theme.accent.base} />}
+                {pending > 0 && <StatusPill count={pending} color={theme.text.muted} />}
+                {done > 0 && <StatusPill count={done} color={theme.status.success} />}
+              </div>
+            </div>
+
+            {/* Records */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 6px' }}>
+              {sorted.map(record => (
+                <ActivityRecordRow
+                  key={record.id}
+                  record={record}
+                  onFocusTile={onFocusTile}
+                />
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function StatusPill({ count, color }: { count: number; color: string }): JSX.Element {
+  const theme = useTheme()
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, color,
+      background: `${color}18`, borderRadius: 8,
+      border: `1px solid ${theme.border.subtle}`,
+      padding: '1px 5px', minWidth: 16, textAlign: 'center',
+    }}>
+      {count}
+    </span>
+  )
+}
+
+function ActivityRecordRow({ record, onFocusTile }: {
+  record: ActivityRecord
+  onFocusTile?: (tileId: string) => void
+}): JSX.Element {
+  const theme = useTheme()
+  const [hovered, setHovered] = useState(false)
+  const statusColor = getStatusColor(theme, record.status)
+  const typeIcon = TYPE_ICONS[record.type] ?? '?'
+
+  return (
+    <div
+      style={{
+        padding: '5px 6px', marginBottom: 2,
+        borderRadius: 5,
+        background: hovered ? theme.surface.hover : 'transparent',
+        display: 'flex', alignItems: 'flex-start', gap: 6,
+        cursor: onFocusTile ? 'pointer' : 'default',
+        transition: 'background 0.1s',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => onFocusTile?.(record.tileId)}
+      title={`${record.type} — ${record.status}\nTile: ${record.tileId.slice(0, 8)}\n${new Date(record.updatedAt).toLocaleString()}`}
+    >
+      {/* Status dot */}
+      <span style={{
+        width: 8, height: 8, borderRadius: '50%', flexShrink: 0, marginTop: 3,
+        border: `1.5px solid ${statusColor}`,
+        background: record.status === 'running' ? statusColor : 'transparent',
+      }} />
+
+      {/* Type badge */}
+      <span style={{
+        fontSize: 8, fontWeight: 700, width: 14, height: 14,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 3, flexShrink: 0, marginTop: 1,
+        color: statusColor, background: `${statusColor}15`,
+      }}>
+        {typeIcon}
+      </span>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 11, color: theme.text.secondary,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {record.title}
+        </div>
+        {record.detail && (
+          <div style={{
+            fontSize: 10, color: theme.text.disabled, marginTop: 1,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {record.detail}
+          </div>
+        )}
+      </div>
+
+      {/* Time */}
+      <span style={{ fontSize: 9, color: theme.text.disabled, flexShrink: 0, marginTop: 2 }}>
+        {new Date(record.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </span>
+    </div>
+  )
+}
+
+// ─── Main KanbanTile ────────────────────────────────────────────────────────
+
+export function KanbanTile({ tileId, workspaceId, workspaceDir, width, height, onFocusTile }: Props): JSX.Element {
+  const theme = useTheme()
+  const [mode, setMode] = useState<KanbanMode>('board')
+  const [columns, setColumns] = useState<KanbanColumn[]>(DEFAULT_COLUMNS)
   const [cards, setCards] = useState<KanbanCardData[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [dragging, setDragging] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
   const [addingTo, setAddingTo] = useState<string | null>(null)
@@ -39,65 +293,127 @@ export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }:
   const [activeTerminals, setActiveTerminals] = useState<Record<string, number>>({})
   const [activityLog, setActivityLog] = useState<ActivityEvent[]>([])
   const cleanupRefs = useRef<Record<string, () => void>>({})
+  const terminalBufferRefs = useRef<Record<string, string>>({})
+  const terminalFlushRefs = useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({})
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Load saved kanban state on mount
+  useEffect(() => {
+    if (!workspaceId) return
+    window.electron?.kanban?.load(workspaceId, tileId).then((saved: KanbanSavedState | null) => {
+      if (saved) {
+        if (saved.columns?.length) setColumns(saved.columns)
+        if (saved.cards?.length) setCards(saved.cards)
+      }
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [workspaceId, tileId])
+
+  // Auto-save kanban state on changes (debounced)
+  useEffect(() => {
+    if (!loaded || !workspaceId) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      const state: KanbanSavedState = { columns, cards }
+      window.electron?.kanban?.save(workspaceId, tileId, state)
+    }, 500)
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
+  }, [columns, cards, loaded, workspaceId, tileId])
+
+  const terminalTaskCards = cards.filter(c => c.linkedTileId && (c.linkedTileType === 'terminal' || !c.linkedTileType))
+  const terminalCardIds = new Set(terminalTaskCards.map(c => c.id))
+
+  const terminalEvents = activityLog.filter(e => e.type === 'terminal' && terminalCardIds.has(e.cardId))
+  const terminalEventByCard = terminalEvents.reduce((acc, e) => {
+    acc[e.cardId] = e
+    return acc
+  }, {} as Record<string, ActivityEvent>)
 
   const HEADER = 38
   const MIN_COL_W = 180
 
-  // Watch terminals for activity (dot only — moves come from MCP card_complete)
+  const logActivity = useCallback((type: ActivityEvent['type'], cardId: string, message: string) => {
+    setCards(prev => {
+      const card = prev.find(c => c.id === cardId)
+      setActivityLog(log => {
+        const next = [...log, {
+          id: `ev-${Date.now()}-${Math.random()}`,
+          ts: Date.now(),
+          cardId,
+          cardTitle: card?.title ?? cardId,
+          event: type,
+          message,
+          type
+        }]
+        return next.length > MAX_TASK_ENTRIES * 4 ? next.slice(-(MAX_TASK_ENTRIES * 4)) : next
+      })
+      return prev
+    })
+  }, [])
+
+  // Watch linked standalone terminals for both activity pings and live output
   useEffect(() => {
-    const linked = cards.filter(c => c.linkedTileId && (c.linkedTileType === 'terminal' || !c.linkedTileType))
-    linked.forEach(card => {
+    const terminalCards = cards.filter(c => c.linkedTileId && (c.linkedTileType === 'terminal' || !c.linkedTileType))
+    const linkedIds = terminalCards.map(c => c.linkedTileId!)
+
+    terminalCards.forEach(card => {
       const id = card.linkedTileId!
       if (cleanupRefs.current[id]) return
-      const c1 = window.electron?.terminal?.onActive?.(id, () =>
-        setActiveTerminals(prev => ({ ...prev, [id]: Date.now() }))
-      )
-      cleanupRefs.current[id] = () => { c1?.() }
+      const markActive = () => setActiveTerminals(prev => ({ ...prev, [id]: Date.now() }))
+      const watchActive = window.electron?.terminal?.onActive?.(id, markActive)
+
+      const flushOutput = (terminalId: string, cardId: string) => {
+        const raw = terminalBufferRefs.current[terminalId]
+        if (!raw) {
+          terminalBufferRefs.current[terminalId] = ''
+          return
+        }
+        terminalBufferRefs.current[terminalId] = ''
+        const message = trimTaskMessage(normalizeTerminalData(raw))
+        if (!message) return
+        logActivity('terminal', cardId, message)
+      }
+
+      const watchData = window.electron?.terminal?.onData?.(id, (data: string) => {
+        const clean = normalizeTerminalData(data)
+        if (!clean) return
+        const prev = terminalBufferRefs.current[id] ?? ''
+        terminalBufferRefs.current[id] = prev.length >= MAX_BUFFER_BYTES
+          ? prev.slice(-MAX_BUFFER_BYTES) + clean
+          : prev + clean
+        if (terminalFlushRefs.current[id]) return
+        terminalFlushRefs.current[id] = setTimeout(() => {
+          terminalFlushRefs.current[id] = undefined
+          flushOutput(id, card.id)
+        }, TERMINAL_POLL_MS)
+      })
+
+      cleanupRefs.current[id] = () => {
+        watchActive?.()
+        watchData?.()
+        if (terminalFlushRefs.current[id]) {
+          clearTimeout(terminalFlushRefs.current[id])
+          terminalFlushRefs.current[id] = undefined
+        }
+        terminalBufferRefs.current[id] = ''
+        delete terminalBufferRefs.current[id]
+      }
     })
+
     Object.keys(cleanupRefs.current).forEach(id => {
-      if (!linked.find(c => c.linkedTileId === id)) {
+      if (!linkedIds.includes(id)) {
         cleanupRefs.current[id]?.()
         delete cleanupRefs.current[id]
       }
     })
-  }, [cards])
+  }, [cards, logActivity])
 
   useEffect(() => () => Object.values(cleanupRefs.current).forEach(fn => fn()), [])
 
-  // Subscribe to SSE stream from MCP server
-  useEffect(() => {
-    let es: EventSource | null = null
-    window.electron?.mcp?.getPort?.().then((port: number | null) => {
-      if (!port) return
-      es = new EventSource(`http://127.0.0.1:${port}/events?card_id=global`)
-      const handle = (e: MessageEvent) => {
-        try {
-          const { cardId, ...rest } = JSON.parse(e.data)
-          handleKanbanEvent(e.type, { cardId, ...rest })
-        } catch { /**/ }
-      }
-      ;['card_complete','card_update','card_error','canvas_event'].forEach(ev => {
-        es!.addEventListener(ev, handle as EventListener)
-      })
-    })
-    return () => es?.close()
-  }, [])
-
-  const logActivity = useCallback((type: ActivityEvent['type'], cardId: string, message: string) => {
-    setCards(prev => {
-      const card = prev.find(c => c.id === cardId)
-      setActivityLog(log => [...log, {
-        id: `ev-${Date.now()}-${Math.random()}`,
-        ts: Date.now(),
-        cardId,
-        cardTitle: card?.title ?? cardId,
-        event: type,
-        message,
-        type
-      }])
-      return prev
-    })
-  }, [])
+  const jumpToCard = (cardId: string) => {
+    const el = document.querySelector(`[data-card-id="${cardId}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   const handleKanbanEvent = useCallback((event: string, data: any) => {
     if (event === 'card_complete') {
@@ -161,6 +477,25 @@ export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }:
     }
   }, [columns, logActivity, cards])
 
+  // Subscribe to SSE stream from MCP server
+  useEffect(() => {
+    let es: EventSource | null = null
+    window.electron?.mcp?.getPort?.().then((port: number | null) => {
+      if (!port) return
+      es = new EventSource(`http://127.0.0.1:${port}/events?card_id=global`)
+      const handle = (e: MessageEvent) => {
+        try {
+          const { cardId, ...rest } = JSON.parse(e.data)
+          handleKanbanEvent(e.type, { cardId, ...rest })
+        } catch { /**/ }
+      }
+      ;['card_complete','card_update','card_error','canvas_event'].forEach(ev => {
+        es!.addEventListener(ev, handle as EventListener)
+      })
+    })
+    return () => es?.close()
+  }, [handleKanbanEvent])
+
   // Also listen via IPC (fallback for same-process events)
   useEffect(() => {
     const el = (window as any).electron?.mcp
@@ -223,13 +558,42 @@ export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }:
       setDragging(null)
       return
     }
+    // Group dragged from canvas label bar
+    const linkedGroupId = e.dataTransfer.getData('application/group-id')
+    const groupLabel = e.dataTransfer.getData('application/group-label')
+    if (linkedGroupId) {
+      let tileIds: string[] = []
+      let tileTypes: string[] = []
+      try { tileIds = JSON.parse(e.dataTransfer.getData('application/group-tile-ids') || '[]') } catch { /**/ }
+      try { tileTypes = JSON.parse(e.dataTransfer.getData('application/group-tile-types') || '[]') } catch { /**/ }
+      const typeSummary = [...new Set(tileTypes)].join(', ')
+      const cardId = `card-${tileId}-${Date.now()}`
+      setCards(prev => [...prev, {
+        id: cardId,
+        title: groupLabel || 'Group',
+        description: `Group with ${tileIds.length} tile${tileIds.length !== 1 ? 's' : ''} (${typeSummary})`,
+        instructions: '', agent: 'claude',
+        tools: [], skillsAndCommands: [], fileRefs: [], cardRefs: [],
+        mcpServers: [], hooks: [],
+        columnId: colId, color: COLORS[prev.length % COLORS.length],
+        linkedGroupId,
+        linkedTileIds: tileIds,
+        launched: false,
+        comments: [], attachments: []
+      }])
+      window.electron?.bus?.publish(`kanban:${tileId}`, 'task', `kanban:${tileId}`, {
+        action: 'group_linked', cardId, groupId: linkedGroupId, tileIds, column: colId
+      })
+      return
+    }
     // Tile dragged from canvas titlebar
     const linkedTileId = e.dataTransfer.getData('application/tile-id')
     const linkedTileType = e.dataTransfer.getData('application/tile-type')
     const linkedTileLabel = e.dataTransfer.getData('application/tile-label')
     if (linkedTileId) {
+      const tileCardId = `card-${tileId}-${Date.now()}`
       setCards(prev => [...prev, {
-        id: `card-${tileId}-${Date.now()}`,
+        id: tileCardId,
         title: linkedTileLabel || linkedTileType,
         description: '', instructions: '', agent: 'claude',
         tools: [], skillsAndCommands: [], fileRefs: [], cardRefs: [],
@@ -239,6 +603,9 @@ export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }:
         launched: linkedTileType === 'terminal',
         comments: [], attachments: []
       }])
+      window.electron?.bus?.publish(`kanban:${tileId}`, 'task', `kanban:${tileId}`, {
+        action: 'tile_linked', cardId: tileCardId, linkedTileId, tileType: linkedTileType, column: colId
+      })
       return
     }
     // File from sidebar
@@ -259,32 +626,126 @@ export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }:
   }, [dragging, tileId])
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#13151a', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: theme.surface.panelMuted, overflow: 'hidden' }}>
 
       {/* Header */}
-      <div style={{ height: HEADER, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', borderBottom: '1px solid #21262d' }}>
+      <div style={{ height: HEADER, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', borderBottom: `1px solid ${theme.border.subtle}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#58a6ff', letterSpacing: 1, textTransform: 'uppercase' }}>Board</span>
-          <span style={{ fontSize: 10, color: '#444', background: '#1c2128', border: '1px solid #30363d', borderRadius: 10, padding: '1px 7px' }}>
-            {cards.length} card{cards.length !== 1 ? 's' : ''}
-          </span>
-          {Object.keys(activeTerminals).filter(id => isActive(id)).length > 0 && (
-            <span style={{ fontSize: 10, color: '#3fb950', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3fb950', boxShadow: '0 0 6px #3fb950', display: 'inline-block' }} />
-              {Object.keys(activeTerminals).filter(id => isActive(id)).length} active
-            </span>
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['board', 'overview'] as const).map(m => {
+              const isActive = mode === m
+              return (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  style={{
+                    height: 28,
+                    fontSize: 11,
+                    fontWeight: isActive ? 700 : 500,
+                    padding: '0 11px',
+                    border: `1px solid ${isActive ? theme.border.default : 'transparent'}`,
+                    borderRadius: 7,
+                    cursor: 'pointer',
+                    background: isActive ? theme.surface.selection : 'transparent',
+                    color: isActive ? theme.accent.base : theme.text.muted,
+                    fontFamily: 'inherit',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.3,
+                    transition: 'color 0.15s, background 0.15s, border-color 0.15s',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = theme.surface.hover
+                      e.currentTarget.style.color = theme.text.secondary
+                      e.currentTarget.style.borderColor = theme.border.default
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = theme.text.muted
+                      e.currentTarget.style.borderColor = 'transparent'
+                    }
+                  }}
+                >
+                  {m === 'overview' ? 'Activity' : 'Board'}
+                </button>
+              )
+            })}
+          </div>
+
+          {mode === 'board' && (
+            <>
+              <span style={{ fontSize: 10, color: theme.text.disabled, background: theme.surface.panelElevated, border: `1px solid ${theme.border.default}`, borderRadius: 10, padding: '1px 7px' }}>
+                {cards.length} card{cards.length !== 1 ? 's' : ''}
+              </span>
+              {Object.keys(activeTerminals).filter(id => isActive(id)).length > 0 && (
+                <span style={{ fontSize: 10, color: theme.status.success, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: theme.status.success, boxShadow: `0 0 6px ${theme.status.success}`, display: 'inline-block' }} />
+                  {Object.keys(activeTerminals).filter(id => isActive(id)).length} active
+                </span>
+              )}
+            </>
           )}
         </div>
-        <button
-          onClick={() => setColumns(prev => [...prev, { id: `col-${Date.now()}`, title: 'New List' }])}
-          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, background: '#21262d', color: '#8b949e', border: '1px solid #30363d', cursor: 'pointer', fontFamily: 'inherit' }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#58a6ff'; e.currentTarget.style.background = '#2d333b' }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#8b949e'; e.currentTarget.style.background = '#21262d' }}
-        >+ List</button>
+        {mode === 'board' && (
+          <button
+            onClick={() => setColumns(prev => [...prev, { id: `col-${Date.now()}`, title: 'New List' }])}
+            style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, background: theme.surface.panelElevated, color: theme.text.muted, border: `1px solid ${theme.border.default}`, cursor: 'pointer', fontFamily: 'inherit' }}
+            onMouseEnter={e => { e.currentTarget.style.color = theme.accent.base; e.currentTarget.style.background = theme.surface.hover }}
+            onMouseLeave={e => { e.currentTarget.style.color = theme.text.muted; e.currentTarget.style.background = theme.surface.panelElevated }}
+          >+ List</button>
+        )}
       </div>
 
-      {/* Columns */}
-      <div style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden' }}>
+      {/* Overview mode */}
+      {mode === 'overview' && (
+        <AgentOverview workspaceId={workspaceId} onFocusTile={onFocusTile} />
+      )}
+
+      {/* Board mode — terminal task activity */}
+      {mode === 'board' && terminalTaskCards.length > 0 && (
+        <div style={{ borderBottom: `1px solid ${theme.border.subtle}`, background: theme.surface.panel, padding: '4px 8px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: theme.accent.base, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 }}>Task Activity</div>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+            {terminalTaskCards.map(card => {
+              const ev = terminalEventByCard[card.id]
+              const hasAny = !!ev
+              const isLive = hasAny && Date.now() - ev.ts < ACTIVE_TTL * 2
+              return (
+                <button
+                  key={card.id}
+                  onClick={() => jumpToCard(card.id)}
+                  style={{
+                    fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer',
+                    borderRadius: 6, border: `1px solid ${isLive ? `${theme.status.success}55` : theme.border.default}`,
+                    background: isLive ? `${theme.status.success}14` : theme.surface.panelMuted,
+                    padding: 7, minWidth: 180, maxWidth: 280,
+                    color: theme.text.secondary,
+                    display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0
+                  }}
+                  title={`Jump to ${card.title}`}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = `${theme.accent.base}66` }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = isLive ? `${theme.status.success}55` : theme.border.default }}
+                >
+                  <span style={{ fontSize: 11, color: theme.accent.base, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.title}</span>
+                  <span style={{ fontSize: 10, color: hasAny ? theme.text.muted : theme.text.disabled, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: isLive ? theme.status.success : theme.border.default, boxShadow: isLive ? `0 0 6px ${theme.status.success}` : 'none', display: 'inline-block' }} />
+                    {hasAny ? ev.message : 'No terminal output yet'}
+                  </span>
+                  <span style={{ fontSize: 9, color: theme.text.disabled, letterSpacing: 0.2 }}>
+                    {hasAny ? new Date(ev.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '---'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Columns (board mode only) */}
+      {mode === 'board' && <div style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden' }}>
         {columns.map((col, ci) => {
           const colCards = cards.filter(c => c.columnId === col.id)
           const isOver = dragOver === col.id
@@ -295,8 +756,8 @@ export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }:
                 minWidth: MIN_COL_W,
                 width: 0,
                 display: 'flex', flexDirection: 'column',
-                borderRight: ci < columns.length - 1 ? '1px solid #21262d' : 'none',
-                background: isOver ? '#161b22' : 'transparent',
+                borderRight: ci < columns.length - 1 ? `1px solid ${theme.border.subtle}` : 'none',
+                background: isOver ? theme.surface.hover : 'transparent',
                 transition: 'background 0.1s'
               }}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(col.id) }}
@@ -309,19 +770,19 @@ export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }:
                   <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { setColumns(p => p.map(c => c.id === col.id ? { ...c, title: renameVal } : c)); setRenamingCol(null) } if (e.key === 'Escape') setRenamingCol(null) }}
                     onBlur={() => { setColumns(p => p.map(c => c.id === col.id ? { ...c, title: renameVal } : c)); setRenamingCol(null) }}
-                    style={{ flex: 1, fontSize: 11, fontWeight: 700, background: 'transparent', color: '#58a6ff', border: 'none', borderBottom: '1px solid #58a6ff', outline: 'none', textTransform: 'uppercase', letterSpacing: 0.5 }}
+                    style={{ flex: 1, fontSize: 11, fontWeight: 700, background: 'transparent', color: theme.accent.base, border: 'none', borderBottom: `1px solid ${theme.accent.base}`, outline: 'none', textTransform: 'uppercase', letterSpacing: 0.5 }}
                   />
                 ) : (
-                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: 0.5, cursor: 'text' }}
+                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: theme.text.muted, textTransform: 'uppercase', letterSpacing: 0.5, cursor: 'text' }}
                     onDoubleClick={() => { setRenamingCol(col.id); setRenameVal(col.title) }}>
                     {col.title}
                   </span>
                 )}
-                <span style={{ fontSize: 10, color: '#444', background: '#1c2128', borderRadius: 8, padding: '1px 5px', border: '1px solid #21262d' }}>{colCards.length}</span>
+                <span style={{ fontSize: 10, color: theme.text.disabled, background: theme.surface.panelElevated, borderRadius: 8, padding: '1px 5px', border: `1px solid ${theme.border.subtle}` }}>{colCards.length}</span>
                 <button onClick={() => { cards.filter(c => c.columnId === col.id).forEach(c => c.linkedTileId && window.electron?.terminal?.destroy?.(c.linkedTileId)); setCards(p => p.filter(c => c.columnId !== col.id)); setColumns(p => p.filter(c => c.id !== col.id)) }}
-                  style={{ fontSize: 10, color: '#2d333b', background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#ff7b72')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#2d333b')}
+                  style={{ fontSize: 10, color: theme.text.disabled, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = theme.status.danger)}
+                  onMouseLeave={e => (e.currentTarget.style.color = theme.text.disabled)}
                 >✕</button>
               </div>
 
@@ -348,58 +809,75 @@ export function KanbanTile({ tileId, workspaceDir, width, height, onFocusTile }:
 
                 {/* Add card */}
                 {addingTo === col.id ? (
-                  <div style={{ background: '#1c2128', border: '1px solid #30363d', borderRadius: 6, padding: 8, flexShrink: 0 }}>
+                  <div style={{ background: theme.surface.panelElevated, border: `1px solid ${theme.border.default}`, borderRadius: 6, padding: 8, flexShrink: 0 }}>
                     <input autoFocus value={addTitle} onChange={e => setAddTitle(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') addCard(col.id); if (e.key === 'Escape') { setAddingTo(null); setAddTitle('') } }}
                       placeholder="Card title…"
-                      style={{ width: '100%', fontSize: 12, padding: '5px 8px', borderRadius: 4, background: '#0d1117', color: '#e6edf3', border: '1px solid #58a6ff', outline: 'none', fontFamily: 'inherit', marginBottom: 6 }}
+                      style={{ width: '100%', fontSize: 12, padding: '5px 8px', borderRadius: 4, background: theme.surface.input, color: theme.text.primary, border: `1px solid ${theme.accent.base}`, outline: 'none', fontFamily: 'inherit', marginBottom: 6 }}
                     />
                     <div style={{ display: 'flex', gap: 5 }}>
-                      <button onClick={() => addCard(col.id)} style={{ flex: 1, padding: '4px 0', borderRadius: 4, background: '#1f6feb', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
-                      <button onClick={() => { setAddingTo(null); setAddTitle('') }} style={{ padding: '4px 8px', borderRadius: 4, background: '#21262d', color: '#8b949e', border: '1px solid #30363d', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                      <button onClick={() => addCard(col.id)} style={{ flex: 1, padding: '4px 0', borderRadius: 4, background: theme.accent.base, color: theme.text.inverse, border: 'none', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
+                      <button onClick={() => { setAddingTo(null); setAddTitle('') }} style={{ padding: '4px 8px', borderRadius: 4, background: theme.surface.panel, color: theme.text.muted, border: `1px solid ${theme.border.default}`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
                     </div>
                   </div>
                 ) : (
-                  <button onClick={() => { setAddingTo(col.id); setAddTitle('') }}
-                    style={{ width: '100%', padding: '5px 0', fontSize: 11, color: '#9dc7ff', background: 'rgba(88,166,255,0.12)', border: '1px dashed #79bcff', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, fontWeight: 600 }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#d7eaff'; e.currentTarget.style.borderColor = '#9dc7ff'; e.currentTarget.style.background = 'rgba(88,166,255,0.24)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = '#9dc7ff'; e.currentTarget.style.borderColor = '#79bcff'; e.currentTarget.style.background = 'rgba(88,166,255,0.12)' }}
-                  >+ Add card</button>
+                  <button
+                    onClick={() => { setAddingTo(col.id); setAddTitle('') }}
+                    style={{
+                      width: '100%',
+                      padding: '4px 0 2px',
+                      fontSize: 11,
+                      color: theme.text.muted,
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      flexShrink: 0,
+                      fontWeight: 500,
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = theme.text.primary }}
+                    onMouseLeave={e => { e.currentTarget.style.color = theme.text.muted }}
+                  >
+                    + Add card
+                  </button>
                 )}
               </div>
             </div>
           )
         })}
-      </div>
+      </div>}
 
-      <ActivityFeed
-        events={activityLog}
-        onClearAll={() => setActivityLog([])}
-        onJumpToCard={cardId => {
-          const el = document.querySelector(`[data-card-id="${cardId}"]`)
-          el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }}
-        onReply={(eventId, cardId, message) => {
-          // Find the terminal ID for this card and write the message to it
-          const card = cards.find(c => c.id === cardId)
-          if (card?.launched) {
-            const termId = `kterm-${cardId}`
-            window.electron?.terminal?.write?.(termId, message + '\r')
-          }
-          // Mark event as answered
-          setActivityLog(prev => prev.map(ev => ev.id === eventId ? { ...ev, answered: true } : ev))
-          // Log the reply
-          setActivityLog(prev => [...prev, {
-            id: `ev-${Date.now()}`,
-            ts: Date.now(),
-            cardId,
-            cardTitle: card?.title ?? cardId,
-            event: 'reply',
-            message: `You: ${message}`,
-            type: 'custom'
-          }])
-        }}
-      />
+      {mode === 'board' && (
+        <ActivityFeed
+          events={activityLog}
+          onClearAll={() => setActivityLog([])}
+          onJumpToCard={cardId => {
+            const el = document.querySelector(`[data-card-id="${cardId}"]`)
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }}
+          onReply={(eventId, cardId, message) => {
+            // Find the terminal ID for this card and write the message to it
+            const card = cards.find(c => c.id === cardId)
+            if (card?.launched) {
+              const termId = `kterm-${cardId}`
+              window.electron?.terminal?.write?.(termId, message + '\r')
+            }
+            // Mark event as answered
+            setActivityLog(prev => prev.map(ev => ev.id === eventId ? { ...ev, answered: true } : ev))
+            // Log the reply
+            setActivityLog(prev => [...prev, {
+              id: `ev-${Date.now()}`,
+              ts: Date.now(),
+              cardId,
+              cardTitle: card?.title ?? cardId,
+              event: 'reply',
+              message: `You: ${message}`,
+              type: 'custom'
+            }])
+          }}
+        />
+      )}
     </div>
   )
 }

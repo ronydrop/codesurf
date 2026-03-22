@@ -1,7 +1,10 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
+import { useAppFonts } from '../FontContext'
+import { useTheme } from '../ThemeContext'
+import { getDroppedPaths, shellEscapePath } from '../utils/dnd'
 
 interface Props {
   tileId: string
@@ -12,12 +15,16 @@ interface Props {
   fontFamily?: string
 }
 
-export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 13, fontFamily = '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", monospace' }: Props): JSX.Element {
+export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 13, fontFamily }: Props): JSX.Element {
+  const appFonts = useAppFonts()
+  const theme = useTheme()
+  const resolvedFont = fontFamily ?? appFonts.mono
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
   const mountedRef = useRef(false)
+  const [isDropTarget, setIsDropTarget] = useState(false)
 
   const doFit = () => {
     if (!fitRef.current || !termRef.current) return
@@ -36,19 +43,23 @@ export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 1
 
     const term = new Terminal({
       theme: {
-        background: '#1a1a1a',
-        foreground: '#d4d4d4',
-        cursor: '#aeafad',
-        cursorAccent: '#1a1a1a',
-        selectionBackground: 'rgba(74,158,255,0.3)',
-        black: '#1e1e1e', red: '#f44747', green: '#6a9955',
-        yellow: '#d7ba7d', blue: '#569cd6', magenta: '#c586c0',
-        cyan: '#4ec9b0', white: '#d4d4d4',
-        brightBlack: '#808080', brightRed: '#f44747', brightGreen: '#6a9955',
-        brightYellow: '#d7ba7d', brightBlue: '#569cd6', brightMagenta: '#c586c0',
-        brightCyan: '#4ec9b0', brightWhite: '#ffffff'
+        background: theme.terminal.background,
+        foreground: theme.terminal.foreground,
+        cursor: theme.terminal.cursor,
+        cursorAccent: theme.terminal.cursorAccent,
+        selectionBackground: theme.terminal.selection,
+        black: theme.terminal.black, red: theme.terminal.red, green: theme.terminal.green,
+        yellow: theme.terminal.yellow, blue: theme.terminal.blue, magenta: theme.terminal.magenta,
+        cyan: theme.terminal.cyan, white: theme.terminal.white,
+        brightBlack: theme.terminal.brightBlack, brightRed: theme.terminal.brightRed, brightGreen: theme.terminal.brightGreen,
+        brightYellow: theme.terminal.brightYellow, brightBlue: theme.terminal.brightBlue, brightMagenta: theme.terminal.brightMagenta,
+        brightCyan: theme.terminal.brightCyan, brightWhite: theme.terminal.brightWhite,
+        overviewRulerBorder: theme.terminal.background,
       },
-      fontFamily,
+      overviewRuler: {
+        width: 10
+      },
+      fontFamily: resolvedFont,
       fontSize,
       lineHeight: 1,
       cursorBlink: true,
@@ -60,6 +71,13 @@ export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 1
     term.loadAddon(fitAddon)
     term.open(containerRef.current)
 
+    // Apply padding inside xterm element so viewport bg covers behind it
+    const xtermEl = containerRef.current.querySelector('.xterm') as HTMLElement | null
+    if (xtermEl) {
+      xtermEl.style.paddingLeft = '8px'
+      xtermEl.style.paddingTop = '8px'
+    }
+
     termRef.current = term
     fitRef.current = fitAddon
 
@@ -70,7 +88,8 @@ export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 1
     // Initial fit after paint
     requestAnimationFrame(() => requestAnimationFrame(() => doFit()))
 
-    window.electron.terminal.create(tileId, workspaceDir).then(() => {
+    window.electron.terminal.create(tileId, workspaceDir).then(({ buffer }) => {
+      if (buffer) term.write(buffer)
       const cleanup = window.electron.terminal.onData(tileId, (data: string) => {
         term.write(data)
       })
@@ -90,7 +109,6 @@ export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 1
       mountedRef.current = false
       ro.disconnect()
       cleanupRef.current?.()
-      window.electron.terminal.destroy(tileId)
       term.dispose()
     }
   }, [tileId, workspaceDir])
@@ -100,10 +118,82 @@ export function TerminalTile({ tileId, workspaceDir, width, height, fontSize = 1
     doFit()
   }, [width, height])
 
+  useEffect(() => {
+    if (!termRef.current) return
+    termRef.current.options.theme = {
+      background: theme.terminal.background,
+      foreground: theme.terminal.foreground,
+      cursor: theme.terminal.cursor,
+      cursorAccent: theme.terminal.cursorAccent,
+      selectionBackground: theme.terminal.selection,
+      black: theme.terminal.black,
+      red: theme.terminal.red,
+      green: theme.terminal.green,
+      yellow: theme.terminal.yellow,
+      blue: theme.terminal.blue,
+      magenta: theme.terminal.magenta,
+      cyan: theme.terminal.cyan,
+      white: theme.terminal.white,
+      brightBlack: theme.terminal.brightBlack,
+      brightRed: theme.terminal.brightRed,
+      brightGreen: theme.terminal.brightGreen,
+      brightYellow: theme.terminal.brightYellow,
+      brightBlue: theme.terminal.brightBlue,
+      brightMagenta: theme.terminal.brightMagenta,
+      brightCyan: theme.terminal.brightCyan,
+      brightWhite: theme.terminal.brightWhite,
+      overviewRulerBorder: theme.terminal.background,
+    }
+  }, [theme])
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (getDroppedPaths(e.dataTransfer).length === 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    setIsDropTarget(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+    setIsDropTarget(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    const droppedPaths = getDroppedPaths(e.dataTransfer)
+    if (droppedPaths.length === 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDropTarget(false)
+    const payload = droppedPaths.map(shellEscapePath).join(' ')
+    if (!payload) return
+    termRef.current?.focus()
+    window.electron?.terminal?.write(tileId, `${payload} `)
+  }, [tileId])
+
   return (
     <div
-      ref={containerRef}
-      style={{ width: '100%', height: '100%', background: '#1a1a1a', padding: '4px 6px', boxSizing: 'border-box' }}
-    />
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={{
+        width: '100%', height: '100%', background: isDropTarget ? theme.surface.accentSoft : theme.terminal.background, overflow: 'hidden', position: 'relative',
+        boxShadow: isDropTarget ? `inset 0 0 0 2px ${theme.accent.base}, 0 0 22px ${theme.accent.soft}` : 'none',
+        transition: 'background 120ms ease, box-shadow 120ms ease'
+      }}
+    >
+      <div
+        ref={containerRef}
+        style={{ width: '100%', height: '100%', background: theme.terminal.background, overflow: 'hidden' }}
+      />
+      {isDropTarget && (
+        <div style={{
+          position: 'absolute', inset: 12, zIndex: 2,
+          border: `1px dashed ${theme.accent.base}`, borderRadius: 10,
+          background: theme.accent.soft,
+          pointerEvents: 'none',
+        }} />
+      )}
+    </div>
   )
 }

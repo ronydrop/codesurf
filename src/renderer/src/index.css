@@ -1,5 +1,125 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Armata';
+  src: url('./assets/fonts/Armata-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Blinker';
+  src: url('./assets/fonts/Blinker-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Datatype';
+  src: url('./assets/fonts/Datatype-VariableFont_wdth,wght.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Doto';
+  src: url('./assets/fonts/Doto-VariableFont_ROND,wght.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Exo 2';
+  src: url('./assets/fonts/Exo2-VariableFont_wght.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./assets/fonts/IBMPlexMono-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jockey One';
+  src: url('./assets/fonts/JockeyOne-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Metrophobic';
+  src: url('./assets/fonts/Metrophobic-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Orbitron';
+  src: url('./assets/fonts/Orbitron-VariableFont_wght.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Oxanium';
+  src: url('./assets/fonts/Oxanium-VariableFont_wght.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Quantico';
+  src: url('./assets/fonts/Quantico-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Russo One';
+  src: url('./assets/fonts/RussoOne-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Saira';
+  src: url('./assets/fonts/Saira-VariableFont_wdth,wght.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Saira Condensed';
+  src: url('./assets/fonts/SairaCondensed-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Tektur';
+  src: url('./assets/fonts/Tektur-VariableFont_wdth,wght.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -16,19 +136,30 @@ html, body, #root {
 }
 
 body {
-  background: #1e1e1e;
+  background: transparent;
   color: #cccccc;
 }
 
-/* xterm overrides */
-.xterm {
-  height: 100%;
+button,
+button:focus,
+button:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
+
+/* xterm overrides — eliminate bottom gap from fractional row heights.
+   xterm.css hardcodes .xterm-viewport { background-color: #000 }.
+   xterm JS sets an inline bg from the theme, but only within the viewport's
+   sized area. Override to inherit so it always matches the container. */
 .xterm-viewport {
   overflow-y: auto !important;
+  background-color: inherit !important;
 }
-.xterm .xterm-screen {
-  padding: 0 !important;
+/* Hide the horizontal scrollbar that creates a band at the bottom */
+.xterm-viewport::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Terminal activity pulse */

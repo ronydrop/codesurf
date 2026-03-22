@@ -1,84 +1,78 @@
 import React, { useState } from 'react'
-import type { TileState } from '../../../shared/types'
+import { Settings } from 'lucide-react'
+import type { TileState, GroupState } from '../../../shared/types'
 
-
-
-const GAP = 40
-
-interface Props {
-  tiles: TileState[]
-  onArrange: (updated: TileState[]) => void
-}
+const GAP = 50
+const GROUP_PAD = 20
+const SLIDEOUT_RESERVE_WIDTH = 272
 
 type Mode = 'grid' | 'column' | 'row'
 
-// ─── ELK grid layout ────────────────────────────────────────────────────────
-async function arrangeGrid(tiles: TileState[]): Promise<TileState[]> {
+interface Props {
+  tiles: TileState[]
+  groups: GroupState[]
+  onArrange: (updated: TileState[], mode: Mode) => void
+  zoom: number
+  onZoomToggle: () => void
+  onToggleTabs: () => void
+  onOpenSettings: () => void
+  isTabbedView?: boolean
+  activeCanvasMode?: Mode | null
+}
+
+function getArrangeWidth(tile: TileState): number {
+  const reserve = tile.type === 'terminal' || tile.type === 'chat' ? SLIDEOUT_RESERVE_WIDTH : 0
+  return tile.width + reserve
+}
+
+// ─── Pure-math layouts ───────────────────────────────────────────────────────
+
+function arrangeTiles(
+  tiles: TileState[],
+  _groups: GroupState[],
+  mode: Mode
+): TileState[] {
   if (tiles.length === 0) return tiles
 
-  // elk.bundled.js is a browserify bundle that clobbers globals.
-  // Save and restore Map/Set around the import to prevent React corruption.
-  const savedMap = globalThis.Map
-  const savedSet = globalThis.Set
-  await import('elkjs/lib/elk.bundled.js')
-  globalThis.Map = savedMap
-  globalThis.Set = savedSet
-  const ELK = (globalThis as any).ELK
-  if (!ELK) throw new Error('ELK failed to load')
-  const elk = new ELK()
-
-  const graph = {
-    id: 'root',
-    layoutOptions: {
-      'elk.algorithm': 'rectpacking',
-      'elk.spacing.nodeNode': String(GAP),
-      'elk.rectpacking.expandToFill': 'false',
-      'elk.padding': `[top=${GAP},left=${GAP},bottom=${GAP},right=${GAP}]`,
-    },
-    children: tiles.map(t => ({
-      id: t.id,
-      width: t.width,
-      height: t.height,
-    })),
-    edges: [],
+  if (mode === 'column') {
+    let y = 0
+    return tiles.map(t => {
+      const out = { ...t, x: 0, y }
+      y += t.height + GAP
+      return out
+    })
   }
 
-  const laid = await elk.layout(graph)
+  if (mode === 'row') {
+    let x = 0
+    return tiles.map(t => {
+      const w = getArrangeWidth(t)
+      const out = { ...t, x, y: 0 }
+      x += w + GAP
+      return out
+    })
+  }
 
-  const originX = Math.min(...tiles.map(t => t.x))
-  const originY = Math.min(...tiles.map(t => t.y))
+  // Grid: keep each tile's natural size, pack into rows
+  const cols = Math.max(1, Math.round(Math.sqrt(tiles.length * 1.6)))
+  // Use a uniform column width so tiles align, but keep individual heights
+  const colW = Math.max(...tiles.map(t => t.width))
 
-  return tiles.map(t => {
-    const node = laid.children?.find(n => n.id === t.id)
-    if (!node) return t
-    return { ...t, x: originX + (node.x ?? 0), y: originY + (node.y ?? 0) }
-  })
-}
-
-// ─── Column layout ──────────────────────────────────────────────────────────
-function arrangeColumn(tiles: TileState[]): TileState[] {
-  if (tiles.length === 0) return tiles
-  const sorted = [...tiles].sort((a, b) => a.y - b.y)
-  const originX = Math.min(...tiles.map(t => t.x))
-  let cursor = Math.min(...tiles.map(t => t.y))
-  return sorted.map(t => {
-    const placed = { ...t, x: originX, y: cursor }
-    cursor += t.height + GAP
-    return placed
-  })
-}
-
-// ─── Row layout ─────────────────────────────────────────────────────────────
-function arrangeRow(tiles: TileState[]): TileState[] {
-  if (tiles.length === 0) return tiles
-  const sorted = [...tiles].sort((a, b) => a.x - b.x)
-  const originY = Math.min(...tiles.map(t => t.y))
-  let cursor = Math.min(...tiles.map(t => t.x))
-  return sorted.map(t => {
-    const placed = { ...t, x: cursor, y: originY }
-    cursor += t.width + GAP
-    return placed
-  })
+  const result: TileState[] = []
+  let y = 0
+  for (let row = 0; row * cols < tiles.length; row++) {
+    const rowTiles = tiles.slice(row * cols, (row + 1) * cols)
+    const rowH = Math.max(...rowTiles.map(t => t.height))
+    for (let col = 0; col < rowTiles.length; col++) {
+      result.push({
+        ...rowTiles[col],
+        x: col * (colW + GAP),
+        y,
+      })
+    }
+    y += rowH + GAP
+  }
+  return result
 }
 
 // ─── Button ──────────────────────────────────────────────────────────────────
@@ -96,25 +90,29 @@ function Btn({ label, title, active, loading, onClick }: {
       disabled={loading}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 32, height: 32, borderRadius: 6,
-        border: `1px solid ${active ? '#4a9eff55' : '#2d2d2d'}`,
-        background: active ? 'rgba(74,158,255,0.12)' : 'rgba(30,30,30,0.9)',
-        color: active ? '#4a9eff' : '#888',
+        width: 23, height: 23, borderRadius: 7,
+        border: 'none',
+        // @ts-ignore
+        WebkitAppRegion: 'no-drag',
+        background: 'transparent',
+        color: active ? '#edf6ff' : '#9ca6b3',
         cursor: loading ? 'wait' : 'pointer',
-        transition: 'all 0.1s',
-        fontSize: 14,
-        opacity: loading ? 0.5 : 1,
+        transition: 'color 0.12s ease, opacity 0.12s ease, transform 0.12s ease',
+        fontSize: 12,
+        opacity: loading ? 0.45 : active ? 1 : 0.82,
+        padding: 0,
+        boxShadow: 'none',
       }}
       onMouseEnter={e => {
         if (!active) {
-          e.currentTarget.style.background = 'rgba(74,158,255,0.08)'
-          e.currentTarget.style.color = '#aaa'
+          e.currentTarget.style.color = '#dde5ee'
+          e.currentTarget.style.opacity = '1'
         }
       }}
       onMouseLeave={e => {
         if (!active) {
-          e.currentTarget.style.background = 'rgba(30,30,30,0.9)'
-          e.currentTarget.style.color = '#888'
+          e.currentTarget.style.color = '#9ca6b3'
+          e.currentTarget.style.opacity = loading ? '0.45' : '0.82'
         }
       }}
     >
@@ -124,8 +122,16 @@ function Btn({ label, title, active, loading, onClick }: {
 }
 
 // ─── SVG icons ───────────────────────────────────────────────────────────────
+const TabsIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+    <rect x="1" y="5" width="14" height="10" rx="1"/>
+    <rect x="1" y="2" width="4" height="4" rx="1"/>
+    <rect x="6" y="2" width="4" height="4" rx="1"/>
+  </svg>
+)
+
 const GridIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
     <rect x="1" y="1" width="6" height="6" rx="1"/>
     <rect x="9" y="1" width="6" height="6" rx="1"/>
     <rect x="1" y="9" width="6" height="6" rx="1"/>
@@ -134,7 +140,7 @@ const GridIcon = () => (
 )
 
 const ColumnIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
     <rect x="2" y="1" width="12" height="4" rx="1"/>
     <rect x="2" y="6" width="12" height="4" rx="1"/>
     <rect x="2" y="11" width="12" height="4" rx="1"/>
@@ -142,7 +148,7 @@ const ColumnIcon = () => (
 )
 
 const RowIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
     <rect x="1" y="2" width="4" height="12" rx="1"/>
     <rect x="6" y="2" width="4" height="12" rx="1"/>
     <rect x="11" y="2" width="4" height="12" rx="1"/>
@@ -150,20 +156,15 @@ const RowIcon = () => (
 )
 
 // ─── Toolbar ─────────────────────────────────────────────────────────────────
-export function ArrangeToolbar({ tiles, onArrange }: Props): JSX.Element {
+export function ArrangeToolbar({ tiles, groups, onArrange, zoom, onZoomToggle, onToggleTabs, onOpenSettings, isTabbedView = false, activeCanvasMode = null }: Props): JSX.Element {
   const [loading, setLoading] = useState(false)
-  const [lastMode, setLastMode] = useState<Mode | null>(null)
 
   const run = async (mode: Mode) => {
     if (tiles.length < 2 || loading) return
     setLoading(true)
-    setLastMode(mode)
     try {
-      let updated: TileState[]
-      if (mode === 'grid') updated = await arrangeGrid(tiles)
-      else if (mode === 'column') updated = arrangeColumn(tiles)
-      else updated = arrangeRow(tiles)
-      onArrange(updated)
+      const updated = arrangeTiles(tiles, groups, mode)
+      onArrange(updated, mode)
     } finally {
       setLoading(false)
     }
@@ -173,27 +174,106 @@ export function ArrangeToolbar({ tiles, onArrange }: Props): JSX.Element {
     <div
       style={{
         position: 'absolute',
-        bottom: 16,
+        top: 6,
         right: 16,
         display: 'flex',
-        gap: 4,
-        padding: '4px 6px',
-        background: 'rgba(20,20,20,0.92)',
-        border: '1px solid #2d2d2d',
-        borderRadius: 8,
-        backdropFilter: 'blur(8px)',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+        gap: 6,
         pointerEvents: 'all',
         zIndex: 1000,
         alignItems: 'center',
+        // @ts-ignore
+        WebkitAppRegion: 'no-drag',
       }}
     >
-      <span style={{ fontSize: 10, color: '#444', marginRight: 4, userSelect: 'none', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-        Arrange
-      </span>
-      <Btn label={<GridIcon />}   title="Grid layout (ELK rect-packing)"  active={lastMode === 'grid'}   loading={loading} onClick={() => run('grid')} />
-      <Btn label={<ColumnIcon />} title="Stack in column"                  active={lastMode === 'column'} loading={loading} onClick={() => run('column')} />
-      <Btn label={<RowIcon />}    title="Arrange in row"                   active={lastMode === 'row'}    loading={loading} onClick={() => run('row')} />
+      <button
+        onClick={onOpenSettings}
+        title="Settings"
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: 7,
+          background: 'transparent',
+          // @ts-ignore
+          WebkitAppRegion: 'no-drag',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#9ca6b3',
+          transition: 'color 0.12s ease, opacity 0.12s ease',
+          opacity: 0.82,
+          padding: 0,
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.color = '#e1e6ec'
+          e.currentTarget.style.opacity = '1'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.color = '#9ca6b3'
+          e.currentTarget.style.opacity = '0.82'
+        }}
+      >
+        <Settings size={14} />
+      </button>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 4,
+          height: 29,
+          padding: '2px 0',
+          background: 'transparent',
+          // @ts-ignore
+          WebkitAppRegion: 'no-drag',
+          border: 'none',
+          borderRadius: 9,
+          alignItems: 'center',
+        }}
+      >
+        <Btn label={<TabsIcon />}   title="Tabbed view"              active={isTabbedView}                              loading={false}   onClick={onToggleTabs} />
+        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)', margin: '0 2px' }} />
+        <Btn label={<GridIcon />}   title="Grid layout (ELK)"        active={!isTabbedView && activeCanvasMode === 'grid'}   loading={loading} onClick={() => run('grid')} />
+        <Btn label={<ColumnIcon />} title="Stack in column (ELK)"    active={!isTabbedView && activeCanvasMode === 'column'} loading={loading} onClick={() => run('column')} />
+        <Btn label={<RowIcon />}    title="Arrange in row (ELK)"     active={!isTabbedView && activeCanvasMode === 'row'}    loading={loading} onClick={() => run('row')} />
+        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)', margin: '0 2px' }} />
+        <button
+          onClick={onZoomToggle}
+          title="Toggle zoom to 100%"
+          style={{
+            fontSize: 10,
+            color: zoom === 1 ? '#69afff' : '#a3abb6',
+            background: 'rgba(20,20,20,0.56)',
+            display: 'flex',
+            alignItems: 'center',
+            height: '100%',
+            // @ts-ignore
+            WebkitAppRegion: 'no-drag',
+            border: '1px solid rgba(255,255,255,0.08)',
+            cursor: 'pointer',
+            padding: '0 8px',
+            borderRadius: 8,
+            userSelect: 'none',
+            fontFamily: 'inherit',
+            whiteSpace: 'nowrap',
+            fontVariantNumeric: 'tabular-nums',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = '#e1e6ec'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'
+            e.currentTarget.style.background = 'rgba(20,20,20,0.68)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = zoom === 1 ? '#69afff' : '#a3abb6'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+            e.currentTarget.style.background = 'rgba(20,20,20,0.56)'
+          }}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+      </div>
     </div>
   )
 }

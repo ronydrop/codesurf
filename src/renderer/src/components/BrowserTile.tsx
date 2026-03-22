@@ -1,22 +1,98 @@
-// @ts-nocheck
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { ArrowLeft, ArrowRight, RotateCcw, RotateCw, Home, Globe, Monitor, Smartphone } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RotateCcw, RotateCw, Home, Globe, Monitor, Smartphone, Crosshair } from 'lucide-react'
+import { useTheme } from '../ThemeContext'
 
 const HOMEPAGE = 'https://duckduckgo.com'
 
 const DESKTOP_UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @contex/electron/0.2.0 Chrome/132.0.6834.159 Safari/537.36'
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
 
 const CLUSO_EMBED_JS_PATH = '/Users/jkneen/clawd/agentation-real/dist/assets/cluso-embed.js'
 const CLUSO_EMBED_CSS_PATH = '/Users/jkneen/clawd/agentation-real/dist/assets/cluso-embed.css'
+const WEBVIEW_DISPOSE_DELAY_MS = 15000
+
+type WebviewRegistryEntry = {
+  webview: Electron.WebviewTag
+  disposeTimer: ReturnType<typeof setTimeout> | null
+}
+
+const webviewRegistry = new Map<string, WebviewRegistryEntry>()
+
+function createManagedWebview(tileId: string, src: string): Electron.WebviewTag {
+  const webview = document.createElement('webview') as Electron.WebviewTag
+  webview.setAttribute('allowpopups', '')
+  webview.setAttribute('partition', `persist:browser-tile-${tileId}`)
+  webview.setAttribute('useragent', DESKTOP_UA)
+  webview.setAttribute('webpreferences', 'devTools=yes')
+  webview.style.cssText =
+    'position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: none; background: transparent;'
+  webview.src = src
+  return webview
+}
+
+function getOrCreateManagedWebview(tileId: string, src: string): { webview: Electron.WebviewTag; reused: boolean } {
+  const existing = webviewRegistry.get(tileId)
+  if (existing) {
+    if (existing.disposeTimer !== null) clearTimeout(existing.disposeTimer)
+    existing.disposeTimer = null
+
+    // Reusing a detached webview is unstable: Electron may have already torn
+    // down its guest instance, which shows up later as Invalid guestInstanceId.
+    if (existing.webview.isConnected || existing.webview.parentElement) {
+      return { webview: existing.webview, reused: true }
+    }
+
+    try { existing.webview.remove() } catch { /* ignore */ }
+    webviewRegistry.delete(tileId)
+  }
+
+  const webview = createManagedWebview(tileId, src)
+  webviewRegistry.set(tileId, { webview, disposeTimer: null })
+  return { webview, reused: false }
+}
+
+function scheduleManagedWebviewDisposal(tileId: string, webview: Electron.WebviewTag): void {
+  const entry = webviewRegistry.get(tileId)
+  if (!entry || entry.webview !== webview) return
+
+  if (entry.disposeTimer !== null) clearTimeout(entry.disposeTimer)
+
+  entry.disposeTimer = window.setTimeout(() => {
+    const latest = webviewRegistry.get(tileId)
+    if (!latest || latest.webview !== webview) return
+    if (webview.parentElement) webview.parentElement.removeChild(webview)
+    try { webview.remove() } catch { /* ignore */ }
+    webviewRegistry.delete(tileId)
+  }, WEBVIEW_DISPOSE_DELAY_MS)
+}
+
+function safeLoadURL(webview: Electron.WebviewTag, url: string): void {
+  try {
+    void webview.loadURL(url).catch((err: { code?: string }) => {
+      if (err?.code === 'ERR_ABORTED') return
+      console.warn('[BrowserTile] loadURL failed:', err)
+    })
+  } catch (err) {
+    console.warn('[BrowserTile] loadURL threw:', err)
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Cluso injection script — ported verbatim from 1code agent-preview.tsx
 // ---------------------------------------------------------------------------
-const createClusoInjectScript = (jsContent: string, cssContent: string) => `
+
+/**
+ * CLUSO_INJECTION_SCRIPT generator.
+ *
+ * Builds a self-executing JS string that, when evaluated inside a webview,
+ * polyfills localStorage (for sandboxed contexts), creates an isolated
+ * shadow-DOM-like mount point, injects the Cluso embed CSS/JS, and wires
+ * up __CLUSO_HOST__ lifecycle hooks.  The returned string is passed to
+ * webview.executeJavaScript() after every page load.
+ */
+const createClusoInjectScript = (jsContent: string, cssContent: string): string => `
 (() => {
   // Polyfill localStorage for sandboxed/blank webviews where access is denied
   try { void window.localStorage; } catch {
@@ -158,6 +234,40 @@ const createClusoInjectScript = (jsContent: string, cssContent: string) => `
 `
 
 // ---------------------------------------------------------------------------
+// Bus bridge injection script — lets webview content publish to the EventBus
+// ---------------------------------------------------------------------------
+
+function createBusBridgeScript(tileId: string): string {
+  return `
+    (function() {
+      if (window.__contexBridge) return;
+      window.__contexBridge = true;
+
+      // Allow webview content to send events to the host via console.log transport
+      window.contex = {
+        publish: function(type, payload, channel) {
+          console.log(JSON.stringify({
+            __contex: true,
+            type: type || 'data',
+            channel: channel || 'tile:${tileId}',
+            payload: payload || {}
+          }));
+        },
+        notify: function(message, level) {
+          this.publish('notification', { message: message, level: level || 'info' });
+        },
+        progress: function(status, percent) {
+          this.publish('progress', { status: status, percent: percent });
+        },
+        log: function(message) {
+          this.publish('activity', { message: message });
+        }
+      };
+    })();
+  `
+}
+
+// ---------------------------------------------------------------------------
 // URL helpers
 // ---------------------------------------------------------------------------
 function isLikelyUrl(value: string): boolean {
@@ -201,21 +311,36 @@ function ToolbarButton({
   active?: boolean
   onClick: () => void
   children: React.ReactNode
-}): JSX.Element {
+}): React.JSX.Element {
+  const theme = useTheme()
+  const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    if (disabled) return
+    e.preventDefault()
+    onClick()
+  }
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    // Keyboard activation still dispatches click with detail=0.
+    if (!disabled && e.detail === 0) onClick()
+  }
+
   return (
     <button
       type="button"
       aria-label={label}
       title={title}
       disabled={disabled}
-      onClick={onClick}
+      onMouseDown={handleMouseDown}
+      onClick={handleClick}
       style={{
         width: 26,
         height: 26,
         borderRadius: 6,
-        border: `1px solid ${active ? '#4a9eff55' : '#333'}`,
-        background: disabled ? '#222' : active ? '#1e3654' : '#2b2b2b',
-        color: disabled ? '#555' : active ? '#9fc7ff' : '#ccc',
+        border: `1px solid ${active ? theme.border.accent : theme.border.default}`,
+        background: disabled ? theme.surface.panelMuted : active ? theme.surface.selection : theme.surface.panelElevated,
+        color: disabled ? theme.text.disabled : active ? theme.accent.hover : theme.text.secondary,
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -225,11 +350,11 @@ function ToolbarButton({
       }}
       onMouseEnter={e => {
         if (disabled || active) return
-        e.currentTarget.style.background = '#3a3a3a'
+        e.currentTarget.style.background = theme.surface.hover
       }}
       onMouseLeave={e => {
         if (disabled || active) return
-        e.currentTarget.style.background = '#2b2b2b'
+        e.currentTarget.style.background = theme.surface.panelElevated
       }}
     >
       {children}
@@ -242,10 +367,12 @@ function ToolbarButton({
 // ---------------------------------------------------------------------------
 interface Props {
   tileId: string
+  workspaceId?: string
   initialUrl?: string
   width: number
   height: number
   zIndex: number
+  isInteracting?: boolean
 }
 
 type BrowserMode = 'desktop' | 'mobile'
@@ -253,11 +380,30 @@ type BrowserMode = 'desktop' | 'mobile'
 // ---------------------------------------------------------------------------
 // BrowserTile
 // ---------------------------------------------------------------------------
-export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex }: Props): JSX.Element {
+export function BrowserTile({ tileId, workspaceId, initialUrl, width, height, zIndex: _zIndex, isInteracting }: Props): React.JSX.Element {
+  const theme = useTheme()
+  const browserBackground = theme.surface.panel
+  const browserToolbarBackground = theme.surface.titlebar
+  const browserBorder = theme.border.default
   const wvContainerRef = useRef<HTMLDivElement>(null)
   const wvRef = useRef<Electron.WebviewTag | null>(null)
   const wvReadyRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const mountedRef = useRef(true)
+  const clusoToggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stateLoadedRef = useRef(false)
+
+  // Track component mount state for async cleanup
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      if (clusoToggleTimerRef.current !== null) {
+        clearTimeout(clusoToggleTimerRef.current)
+        clusoToggleTimerRef.current = null
+      }
+    }
+  }, [])
 
   const initialSrc = useRef(normalizeUrl(initialUrl ?? ''))
   const startUrl = initialSrc.current
@@ -270,6 +416,43 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
   const [mode, setMode] = useState<BrowserMode>('desktop')
   const [isClusoReady, setIsClusoReady] = useState(false)
   const [isClusoActive, setIsClusoActive] = useState(false)
+  const [isToolbarHovered, setIsToolbarHovered] = useState(false)
+  const [isAddressFocused, setIsAddressFocused] = useState(false)
+
+  useEffect(() => {
+    stateLoadedRef.current = false
+    if (!workspaceId) return
+    window.electron.canvas.loadTileState(workspaceId, tileId).then((saved: any) => {
+      if (!saved) return
+      if (typeof saved.addressBar === 'string') setAddressBar(saved.addressBar)
+      if (typeof saved.currentUrl === 'string') {
+        setCurrentUrl(saved.currentUrl)
+        initialSrc.current = saved.currentUrl
+        prevInitialUrl.current = saved.currentUrl
+        if (wvRef.current) {
+          safeLoadURL(wvRef.current, saved.currentUrl)
+        }
+      }
+      if (typeof saved.canGoBack === 'boolean') setCanGoBack(saved.canGoBack)
+      if (typeof saved.canGoForward === 'boolean') setCanGoForward(saved.canGoForward)
+      if (typeof saved.isLoading === 'boolean') setIsLoading(saved.isLoading)
+      if (saved.mode === 'desktop' || saved.mode === 'mobile') setMode(saved.mode)
+    }).catch(() => {}).finally(() => {
+      stateLoadedRef.current = true
+    })
+  }, [workspaceId, tileId])
+
+  useEffect(() => {
+    if (!workspaceId || !stateLoadedRef.current) return
+    window.electron.canvas.saveTileState(workspaceId, tileId, {
+      addressBar,
+      currentUrl,
+      canGoBack,
+      canGoForward,
+      isLoading,
+      mode,
+    }).catch(() => {})
+  }, [workspaceId, tileId, addressBar, currentUrl, canGoBack, canGoForward, isLoading, mode])
 
   // Cluso embed assets — loaded once on mount
   const clusoAssetsRef = useRef<{ js: string | null; css: string | null }>({ js: null, css: null })
@@ -290,25 +473,6 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
   const setIsClusoActiveRef = useRef(setIsClusoActive)
   setIsClusoActiveRef.current = setIsClusoActive
 
-  // Load cluso embed assets from filesystem (once)
-  useEffect(() => {
-    const loadAssets = async () => {
-      try {
-        const [jsResult, cssResult] = await Promise.all([
-          window.electron?.fs?.readFile(CLUSO_EMBED_JS_PATH),
-          window.electron?.fs?.readFile(CLUSO_EMBED_CSS_PATH)
-        ])
-        clusoAssetsRef.current = {
-          js: typeof jsResult === 'string' ? jsResult : null,
-          css: typeof cssResult === 'string' ? cssResult : null
-        }
-      } catch (err) {
-        console.warn('[BrowserTile] Could not load cluso embed assets:', err)
-      }
-    }
-    loadAssets()
-  }, [])
-
   // Inject cluso into the webview — called after each page load
   const injectCluso = useCallback(() => {
     const webview = wvRef.current
@@ -325,39 +489,59 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
       .catch(err => console.error('[BrowserTile] Cluso injection failed:', err))
   }, []) // stable — reads assets via ref
 
-  // Create the webview imperatively (1code pattern)
+  // Load cluso embed assets from filesystem (once)
+  useEffect(() => {
+    const loadAssets = async () => {
+      try {
+        const [jsResult, cssResult] = await Promise.all([
+          window.electron?.fs?.readFile(CLUSO_EMBED_JS_PATH),
+          window.electron?.fs?.readFile(CLUSO_EMBED_CSS_PATH)
+        ])
+        clusoAssetsRef.current = {
+          js: typeof jsResult === 'string' ? jsResult : null,
+          css: typeof cssResult === 'string' ? cssResult : null
+        }
+        // The page can finish loading before the assets arrive from disk.
+        // If that happened, retry injection now instead of waiting for another navigation.
+        if (mountedRef.current && wvReadyRef.current) {
+          injectCluso()
+        }
+      } catch (err) {
+        console.warn('[BrowserTile] Could not load cluso embed assets:', err)
+      }
+    }
+    loadAssets()
+  }, [injectCluso])
+
+  // Create or reattach the webview imperatively so page state survives view switches
   useEffect(() => {
     const container = wvContainerRef.current
     if (!container) return
 
-    const webview = document.createElement('webview') as Electron.WebviewTag
-    webview.setAttribute('allowpopups', '')
-    webview.setAttribute('partition', `persist:browser-tile-${tileId}`)
-    webview.setAttribute('useragent', DESKTOP_UA)
-    webview.setAttribute('webpreferences', 'devTools=yes')
-    // Absolute inset: bypasses Chromium percentage-height bugs and CSS transform clipping
-    webview.style.cssText =
-      'position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: none; background: #111;'
+    const { webview, reused } = getOrCreateManagedWebview(tileId, initialSrc.current)
 
     wvRef.current = webview
-    wvReadyRef.current = false
+    wvReadyRef.current = reused
 
     // ---- helpers --------------------------------------------------------
     const updateNav = () => {
       if (!wvRef.current) return
       const url = wvRef.current.getURL()
-      setCurrentUrlRef.current(url)
+      if (url) {
+        setCurrentUrlRef.current(url)
+        if (document.activeElement !== inputRef.current) {
+          setAddressBarRef.current(url)
+        }
+      }
       setCanGoBackRef.current(wvRef.current.canGoBack())
       setCanGoForwardRef.current(wvRef.current.canGoForward())
       setIsLoadingRef.current(wvRef.current.isLoading())
-      if (document.activeElement !== inputRef.current) {
-        setAddressBarRef.current(url)
-      }
     }
 
     // ---- event handlers -------------------------------------------------
     const onDomReady = () => {
       wvReadyRef.current = true
+      updateNav()
     }
 
     const onStartLoad = () => setIsLoadingRef.current(true)
@@ -369,6 +553,12 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
       setIsClusoReadyRef.current(false)
       setIsClusoActiveRef.current(false)
       injectCluso()
+      // Inject bus bridge so webview content can publish to the EventBus
+      if (wvRef.current) {
+        wvRef.current
+          .executeJavaScript(createBusBridgeScript(tileId))
+          .catch(err => console.warn('[BrowserTile] Bus bridge injection failed:', err))
+      }
     }
 
     const onFailLoad = () => {
@@ -381,17 +571,36 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
     const onNavigateInPage = () => updateNav()
 
     const onNewWindow = (e: Event) => {
-      const ev = e as Electron.NewWindowWebContentsEvent
+      const ev = e as Event & { url?: string }
       if (ev.url) {
         e.preventDefault()
         window.electron?.shell?.openExternal?.(ev.url)
       }
     }
 
-    // ---- cluso console message handler ----------------------------------
-    const onConsoleMessage = (e: Event) => {
-      const event = e as unknown as { message: string; level: number }
-      const { message } = event
+    // ---- console message handler (bus bridge + cluso) -------------------
+    const onConsoleMessage = (e: Electron.ConsoleMessageEvent) => {
+      const { message } = e
+
+      if (message.startsWith('{"__contex"')) {
+        try {
+          const data = JSON.parse(message) as {
+            __contex?: boolean
+            type?: string
+            channel?: string
+            payload?: Record<string, unknown>
+          }
+          if (data.__contex) {
+            window.electron?.bus?.publish(
+              data.channel || `tile:${tileId}`,
+              data.type || 'data',
+              `browser:${tileId}`,
+              data.payload || {}
+            )
+          }
+        } catch { /* not valid JSON — ignore */ }
+        return
+      }
 
       if (!message.startsWith('__CLUSO_')) return
 
@@ -436,8 +645,14 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
     webview.addEventListener('new-window', onNewWindow)
     webview.addEventListener('console-message', onConsoleMessage)
 
-    webview.src = initialSrc.current
-    container.appendChild(webview)
+    if (!container.contains(webview)) container.appendChild(webview)
+
+    if (reused) {
+      queueMicrotask(() => {
+        if (!mountedRef.current || wvRef.current !== webview) return
+        updateNav()
+      })
+    }
 
     return () => {
       webview.removeEventListener('dom-ready', onDomReady)
@@ -451,6 +666,7 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
       if (container.contains(webview)) container.removeChild(webview)
       wvRef.current = null
       wvReadyRef.current = false
+      scheduleManagedWebviewDisposal(tileId, webview)
     }
   }, [tileId, injectCluso])
 
@@ -463,10 +679,18 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
       setAddressBar(next)
       setCurrentUrl(next)
       if (wvReadyRef.current && wvRef.current) {
-        wvRef.current.loadURL(next)
+        safeLoadURL(wvRef.current, next)
       }
     }
   }, [initialUrl])
+
+  // When the toolbar is engaged, explicitly disable pointer handling on the
+  // actual <webview> element so Chromium can't steal mouseup/click/focus.
+  useEffect(() => {
+    const webview = wvRef.current
+    if (!webview) return
+    webview.style.pointerEvents = (isToolbarHovered || isAddressFocused || isInteracting) ? 'none' : 'auto'
+  }, [isToolbarHovered, isAddressFocused, isInteracting])
 
   // ---- navigation actions -----------------------------------------------
   const navigate = useCallback((rawUrl: string) => {
@@ -474,7 +698,7 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
     setAddressBar(next)
     setCurrentUrl(next)
     setIsLoading(true)
-    if (wvReadyRef.current && wvRef.current) wvRef.current.loadURL(next)
+    if (wvReadyRef.current && wvRef.current) safeLoadURL(wvRef.current, next)
   }, [])
 
   const goBack = useCallback(() => {
@@ -507,18 +731,75 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
     }
   }, [])
 
-  // ---- portal toolbar ---------------------------------------------------
-  const headerSlot =
-    typeof document !== 'undefined'
-      ? document.getElementById(`tile-header-slot-${tileId}`)
-      : null
+  // Toggle cluso element selector.
+  // Uses a retry loop outside the webview (via setTimeout) so that:
+  //  - the attempts counter always increments
+  //  - the timer is cleaned up if the component unmounts mid-polling
+  const handleToggleCluso = useCallback(() => {
+    const TOGGLE_SCRIPT = `
+      (() => {
+        const host = window.__CLUSO_HOST__;
+        if (!host) return '__CLUSO_NOT_READY__';
+        try {
+          if (typeof host.toggleActive === 'function') {
+            host.toggleActive();
+          } else if (typeof host.setActive === 'function') {
+            const current = host.isActive?.() ?? host.active ?? false;
+            host.setActive(!current);
+          }
+          return '__CLUSO_TOGGLED__';
+        } catch {
+          return '__CLUSO_TOGGLE_ERROR__';
+        }
+      })();
+    `
 
+    const MAX_ATTEMPTS = 20
+    const RETRY_DELAY_MS = 100
+
+    const tryToggle = (attempt: number) => {
+      const webview = wvRef.current
+      if (!webview || !wvReadyRef.current || !mountedRef.current) return
+
+      webview.executeJavaScript(TOGGLE_SCRIPT).then((result: string) => {
+        if (result === '__CLUSO_NOT_READY__' && attempt < MAX_ATTEMPTS && mountedRef.current) {
+          clusoToggleTimerRef.current = setTimeout(() => tryToggle(attempt + 1), RETRY_DELAY_MS)
+        }
+      }).catch((err: unknown) => {
+        console.error('[BrowserTile] Failed to toggle Cluso:', err)
+      })
+    }
+
+    // If the page loaded before the embed assets were ready, injection may not
+    // have happened yet. Retry it here before polling for the host bridge.
+    if (!isClusoReady) injectCluso()
+    tryToggle(0)
+  }, [injectCluso, isClusoReady])
+
+  const focusAddressInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      const input = inputRef.current
+      if (!input) return
+      input.focus()
+      const pos = input.value.length
+      input.setSelectionRange(pos, pos)
+    })
+  }, [])
+
+  // ---- toolbar -----------------------------------------------------------
   const toolbar = (
     <form
       onSubmit={e => {
         e.preventDefault()
         navigate(addressBar)
       }}
+      onMouseEnter={() => setIsToolbarHovered(true)}
+      onMouseLeave={() => setIsToolbarHovered(false)}
+      onMouseDown={e => {
+        e.stopPropagation()
+        setIsToolbarHovered(true)
+      }}
+      onClick={e => e.stopPropagation()}
       style={{
         width: '100%',
         height: '100%',
@@ -555,7 +836,15 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
           ref={inputRef}
           aria-label="Address"
           value={addressBar}
+          onFocus={() => setIsAddressFocused(true)}
+          onBlur={() => setIsAddressFocused(false)}
           onChange={e => setAddressBar(e.target.value)}
+          onMouseDown={e => {
+            e.stopPropagation()
+            setIsToolbarHovered(true)
+            focusAddressInput()
+          }}
+          onClick={e => e.stopPropagation()}
           onKeyDown={e => {
             if (e.key === 'Escape') (e.currentTarget as HTMLInputElement).blur()
           }}
@@ -563,9 +852,9 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
             width: '100%',
             height: 22,
             borderRadius: 6,
-            border: '1px solid #3a3a3a',
-            background: '#111',
-            color: '#d4d4d4',
+            border: `1px solid ${theme.border.default}`,
+            background: theme.surface.input,
+            color: theme.text.primary,
             padding: '0 8px 0 24px',
             fontSize: 11,
             outline: 'none',
@@ -579,9 +868,10 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
             left: 7,
             top: '50%',
             transform: 'translateY(-50%)',
-            color: currentUrl.startsWith('https://') ? '#3fb950' : '#888',
+            color: currentUrl.startsWith('https://') ? theme.status.success : theme.text.muted,
             display: 'flex',
-            alignItems: 'center'
+            alignItems: 'center',
+            pointerEvents: 'none'
           }}
         >
           <Globe size={10} />
@@ -606,35 +896,54 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
         >
           <Smartphone size={12} />
         </ToolbarButton>
+        <ToolbarButton
+          label="Cluso"
+          title={isClusoActive ? 'Finish selection' : isClusoReady ? 'Select elements for chat context' : 'Load selector'}
+          active={isClusoActive}
+          disabled={!isClusoReady && !currentUrl}
+          onClick={handleToggleCluso}
+        >
+          <Crosshair size={12} />
+        </ToolbarButton>
 
-        {/* Cluso ready indicator */}
-        {isClusoReady && (
-          <div
-            title={isClusoActive ? 'Cluso active' : 'Cluso ready'}
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: isClusoActive ? '#f97316' : '#3fb950',
-              flexShrink: 0,
-              marginLeft: 2
-            }}
-          />
-        )}
       </div>
     </form>
   )
 
   // ---- render -----------------------------------------------------------
   return (
-    <div style={{ position: 'absolute', inset: 0, background: '#111', overflow: 'hidden' }}>
-      {headerSlot && createPortal(toolbar, headerSlot)}
+    <div style={{ position: 'absolute', inset: 0, background: browserBackground }}>
+      {/* Toolbar — explicit top/height so compositor knows exact rect; zIndex above webview */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 34,
+        display: 'flex', alignItems: 'center', padding: '0 6px',
+        background: browserToolbarBackground, borderBottom: `1px solid ${browserBorder}`,
+        zIndex: 2,
+      }}>
+        {toolbar}
+      </div>
 
-      {/* Imperative webview container — absolute inset avoids CSS transform clipping */}
+      {/* Webview container — starts below toolbar; explicit top: 34 keeps it out of toolbar's rect */}
       <div
         ref={wvContainerRef}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        style={{ position: 'absolute', top: 34, left: 0, right: 0, bottom: 0, zIndex: 1 }}
       />
+
+      {/* Invisible overlay during drag/resize — blocks mouse events from reaching webview */}
+      {isInteracting && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            pointerEvents: 'auto',
+            background: 'transparent',
+            zIndex: 9999
+          }}
+        />
+      )}
 
       {(width < 260 || height < 170) && (
         <div
@@ -643,9 +952,9 @@ export function BrowserTile({ tileId, initialUrl, width, height, zIndex: _zIndex
             bottom: 8,
             right: 8,
             fontSize: 10,
-            background: 'rgba(0,0,0,0.6)',
-            border: '1px solid #333',
-            color: '#777',
+            background: theme.surface.overlay,
+            border: `1px solid ${theme.border.default}`,
+            color: theme.text.muted,
             padding: '2px 6px',
             borderRadius: 4,
             pointerEvents: 'none'

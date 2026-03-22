@@ -4,6 +4,8 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { useDetectedAgents } from '../hooks/useDetectedAgents'
 import { useMCPServers } from '../hooks/useMCPServers'
+import { useAppFonts } from '../FontContext'
+import { useTheme } from '../ThemeContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +24,8 @@ export interface KanbanCardData {
   color: string
   linkedTileId?: string
   linkedTileType?: string
+  linkedGroupId?: string
+  linkedTileIds?: string[]
   justMoved?: boolean
   agent: string
   model?: string
@@ -64,7 +68,7 @@ export const MODELS: Record<string, string[]> = {
   shell:    []
 }
 
-const MCP_CONFIG = '~/clawd-collab/mcp-server.json'
+const MCP_CONFIG = '~/.contex/mcp-server.json'
 const BUILTIN_TOOLS = ['read', 'write', 'edit', 'bash', 'computer', 'web_search', 'browser']
 
 function resolveMcpConfigPath(input: string): string {
@@ -72,11 +76,11 @@ function resolveMcpConfigPath(input: string): string {
   const home = (window as any).process?.env?.HOME
   if (!home) return input
   if (input === '~') return home
-  if (input.startsWith('~/.clawd-collab/')) {
-    return `${home}/clawd-collab/${input.slice('~/.clawd-collab/'.length)}`
+  if (input.startsWith('~/.contex/')) {
+    return `${home}/.contex/${input.slice('~/.contex/'.length)}`
   }
-  if (input.startsWith('~\\.clawd-collab\\')) {
-    return `${home}/clawd-collab/${input.slice('~\\.clawd-collab\\'.length)}`
+  if (input.startsWith('~\\.contex\\')) {
+    return `${home}/.contex/${input.slice('~\\.contex\\'.length)}`
   }
   return `${home}/${input.slice(2)}`
 }
@@ -125,21 +129,42 @@ function MiniTerminal({ termId, workspaceDir, launchCmd }: {
   const ref = useRef<HTMLDivElement>(null)
   const mounted = useRef(false)
   const parsed = launchCmd ? parseLaunchCmd(launchCmd) : null
+  const fonts = useAppFonts()
+  const theme = useTheme()
 
   useEffect(() => {
     if (!ref.current || mounted.current) return
     mounted.current = true
+    let aborted = false
+    let asyncCleanup: (() => void) | undefined
+
     const term = new Terminal({
       theme: {
-        background: '#0a0e14', foreground: '#b3b1ad', cursor: '#e6b450',
-        black: '#0a0e14', red: '#ff3333', green: '#91b362', yellow: '#f9af4f',
-        blue: '#53bdfa', magenta: '#fae994', cyan: '#90e1c6', white: '#c7c7c7',
-        brightBlack: '#686868', brightRed: '#f07178', brightGreen: '#c2d94c',
-        brightYellow: '#ffb454', brightBlue: '#59c2ff', brightMagenta: '#ffee99',
-        brightCyan: '#95e6cb', brightWhite: '#ffffff',
-        selectionBackground: 'rgba(83,189,250,0.2)'
+        background: theme.terminal.background,
+        foreground: theme.terminal.foreground,
+        cursor: theme.terminal.cursor,
+        black: theme.terminal.black,
+        red: theme.terminal.red,
+        green: theme.terminal.green,
+        yellow: theme.terminal.yellow,
+        blue: theme.terminal.blue,
+        magenta: theme.terminal.magenta,
+        cyan: theme.terminal.cyan,
+        white: theme.terminal.white,
+        brightBlack: theme.terminal.brightBlack,
+        brightRed: theme.terminal.brightRed,
+        brightGreen: theme.terminal.brightGreen,
+        brightYellow: theme.terminal.brightYellow,
+        brightBlue: theme.terminal.brightBlue,
+        brightMagenta: theme.terminal.brightMagenta,
+        brightCyan: theme.terminal.brightCyan,
+        brightWhite: theme.terminal.brightWhite,
+        selectionBackground: theme.terminal.selection,
       },
-      fontFamily: '"JetBrains Mono", "Menlo", monospace',
+      overviewRuler: {
+        width: 10
+      },
+      fontFamily: fonts.mono,
       fontSize: 11, lineHeight: 1.3, cursorBlink: true,
       allowProposedApi: true, scrollback: 5000
     })
@@ -153,20 +178,27 @@ function MiniTerminal({ termId, workspaceDir, launchCmd }: {
       ? window.electron.terminal.create(termId, workspaceDir, parsed.bin, parsed.args)
       : window.electron.terminal.create(termId, workspaceDir)
     cp.then(() => {
-      const cleanup = window.electron.terminal.onData(termId, d => term.write(d))
+      if (aborted) return  // Component already unmounted — don't wire up listeners
+
+      const dataCleanup = window.electron.terminal.onData(termId, d => term.write(d))
       term.onData(d => window.electron.terminal.write(termId, d))
       term.onResize(({ cols, rows }) => window.electron.terminal.resize(termId, cols, rows))
-      ;(ref.current as any).__cleanup = () => { cleanup(); ro.disconnect() }
-    }).catch(err => term.write(`\x1b[31m${err?.message ?? err}\x1b[0m\r\n`))
+
+      asyncCleanup = () => { dataCleanup(); ro.disconnect() }
+    }).catch(err => {
+      if (!aborted) term.write(`\x1b[31m${err?.message ?? err}\x1b[0m\r\n`)
+    })
     return () => {
+      aborted = true
       mounted.current = false
-      ;(ref.current as any)?.__cleanup?.()
+      asyncCleanup?.()
+      ro.disconnect()
       window.electron.terminal.destroy(termId)
       term.dispose()
     }
   }, [termId, workspaceDir])
 
-  return <div ref={ref} style={{ width: '100%', height: '100%', background: '#0a0e14' }} />
+  return <div ref={ref} style={{ width: '100%', height: '100%', background: theme.terminal.background }} />
 }
 
 // ─── KanbanCard ───────────────────────────────────────────────────────────────
@@ -199,6 +231,8 @@ export function KanbanCard({
 
   const detectedAgents = useDetectedAgents()
   const mcpServers = useMCPServers()
+  const fonts = useAppFonts()
+  const theme = useTheme()
   const availableAgents = detectedAgents.length > 0 ? detectedAgents : AGENTS
   const agentInfo = availableAgents.find(a => a.id === card.agent)
   const termId = `kterm-${card.id}`
@@ -243,6 +277,19 @@ export function KanbanCard({
       onDragLeave={() => setDragOver(false)}
       onDrop={e => {
         e.preventDefault(); e.stopPropagation(); setDragOver(false)
+        // Group drop
+        const groupId = e.dataTransfer.getData('application/group-id')
+        if (groupId) {
+          let tileIds: string[] = []
+          try { tileIds = JSON.parse(e.dataTransfer.getData('application/group-tile-ids') || '[]') } catch { /**/ }
+          onUpdate(card.id, {
+            linkedGroupId: groupId,
+            linkedTileIds: tileIds,
+            title: e.dataTransfer.getData('application/group-label') || card.title
+          })
+          return
+        }
+        // Tile drop
         const tileId = e.dataTransfer.getData('application/tile-id')
         if (tileId) {
           onUpdate(card.id, { linkedTileId: tileId, linkedTileType: e.dataTransfer.getData('application/tile-type'), title: e.dataTransfer.getData('application/tile-label') || card.title })
@@ -259,11 +306,11 @@ export function KanbanCard({
       }}
       style={{
         borderRadius: 8, background: card.color, flexShrink: 0,
-        border: `1px solid ${dragOver ? '#58a6ff' : card.justMoved ? '#3fb950' : expanded ? '#2d2d2d' : hovered ? '#2a2a2a' : '#1e1e1e'}`,
+        border: `1px solid ${dragOver ? theme.accent.base : card.justMoved ? theme.status.success : expanded ? theme.border.strong : hovered ? theme.border.default : theme.border.subtle}`,
         opacity: dragging ? 0.3 : 1,
-        boxShadow: card.justMoved ? '0 0 12px #3fb95066' : expanded ? '0 8px 32px rgba(0,0,0,0.6)' : 'none',
+        boxShadow: card.justMoved ? `0 0 12px ${theme.status.success}66` : expanded ? theme.shadow.panel : 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s', overflow: 'hidden',
-        outline: dragOver ? '1px dashed #58a6ff44' : 'none'
+        outline: dragOver ? `1px dashed ${theme.accent.base}44` : 'none'
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -276,8 +323,8 @@ export function KanbanCard({
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          background: 'rgba(255,255,255,0.06)',
-          borderBottom: '1px solid rgba(255,255,255,0.08)'
+          background: theme.surface.hover,
+          borderBottom: `1px solid ${theme.border.default}`
         }}
         onClick={() => setExpanded(p => !p)}
       >
@@ -285,19 +332,19 @@ export function KanbanCard({
         {card.launched ? (
           <span style={{
             width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-            background: active ? '#3fb950' : '#2d2d2d',
-            boxShadow: active ? '0 0 6px #3fb950' : 'none',
+            background: active ? theme.status.success : theme.border.strong,
+            boxShadow: active ? `0 0 6px ${theme.status.success}` : 'none',
             transition: 'background 0.3s, box-shadow 0.3s'
           }} />
         ) : (
-          <span style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', flexShrink: 0 }}>
+          <span style={{ fontSize: 9, color: theme.text.disabled, fontFamily: 'inherit', flexShrink: 0 }}>
             {expanded ? 'v' : '>'}
           </span>
         )}
 
         {/* Title */}
         <span style={{
-          fontSize: 13, fontWeight: 600, color: '#e6edf3', flex: 1,
+          fontSize: 13, fontWeight: 600, color: theme.text.primary, flex: 1,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
         }}>
           {card.title}
@@ -306,9 +353,9 @@ export function KanbanCard({
         {/* Agent pill */}
         {card.agent !== 'shell' && (
           <span style={{
-            fontSize: 9, fontFamily: 'monospace', flexShrink: 0,
-            color: card.launched ? (active ? '#3fb950' : '#3a3a3a') : '#444',
-            background: '#161b22', border: '1px solid #21262d',
+            fontSize: 9, fontFamily: 'inherit', flexShrink: 0,
+            color: card.launched ? (active ? theme.status.success : theme.text.disabled) : theme.text.disabled,
+            background: theme.surface.panelMuted, border: `1px solid ${theme.border.subtle}`,
             borderRadius: 10, padding: '1px 7px',
             transition: 'color 0.3s'
           }}>
@@ -320,9 +367,9 @@ export function KanbanCard({
         {/* Hover actions */}
         {hovered && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-            {onFocus && <Btn onClick={onFocus} color="#58a6ff">go</Btn>}
-            {!card.launched && card.agent !== 'shell' && <Btn onClick={() => onLaunch(card.id)} color="#3fb950">run</Btn>}
-            <Btn onClick={() => onRemove(card.id)} color="#ff7b72">x</Btn>
+            {onFocus && <Btn onClick={onFocus} color={theme.accent.base}>go</Btn>}
+            {!card.launched && card.agent !== 'shell' && <Btn onClick={() => onLaunch(card.id)} color={theme.status.success}>run</Btn>}
+            <Btn onClick={() => onRemove(card.id)} color={theme.status.danger}>x</Btn>
           </div>
         )}
       </div>
@@ -331,7 +378,7 @@ export function KanbanCard({
       {!expanded && (
         <div style={{ padding: '0 10px 8px 25px' }}>
           {card.description && (
-            <div style={{ fontSize: 11, color: '#555', marginBottom: 5, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
+            <div style={{ fontSize: 11, color: theme.text.muted, marginBottom: 5, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
               {card.description}
             </div>
           )}
@@ -349,15 +396,15 @@ export function KanbanCard({
 
       {/* ── Expanded ── */}
       {expanded && (
-        <div style={{ borderTop: '1px solid #21262d', position: 'relative' }}>
+        <div style={{ borderTop: `1px solid ${theme.border.subtle}`, position: 'relative' }}>
 
           {/* Collapse button — always visible when expanded */}
           <div style={{ position: 'absolute', top: 6, right: 8, zIndex: 20 }}>
             <button
               onClick={e => { e.stopPropagation(); setExpanded(false) }}
-              style={{ fontSize: 10, color: '#444', background: '#0d1117', border: '1px solid #21262d', borderRadius: 4, padding: '2px 7px', cursor: 'pointer', fontFamily: 'monospace', lineHeight: 1.4 }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#ccc'; e.currentTarget.style.borderColor = '#444' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#444'; e.currentTarget.style.borderColor = '#21262d' }}
+              style={{ fontSize: 10, color: theme.text.disabled, background: theme.surface.panel, border: `1px solid ${theme.border.subtle}`, borderRadius: 4, padding: '2px 7px', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4 }}
+              onMouseEnter={e => { e.currentTarget.style.color = theme.text.primary; e.currentTarget.style.borderColor = theme.border.default }}
+              onMouseLeave={e => { e.currentTarget.style.color = theme.text.disabled; e.currentTarget.style.borderColor = theme.border.subtle }}
               title="Collapse"
             >
               ^
@@ -365,21 +412,52 @@ export function KanbanCard({
           </div>
 
           {/* Tab bar */}
-          <div style={{ display: 'flex', background: '#0d1117', borderBottom: '1px solid #21262d', alignItems: 'center' }}>
-            {(['overview', ...(card.launched ? ['terminal'] : []), 'notes'] as Tab[]).map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                padding: '6px 14px', fontSize: 11, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                background: tab === t ? '#161b22' : 'transparent',
-                color: tab === t ? '#e6edf3' : '#555',
-                borderBottom: tab === t ? '2px solid #388bfd' : '2px solid transparent',
-                textTransform: 'capitalize', transition: 'color 0.1s'
-              }}>
-                {t}{t === 'notes' && card.comments.length ? ` (${card.comments.length})` : ''}
-              </button>
-            ))}
+          <div style={{ display: 'flex', background: theme.surface.panel, borderBottom: `1px solid ${theme.border.subtle}`, alignItems: 'center', gap: 4, padding: '6px 8px' }}>
+            {(['overview', ...(card.launched ? ['terminal'] : []), 'notes'] as Tab[]).map(t => {
+              const isActive = tab === t
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  style={{
+                    height: 28,
+                    padding: '0 11px',
+                    fontSize: 11,
+                    border: `1px solid ${isActive ? theme.border.default : 'transparent'}`,
+                    borderRadius: 7,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    background: isActive ? theme.surface.selection : 'transparent',
+                    color: isActive ? theme.accent.base : theme.text.muted,
+                    textTransform: 'uppercase',
+                    transition: 'color 0.15s, background 0.15s, border-color 0.15s',
+                    fontWeight: isActive ? 700 : 500,
+                    letterSpacing: 0.3,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = theme.surface.hover
+                      e.currentTarget.style.color = theme.text.secondary
+                      e.currentTarget.style.borderColor = theme.border.default
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = theme.text.muted
+                      e.currentTarget.style.borderColor = 'transparent'
+                    }
+                  }}
+                >
+                  {t}{t === 'notes' && card.comments.length ? ` (${card.comments.length})` : ''}
+                </button>
+              )
+            })}
             <div style={{ flex: 1 }} />
             {card.launched && (
-              <span style={{ fontSize: 9, color: active ? '#3fb950' : '#444', padding: '0 12px', fontFamily: 'monospace', transition: 'color 0.3s' }}>
+              <span style={{ fontSize: 9, color: active ? theme.status.success : theme.text.disabled, padding: '0 8px', fontFamily: 'inherit', transition: 'color 0.3s', textTransform: 'uppercase', letterSpacing: 0.3 }}>
                 {active ? 'active' : 'idle'}
               </span>
             )}
@@ -387,15 +465,15 @@ export function KanbanCard({
 
           {/* ── Overview tab ── */}
           {tab === 'overview' && (
-            <div style={{ background: '#0d1117', overflowY: 'auto', maxHeight: 480 }}>
+            <div style={{ background: theme.surface.panel, overflowY: 'auto', maxHeight: 480 }}>
 
               {/* Task summary */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #161b22' }}>
+              <div style={{ padding: '14px 16px', borderBottom: `1px solid ${theme.border.subtle}` }}>
                 {/* Editable title */}
                 <input
                   value={card.title}
                   onChange={e => onUpdate(card.id, { title: e.target.value })}
-                  style={{ ...titleInputStyle, marginBottom: 8 }}
+                  style={{ ...getTitleInputStyle(theme), marginBottom: 8 }}
                   placeholder="Task title"
                 />
                 {/* Description */}
@@ -404,24 +482,24 @@ export function KanbanCard({
                   onChange={e => onUpdate(card.id, { description: e.target.value })}
                   rows={2}
                   placeholder="What needs to be done…"
-                  style={textareaStyle}
+                  style={getTextareaStyle(theme)}
                 />
               </div>
 
               {/* Instructions */}
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #161b22' }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border.subtle}` }}>
                 <Label>Instructions</Label>
                 <textarea
                   value={card.instructions}
                   onChange={e => onUpdate(card.id, { instructions: e.target.value })}
                   rows={5}
                   placeholder="Full prompt for the agent. Be specific. Reference files, describe expected output, list constraints."
-                  style={textareaStyle}
+                  style={getTextareaStyle(theme)}
                 />
               </div>
 
               {/* Context */}
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #161b22', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border.subtle}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <Label>Context</Label>
                 <ChipInput values={card.tools} onChange={v => onUpdate(card.id, { tools: v })}
                   prefix="@" placeholder="tools — type or pick"
@@ -442,7 +520,7 @@ export function KanbanCard({
               </div>
 
               {/* Agent selector */}
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #161b22' }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border.subtle}` }}>
                 <Label>Agent</Label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                   {availableAgents.filter(a => a.available || a.id === card.agent).map(a => (
@@ -450,9 +528,9 @@ export function KanbanCard({
                       style={{
                         padding: '5px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
                         fontFamily: 'inherit', fontWeight: 500,
-                        background: card.agent === a.id ? '#1f6feb' : '#161b22',
-                        color: card.agent === a.id ? '#fff' : '#8b949e',
-                        border: `1px solid ${card.agent === a.id ? '#388bfd' : '#21262d'}`,
+                        background: card.agent === a.id ? theme.accent.base : theme.surface.panelMuted,
+                        color: card.agent === a.id ? theme.text.inverse : theme.text.muted,
+                        border: `1px solid ${card.agent === a.id ? theme.border.accent : theme.border.subtle}`,
                       }}
                     >
                       {a.label}
@@ -466,10 +544,10 @@ export function KanbanCard({
                     {MODELS[card.agent].map(m => (
                       <button key={m} onClick={() => onUpdate(card.id, { model: card.model === m ? undefined : m })}
                         style={{
-                          padding: '2px 10px', borderRadius: 10, fontSize: 10, cursor: 'pointer', fontFamily: 'monospace',
-                          background: card.model === m ? '#21262d' : 'transparent',
-                          color: card.model === m ? '#58a6ff' : '#444',
-                          border: `1px solid ${card.model === m ? '#388bfd' : '#21262d'}`
+                          padding: '2px 10px', borderRadius: 10, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
+                          background: card.model === m ? theme.surface.selection : 'transparent',
+                          color: card.model === m ? theme.accent.base : theme.text.disabled,
+                          border: `1px solid ${card.model === m ? theme.border.accent : theme.border.subtle}`
                         }}
                       >{m.split('-').slice(-2).join('-')}</button>
                     ))}
@@ -478,21 +556,21 @@ export function KanbanCard({
               </div>
 
               {/* Advanced section */}
-              <div style={{ borderBottom: '1px solid #161b22' }}>
+              <div style={{ borderBottom: `1px solid ${theme.border.subtle}` }}>
                 <button
                   onClick={() => setAdvanced(p => !p)}
                   style={{
                     width: '100%', padding: '8px 16px', background: 'none', border: 'none',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                    color: '#444', fontSize: 10, fontFamily: 'monospace', textAlign: 'left'
+                    color: theme.text.disabled, fontSize: 10, fontFamily: 'inherit', textAlign: 'left'
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#888')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#444')}
+                  onMouseEnter={e => (e.currentTarget.style.color = theme.text.muted)}
+                  onMouseLeave={e => (e.currentTarget.style.color = theme.text.disabled)}
                 >
                   <span style={{ fontSize: 8 }}>{advanced ? 'v' : '>'}</span>
                   Advanced — MCP servers, hooks, config
                   {(card.mcpServers.length > 0 || card.hooks.length > 0) && (
-                    <span style={{ marginLeft: 4, color: '#388bfd' }}>
+                    <span style={{ marginLeft: 4, color: theme.accent.base }}>
                       {[card.mcpServers.length > 0 && `${card.mcpServers.length} MCP`, card.hooks.length > 0 && `${card.hooks.length} hooks`].filter(Boolean).join(', ')}
                     </span>
                   )}
@@ -503,14 +581,14 @@ export function KanbanCard({
                     {/* MCP servers */}
                     <div>
                       <Label>MCP Servers</Label>
-                      <div style={{ fontSize: 9, color: '#2a3a2a', marginBottom: 6, fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: 9, color: theme.status.success, marginBottom: 6, fontFamily: 'inherit' }}>
                         kanban (card_complete, card_update, card_error) always included
                       </div>
                       {card.mcpServers.map((s, i) => (
                         <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
                           <input value={s.name}
                             onChange={e => { const u = [...card.mcpServers]; u[i] = { ...s, name: e.target.value }; onUpdate(card.id, { mcpServers: u }) }}
-                            placeholder="name" style={{ ...inputStyle, flex: '0 0 80px' }} />
+                            placeholder="name" style={{ ...getInputStyle(theme), flex: '0 0 80px' }} />
                           <input value={s.url ?? s.cmd ?? ''}
                             onChange={e => {
                               const v = e.target.value; const u = [...card.mcpServers]
@@ -518,8 +596,8 @@ export function KanbanCard({
                               onUpdate(card.id, { mcpServers: u })
                             }}
                             placeholder="http://... or npx mcp-name"
-                            style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 10, color: '#3fb950' }} />
-                          <Btn onClick={() => onUpdate(card.id, { mcpServers: card.mcpServers.filter((_, j) => j !== i) })} color="#ff7b72">x</Btn>
+                            style={{ ...getInputStyle(theme), flex: 1, fontFamily: fonts.mono, fontSize: 10, color: theme.status.success }} />
+                          <Btn onClick={() => onUpdate(card.id, { mcpServers: card.mcpServers.filter((_, j) => j !== i) })} color={theme.status.danger}>x</Btn>
                         </div>
                       ))}
                       <AddBtn onClick={() => onUpdate(card.id, { mcpServers: [...card.mcpServers, { name: '', url: '' }] })}>
@@ -540,7 +618,7 @@ export function KanbanCard({
                       <input value={card.mcpConfig ?? ''}
                         onChange={e => onUpdate(card.id, { mcpConfig: e.target.value || undefined })}
                         placeholder={MCP_CONFIG}
-                        style={{ ...inputStyle, fontFamily: 'monospace', color: '#3fb950', fontSize: 10 }} />
+                        style={{ ...getInputStyle(theme), fontFamily: fonts.mono, color: theme.status.success, fontSize: 10 }} />
                     </div>
 
                     {/* Launch command preview */}
@@ -548,11 +626,11 @@ export function KanbanCard({
                       <div>
                         <Label>Launch command</Label>
                         <div style={{
-                          fontSize: 9, color: '#388bfd', background: '#0a0e14',
-                          border: '1px solid #161b22', borderRadius: 4, padding: '6px 10px',
-                          fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.6
+                          fontSize: 9, color: theme.accent.base, background: theme.surface.input,
+                          border: `1px solid ${theme.border.subtle}`, borderRadius: 4, padding: '6px 10px',
+                          fontFamily: fonts.mono, wordBreak: 'break-all', lineHeight: 1.6
                         }}>
-                          <span style={{ color: '#333' }}>$ </span>{launchCmd}
+                          <span style={{ color: theme.text.disabled }}>$ </span>{launchCmd}
                         </div>
                       </div>
                     )}
@@ -566,13 +644,13 @@ export function KanbanCard({
                   <button onClick={() => onLaunch(card.id)} disabled={card.agent === 'shell'}
                     style={{
                       width: '100%', padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
-                      background: card.agent === 'shell' ? '#161b22' : '#1f6feb',
-                      color: card.agent === 'shell' ? '#333' : '#fff',
+                      background: card.agent === 'shell' ? theme.surface.panelMuted : theme.accent.base,
+                      color: card.agent === 'shell' ? theme.text.disabled : theme.text.inverse,
                       border: 'none', cursor: card.agent === 'shell' ? 'default' : 'pointer', fontFamily: 'inherit',
                       letterSpacing: 0.3
                     }}
-                    onMouseEnter={e => { if (card.agent !== 'shell') e.currentTarget.style.background = '#388bfd' }}
-                    onMouseLeave={e => { if (card.agent !== 'shell') e.currentTarget.style.background = '#1f6feb' }}
+                    onMouseEnter={e => { if (card.agent !== 'shell') e.currentTarget.style.background = theme.accent.hover }}
+                    onMouseLeave={e => { if (card.agent !== 'shell') e.currentTarget.style.background = theme.accent.base }}
                   >
                     {card.agent === 'shell' ? 'Select an agent to launch' : `Launch ${agentInfo?.label ?? card.agent}`}
                   </button>
@@ -580,15 +658,15 @@ export function KanbanCard({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{
                       width: 8, height: 8, borderRadius: '50%',
-                      background: active ? '#3fb950' : '#2d2d2d',
-                      boxShadow: active ? '0 0 8px #3fb950' : 'none',
+                      background: active ? theme.status.success : theme.border.strong,
+                      boxShadow: active ? `0 0 8px ${theme.status.success}` : 'none',
                       flexShrink: 0, transition: 'background 0.3s, box-shadow 0.3s'
                     }} />
-                    <span style={{ fontSize: 12, color: active ? '#3fb950' : '#555' }}>
+                    <span style={{ fontSize: 12, color: active ? theme.status.success : theme.text.muted }}>
                       {active ? 'Agent active' : 'Agent idle'}
                     </span>
                     {card.briefPath && (
-                      <span style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 9, color: theme.text.disabled, fontFamily: fonts.mono, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {card.briefPath.split('/').slice(-2).join('/')}
                       </span>
                     )}
@@ -607,26 +685,26 @@ export function KanbanCard({
 
           {/* ── Notes tab ── */}
           {tab === 'notes' && (
-            <div style={{ background: '#0d1117', display: 'flex', flexDirection: 'column', height: 220 }}>
+            <div style={{ background: theme.surface.panel, display: 'flex', flexDirection: 'column', height: 220 }}>
               <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {card.comments.length === 0 && (
-                  <div style={{ fontSize: 11, color: '#2d2d2d', textAlign: 'center', paddingTop: 16 }}>No notes</div>
+                  <div style={{ fontSize: 11, color: theme.text.disabled, textAlign: 'center', paddingTop: 16 }}>No notes</div>
                 )}
                 {card.comments.map(c => (
-                  <div key={c.id} style={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 5, padding: '6px 10px' }}>
+                  <div key={c.id} style={{ background: theme.surface.panelMuted, border: `1px solid ${theme.border.subtle}`, borderRadius: 5, padding: '6px 10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
-                      <span style={{ fontSize: 11, color: '#c9d1d9', flex: 1, lineHeight: 1.5 }}>{c.text}</span>
-                      <Btn onClick={() => onUpdate(card.id, { comments: card.comments.filter(n => n.id !== c.id) })} color="#ff7b72">x</Btn>
+                      <span style={{ fontSize: 11, color: theme.text.secondary, flex: 1, lineHeight: 1.5 }}>{c.text}</span>
+                      <Btn onClick={() => onUpdate(card.id, { comments: card.comments.filter(n => n.id !== c.id) })} color={theme.status.danger}>x</Btn>
                     </div>
-                    <span style={{ fontSize: 9, color: '#333' }}>{new Date(c.ts).toLocaleTimeString()}</span>
+                    <span style={{ fontSize: 9, color: theme.text.disabled }}>{new Date(c.ts).toLocaleTimeString()}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ padding: '8px 10px', borderTop: '1px solid #21262d', display: 'flex', gap: 6 }}>
+              <div style={{ padding: '8px 10px', borderTop: `1px solid ${theme.border.subtle}`, display: 'flex', gap: 6 }}>
                 <input value={newNote} onChange={e => setNewNote(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') addNote() }}
-                  placeholder="Add a note…" style={{ ...inputStyle, flex: 1 }} />
-                <button onClick={addNote} style={{ padding: '4px 12px', borderRadius: 5, background: '#1f6feb', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>+</button>
+                  placeholder="Add a note…" style={{ ...getInputStyle(theme), flex: 1 }} />
+                <button onClick={addNote} style={{ padding: '4px 12px', borderRadius: 5, background: theme.accent.base, color: theme.text.inverse, border: 'none', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>+</button>
               </div>
             </div>
           )}
@@ -650,6 +728,8 @@ interface ChipInputProps {
 }
 
 function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestions = [], suggestionMeta = {}, onDropFile }: ChipInputProps): JSX.Element {
+  const fonts = useAppFonts()
+  const theme = useTheme()
   const [input, setInput] = useState('')
   const [showSugg, setShowSugg] = useState(false)
   const filtered = suggestions.filter(s => s.toLowerCase().includes(input.toLowerCase()) && !values.includes(s))
@@ -666,9 +746,9 @@ function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestion
 
   return (
     <div>
-      {sublabel && <div style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', marginBottom: 4, letterSpacing: 0.5 }}>{sublabel}</div>}
+      {sublabel && <div style={{ fontSize: 9, color: theme.text.disabled, fontFamily: 'inherit', marginBottom: 4, letterSpacing: 0.5 }}>{sublabel}</div>}
       <div
-        style={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 6, padding: '5px 8px', position: 'relative', cursor: 'text' }}
+        style={{ background: theme.surface.panelMuted, border: `1px solid ${theme.border.subtle}`, borderRadius: 6, padding: '5px 8px', position: 'relative', cursor: 'text' }}
         onDragOver={onDropFile ? e => e.preventDefault() : undefined}
         onDrop={onDropFile ? e => { e.preventDefault(); const p = e.dataTransfer.getData('text/plain'); if (p) onDropFile(p) } : undefined}
       >
@@ -677,7 +757,7 @@ function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestion
             <span key={i} style={{
               display: 'inline-flex', alignItems: 'center', gap: 3,
               background: chipBg, borderRadius: 4, padding: '2px 7px',
-              fontSize: 10, color: prefixColor, fontFamily: 'monospace',
+              fontSize: 10, color: prefixColor, fontFamily: fonts.mono,
               border: `1px solid ${prefixColor}22`
             }}>
               <span style={{ opacity: 0.4 }}>{prefix}</span>{v}
@@ -697,23 +777,23 @@ function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestion
               if (e.key === 'Escape') setShowSugg(false)
             }}
             placeholder={values.length === 0 ? `${prefix} ${placeholder}` : ''}
-            style={{ background: 'none', border: 'none', outline: 'none', color: '#c9d1d9', fontSize: 11, fontFamily: 'monospace', minWidth: 60, flex: 1, padding: '1px 0' }}
+            style={{ background: 'none', border: 'none', outline: 'none', color: theme.text.secondary, fontSize: 11, fontFamily: fonts.mono, minWidth: 60, flex: 1, padding: '1px 0' }}
           />
         </div>
         {showSugg && filtered.length > 0 && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#1c2128', border: '1px solid #30363d', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.5)', marginTop: 2, overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: theme.surface.panelElevated, border: `1px solid ${theme.border.default}`, borderRadius: 6, boxShadow: theme.shadow.panel, marginTop: 2, overflow: 'hidden' }}>
             {filtered.slice(0, 8).map(s => (
               <div key={s}
                 style={{ padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 8 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#2d333b')}
+                onMouseEnter={e => (e.currentTarget.style.background = theme.surface.hover)}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 onMouseDown={() => add(s)}
               >
-                <span style={{ fontSize: 10, color: '#c9d1d9', fontFamily: 'monospace', flexShrink: 0 }}>
+                <span style={{ fontSize: 10, color: theme.text.secondary, fontFamily: fonts.mono, flexShrink: 0 }}>
                   <span style={{ color: prefixColor, opacity: 0.5 }}>{prefix}</span>{s}
                 </span>
                 {suggestionMeta[s] && (
-                  <span style={{ fontSize: 9, color: '#444', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 9, color: theme.text.disabled, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {suggestionMeta[s]}
                   </span>
                 )}
@@ -728,40 +808,49 @@ function ChipInput({ values, onChange, prefix, placeholder, sublabel, suggestion
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const titleInputStyle: React.CSSProperties = {
-  width: '100%', fontSize: 15, fontWeight: 700, padding: '4px 0', background: 'none',
-  color: '#e6edf3', border: 'none', borderBottom: '1px solid #21262d', outline: 'none', fontFamily: 'inherit'
+function getTitleInputStyle(theme: ReturnType<typeof useTheme>): React.CSSProperties {
+  return {
+    width: '100%', fontSize: 15, fontWeight: 700, padding: '4px 0', background: 'none',
+    color: theme.text.primary, border: 'none', borderBottom: `1px solid ${theme.border.subtle}`,
+    outline: 'none', fontFamily: 'inherit'
+  }
 }
 
-const textareaStyle: React.CSSProperties = {
-  width: '100%', fontSize: 12, padding: '6px 8px', borderRadius: 5, resize: 'vertical',
-  background: '#161b22', color: '#c9d1d9', border: '1px solid #21262d',
-  outline: 'none', fontFamily: 'inherit', lineHeight: 1.6
+function getTextareaStyle(theme: ReturnType<typeof useTheme>): React.CSSProperties {
+  return {
+    width: '100%', fontSize: 12, padding: '6px 8px', borderRadius: 5, resize: 'vertical',
+    background: theme.surface.panelMuted, color: theme.text.secondary, border: `1px solid ${theme.border.subtle}`,
+    outline: 'none', fontFamily: 'inherit', lineHeight: 1.6
+  }
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', fontSize: 11, padding: '5px 8px', borderRadius: 5,
-  background: '#161b22', color: '#c9d1d9', border: '1px solid #21262d',
-  outline: 'none', fontFamily: 'inherit'
+function getInputStyle(theme: ReturnType<typeof useTheme>): React.CSSProperties {
+  return {
+    width: '100%', fontSize: 11, padding: '5px 8px', borderRadius: 5,
+    background: theme.surface.panelMuted, color: theme.text.secondary, border: `1px solid ${theme.border.subtle}`,
+    outline: 'none', fontFamily: 'inherit'
+  }
 }
 
 function Label({ children }: { children: React.ReactNode }): JSX.Element {
-  return <div style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' }}>{children}</div>
+  const theme = useTheme()
+  return <div style={{ fontSize: 10, color: theme.text.disabled, fontFamily: 'inherit', letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' }}>{children}</div>
 }
 
 function Chip({ label, prefix, bg, fg }: { label: string; prefix: string; bg: string; fg: string }): JSX.Element {
   return (
-    <span style={{ fontSize: 9, background: bg, color: fg, borderRadius: 4, padding: '1px 6px', fontFamily: 'monospace', border: `1px solid ${fg}22` }}>
+    <span style={{ fontSize: 9, background: bg, color: fg, borderRadius: 4, padding: '1px 6px', fontFamily: 'inherit', border: `1px solid ${fg}22` }}>
       <span style={{ opacity: 0.4 }}>{prefix}</span>{label}
     </span>
   )
 }
 
 function AddBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }): JSX.Element {
+  const theme = useTheme()
   const [h, setH] = useState(false)
   return (
     <button onClick={onClick}
-      style={{ width: '100%', fontSize: 10, color: h ? '#58a6ff' : '#444', background: 'none', border: `1px dashed ${h ? '#388bfd44' : '#21262d'}`, borderRadius: 5, padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit', marginTop: 3, transition: 'color 0.1s' }}
+      style={{ width: '100%', fontSize: 10, color: h ? theme.accent.base : theme.text.disabled, background: 'none', border: `1px dashed ${h ? `${theme.accent.base}44` : theme.border.subtle}`, borderRadius: 5, padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit', marginTop: 3, transition: 'color 0.1s' }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
       {children}
     </button>
@@ -769,10 +858,11 @@ function AddBtn({ onClick, children }: { onClick: () => void; children: React.Re
 }
 
 function Btn({ onClick, color, children, title }: { onClick: () => void; color: string; children: React.ReactNode; title?: string }): JSX.Element {
+  const theme = useTheme()
   const [h, setH] = useState(false)
   return (
     <button onClick={e => { e.stopPropagation(); onClick() }} title={title}
-      style={{ fontSize: 10, color: h ? color : '#444', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1, transition: 'color 0.1s', fontFamily: 'monospace' }}
+      style={{ fontSize: 10, color: h ? color : theme.text.disabled, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1, transition: 'color 0.1s', fontFamily: 'inherit' }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
       {children}
     </button>
