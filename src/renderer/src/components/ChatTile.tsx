@@ -14,6 +14,7 @@ import {
 import { useMCPServers, type MCPServerEntry } from '../hooks/useMCPServers'
 import { useTheme } from '../ThemeContext'
 import { stripCapabilityPrefix, getAllNodeTools } from '../../../shared/nodeTools'
+import { getChatTileRuntimeState, setChatTileRuntimeState, reviveChatTileRuntimeState, isChatTileRuntimeStateDisposed } from './chatTileRuntimeState'
 
 // --- Custom provider SVG icons (matching Paseo) ----------------------------------
 
@@ -188,7 +189,6 @@ interface Props {
 const FONT_SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
 const FONT_MONO = '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", "Fira Code", monospace'
 const FONT_SIZE_DEFAULT = 13
-const chatTileRuntimeState = new Map<string, ChatTilePersistedState>()
 const MONO_SIZE_DEFAULT = 13
 const CHAT_MESSAGE_MAX_WIDTH = 800
 const CHAT_COMPOSER_MAX_WIDTH = 800
@@ -532,7 +532,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
   const fontWeight = settings?.fonts?.primary?.weight ?? 400
   const monoSize = settings?.fonts?.mono?.size ?? settings?.monoFont?.size ?? MONO_SIZE_DEFAULT
   const fontSecondary = settings?.fonts?.secondary?.family ?? settings?.secondaryFont?.family ?? FONT_SANS
-  const initialRuntimeStateRef = useRef<ChatTilePersistedState | null>(chatTileRuntimeState.get(tileId) ?? null)
+  const initialRuntimeStateRef = useRef<ChatTilePersistedState | null>(getChatTileRuntimeState<ChatTilePersistedState>(tileId))
   const initialProvider = initialRuntimeStateRef.current?.provider ?? 'claude'
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => initialRuntimeStateRef.current?.messages ?? [])
@@ -607,6 +607,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
   const [isDropTarget, setIsDropTarget] = useState(false)
   const stateLoadedRef = useRef(false)
   const latestStateRef = useRef<ChatTilePersistedState | null>(null)
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestedProviderOptionsRef = useRef<{ opencode: boolean; openclaw: boolean }>({ opencode: false, openclaw: false })
 
   // Voice dictation state
@@ -749,11 +750,23 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       isStreaming,
     }
     if (stateLoadedRef.current) {
-      chatTileRuntimeState.set(tileId, latestStateRef.current)
+      if (isChatTileRuntimeStateDisposed(tileId)) return
+      setChatTileRuntimeState(tileId, latestStateRef.current)
     }
   }, [tileId, messages, input, attachments, provider, model, mcpEnabled, mode, thinking, agentMode, autoAgentMode, sessionId, isStreaming])
 
+  const persistLatestState = useCallback((stateOverride?: ChatTilePersistedState | null) => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current)
+      persistTimerRef.current = null
+    }
+    const nextState = stateOverride ?? latestStateRef.current
+    if (!workspaceId || !stateLoadedRef.current || !nextState || isChatTileRuntimeStateDisposed(tileId)) return
+    void window.electron.canvas.saveTileState(workspaceId, tileId, nextState).catch(() => {})
+  }, [workspaceId, tileId])
+
   useEffect(() => {
+    reviveChatTileRuntimeState(tileId)
     stateLoadedRef.current = false
 
     const applySavedState = (saved: Partial<ChatTilePersistedState> | null | undefined) => {
@@ -777,7 +790,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       if (typeof saved.isStreaming === 'boolean') setIsStreaming(saved.isStreaming)
     }
 
-    const cached = initialRuntimeStateRef.current ?? chatTileRuntimeState.get(tileId)
+    const cached = initialRuntimeStateRef.current ?? getChatTileRuntimeState<ChatTilePersistedState>(tileId)
     if (cached) {
       applySavedState(cached)
       stateLoadedRef.current = true
@@ -797,32 +810,34 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
   }, [workspaceId, tileId])
 
   useEffect(() => {
-    if (!workspaceId || !stateLoadedRef.current) return
-    window.electron.canvas.saveTileState(workspaceId, tileId, {
-      messages,
-      input,
-      attachments,
-      provider,
-      model,
-      mcpEnabled,
-      mode,
-      thinking,
-      agentMode,
-      autoAgentMode,
-      sessionId,
-      isStreaming,
-    }).catch(() => {})
-  }, [workspaceId, tileId, messages, input, attachments, provider, model, mcpEnabled, mode, thinking, agentMode, autoAgentMode, sessionId, isStreaming])
+    if (!workspaceId || !stateLoadedRef.current || isChatTileRuntimeStateDisposed(tileId)) return
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
+    persistTimerRef.current = setTimeout(() => {
+      persistTimerRef.current = null
+      persistLatestState()
+    }, isStreaming ? 250 : 100)
+
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current)
+        persistTimerRef.current = null
+      }
+    }
+  }, [workspaceId, tileId, messages, input, attachments, provider, model, mcpEnabled, mode, thinking, agentMode, autoAgentMode, sessionId, isStreaming, persistLatestState])
 
   useEffect(() => {
     return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current)
+        persistTimerRef.current = null
+      }
       const latest = latestStateRef.current
       if (!latest) return
-      chatTileRuntimeState.set(tileId, latest)
-      if (!workspaceId || !stateLoadedRef.current) return
-      void window.electron.canvas.saveTileState(workspaceId, tileId, latest).catch(() => {})
+      if (isChatTileRuntimeStateDisposed(tileId)) return
+      setChatTileRuntimeState(tileId, latest)
+      persistLatestState(latest)
     }
-  }, [workspaceId, tileId])
+  }, [tileId, persistLatestState])
 
   const providerModels: Record<Provider, ModelOption[]> = {
     claude: DEFAULT_MODELS.claude,

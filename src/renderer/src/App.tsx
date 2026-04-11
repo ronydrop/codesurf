@@ -13,6 +13,7 @@ import { DEFAULT_THEME_ID, getThemeById, resolveEffectiveThemeId, registerCustom
 import type { PanelNode } from './components/PanelLayout'
 import { createLeaf, removeTileFromTree, addTabToLeaf, getAllTileIds, splitLeaf, closeOthersInLeaf, closeToRightInLeaf, findLeafById } from './components/PanelLayout'
 import { getDroppedPaths } from './utils/dnd'
+import { disposeChatTileRuntimeState } from './components/chatTileRuntimeState'
 
 const LazyPanelLayout = React.lazy(() => import('./components/PanelLayout').then(m => ({ default: m.PanelLayout })))
 
@@ -1379,6 +1380,9 @@ function App(): JSX.Element {
     const tile = tilesRef.current.find(t => t.id === id)
     if (tile?.type === 'terminal') {
       window.electron.terminal.destroy(id)
+    }
+    if (tile?.type === 'chat') {
+      disposeChatTileRuntimeState(id)
     }
     if (workspace?.id) {
       void Promise.allSettled([

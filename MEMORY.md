@@ -7,6 +7,10 @@ The agent reads this each heartbeat for context, and writes to it after doing wo
 
 <!-- Agent writes entries here. Format: ## YYYY-MM-DD HH:MM — one paragraph or bullet list -->
 
+## 2026-04-11 12:15 — Chat tile runtime cache no longer revives closed chats, and chat state persistence is now debounced
+
+Investigated the renderer-side memory/OOM risk around chat remount persistence. `src/renderer/src/components/ChatTile.tsx` was keeping full chat transcripts in a module-level runtime map forever and also flushing full chat state to `canvas.saveTileState(...)` on every message/token update. Worse, closed chat tiles could re-save their state during unmount after `deleteTileArtifacts`, effectively resurrecting large tile-state files. I moved the runtime cache lifecycle into `src/renderer/src/components/chatTileRuntimeState.ts`, added explicit disposal on close from `src/renderer/src/App.tsx`, made ChatTile skip unmount persistence when a tile is being closed, and debounced chat tile persistence so streaming responses stop hammering IPC/disk with full-message snapshots every chunk. Renderer build passes.
+
 ## 2026-04-11 11:02 — Layout screen typography now follows app default font sizing more closely
 
 Updated `src/renderer/src/components/LayoutBuilder.tsx` so the main layout-page labels and card text use the app font scale instead of fixed tiny values. Leaf labels, picker labels, card titles, empty-state text, saved-layout labels, and inline name inputs now derive from `useAppFonts()` defaults, making the page feel less one-off.

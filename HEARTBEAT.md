@@ -40,6 +40,8 @@ or this file is empty, add one observation from the codebase. Then stop.
 
 ## Done
 
+- [x] FIX: Chat runtime cache now disposes cleanly on close and debounces persistence — DONE 2026-04-11. `src/renderer/src/components/ChatTile.tsx` no longer writes full tile state on every streaming token, and closing a chat block now disposes its in-memory runtime snapshot instead of letting unmount persistence recreate deleted state.
+
 - [x] FIX: Tabbed view no longer drops live chat state on remount — DONE 2026-04-11. `ChatTile` now restores from an in-memory per-tile runtime snapshot before disk and flushes its latest snapshot on unmount, including streaming state; `PanelLayout` also stops keeping every inactive lightweight tab mounted.
 
 - [x] FIX: Chat `@` autocomplete now prefers connected file tiles — DONE 2026-04-11. `src/renderer/src/components/ChatTile.tsx` now lists connected file-backed peers before generic mention stubs, and choosing one auto-attaches that file so the outgoing message includes its path block.
