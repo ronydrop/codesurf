@@ -7,6 +7,14 @@ The agent reads this each heartbeat for context, and writes to it after doing wo
 
 <!-- Agent writes entries here. Format: ## YYYY-MM-DD HH:MM — one paragraph or bullet list -->
 
+## 2026-04-11 12:46 — Overlapping discovery edges now get lane offsets, and locked edges win over proximity edges for the same pair
+
+Updated `src/renderer/src/App.tsx` so visually identical ambient discovery routes are grouped by normalized route signature and assigned small symmetric lane offsets instead of stacking directly on top of each other. I also changed the route-merging logic so a locked connection always claims the render slot for its tile pair and proximity discovery no longer re-adds a second ambient edge for the same key; when a pair is locked, only the locked edge survives in the ambient route list. Renderer build passes.
+
+## 2026-04-11 12:32 — Canvas drag/drop now classifies images, videos, PDFs, and docs into sensible block types
+
+Updated `src/renderer/src/App.tsx` so dropped/opened files no longer fall through to terminal blocks by default. Images still open as `image`, videos/audio/PDFs now open as `browser` blocks using a local `file://` URL when rendered, Office-style docs (`docx`, `xlsx`, `pptx`, `rtf`, etc.) now open as `file` blocks, and unknown binary-ish files now default to `file` instead of `terminal`. I also wired the missing `file` renderer case in `renderTileBody(...)` and added `file` to the sidebar core-block grouping so dragged docs actually show up as first-class blocks. Renderer build passes.
+
 ## 2026-04-11 12:15 — Chat tile runtime cache no longer revives closed chats, and chat state persistence is now debounced
 
 Investigated the renderer-side memory/OOM risk around chat remount persistence. `src/renderer/src/components/ChatTile.tsx` was keeping full chat transcripts in a module-level runtime map forever and also flushing full chat state to `canvas.saveTileState(...)` on every message/token update. Worse, closed chat tiles could re-save their state during unmount after `deleteTileArtifacts`, effectively resurrecting large tile-state files. I moved the runtime cache lifecycle into `src/renderer/src/components/chatTileRuntimeState.ts`, added explicit disposal on close from `src/renderer/src/App.tsx`, made ChatTile skip unmount persistence when a tile is being closed, and debounced chat tile persistence so streaming responses stop hammering IPC/disk with full-message snapshots every chunk. Renderer build passes.

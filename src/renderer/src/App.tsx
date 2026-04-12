@@ -12,7 +12,7 @@ import { ThemeProvider } from './ThemeContext'
 import { DEFAULT_THEME_ID, getThemeById, resolveEffectiveThemeId, registerCustomTheme, unregisterCustomTheme } from './theme'
 import type { PanelNode } from './components/PanelLayout'
 import { createLeaf, removeTileFromTree, addTabToLeaf, getAllTileIds, splitLeaf, closeOthersInLeaf, closeToRightInLeaf, findLeafById } from './components/PanelLayout'
-import { getDroppedPaths } from './utils/dnd'
+import { getDroppedPaths, toFileUrl } from './utils/dnd'
 import { disposeChatTileRuntimeState } from './components/chatTileRuntimeState'
 
 const LazyPanelLayout = React.lazy(() => import('./components/PanelLayout').then(m => ({ default: m.PanelLayout })))
@@ -120,27 +120,41 @@ function sanitizePanelLayout(root: PanelNode | null | undefined, tileIds: string
 
 const CODE_EXTENSIONS = new Set(['ts', 'tsx', 'js', 'jsx', 'json', 'py', 'rs', 'go', 'cpp', 'c', 'java', 'css', 'html', 'sh', 'bash', 'yaml', 'yml', 'toml', 'xml'])
 const NOTE_EXTENSIONS = new Set(['md', 'txt', 'markdown', 'mdx'])
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'])
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'heic', 'heif'])
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm', 'ogv', 'avi', 'mkv'])
+const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'])
+const BROWSER_DOCUMENT_EXTENSIONS = new Set(['pdf'])
+const GENERIC_DOCUMENT_EXTENSIONS = new Set(['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'pages', 'numbers', 'key', 'rtf'])
 
 function extToType(filePath: string): TileState['type'] {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   if (CODE_EXTENSIONS.has(ext)) return 'code'
   if (NOTE_EXTENSIONS.has(ext)) return 'note'
   if (IMAGE_EXTENSIONS.has(ext)) return 'image'
+  if (VIDEO_EXTENSIONS.has(ext) || AUDIO_EXTENSIONS.has(ext) || BROWSER_DOCUMENT_EXTENSIONS.has(ext)) return 'browser'
+  if (GENERIC_DOCUMENT_EXTENSIONS.has(ext)) return 'file'
   if (!filePath.includes('.')) return 'code'
-  return 'terminal'
+  return 'file'
 }
 
 async function resolveFileTileType(filePath: string): Promise<TileState['type']> {
   const byExtension = extToType(filePath)
-  if (byExtension !== 'terminal') return byExtension
+  if (byExtension !== 'file') return byExtension
 
   try {
     const isText = await window.electron.fs.isProbablyTextFile(filePath)
-    return isText ? 'code' : 'terminal'
+    return isText ? 'code' : 'file'
   } catch {
     return byExtension
   }
+}
+
+function toBrowserTileUrl(filePath: string): string {
+  if (!filePath) return ''
+  if (/^[a-z][a-z\d+\-.]*:\/\//i.test(filePath)) return filePath
+  if (filePath === 'about:blank') return filePath
+  if (filePath.startsWith('/')) return toFileUrl(filePath)
+  return filePath
 }
 
 function withAlpha(color: string, alpha: number): string {
@@ -577,6 +591,40 @@ function getRouteMidpoint(points: { x: number; y: number }[]): { x: number; y: n
   }
 
   return points[points.length - 1]
+}
+
+function getRouteSignature(points: { x: number; y: number }[]): string {
+  const forward = points.map(point => `${point.x},${point.y}`).join('|')
+  const reverse = [...points].reverse().map(point => `${point.x},${point.y}`).join('|')
+  return forward < reverse ? forward : reverse
+}
+
+function getLaneOffsets(count: number): number[] {
+  if (count <= 1) return [0]
+  const offsets: number[] = []
+  if (count % 2 === 1) offsets.push(0)
+  let step = count % 2 === 1 ? 1 : 0.5
+  while (offsets.length < count) {
+    offsets.push(-step, step)
+    step += 1
+  }
+  return offsets.slice(0, count)
+}
+
+function offsetOrthogonalRoute(points: { x: number; y: number }[], offset: number): { x: number; y: number }[] {
+  if (!offset || points.length <= 1) return points
+
+  return points.map((point, index) => {
+    const prev = index > 0 ? points[index - 1] : null
+    const next = index < points.length - 1 ? points[index + 1] : null
+    const touchesHorizontal = (prev ? prev.y === point.y : false) || (next ? next.y === point.y : false)
+    const touchesVertical = (prev ? prev.x === point.x : false) || (next ? next.x === point.x : false)
+
+    return {
+      x: point.x + (touchesVertical ? offset : 0),
+      y: point.y + (touchesHorizontal ? offset : 0),
+    }
+  })
 }
 
 function formatGridBounds(bounds: TileSpatialReference['gridBounds']): string {
@@ -2624,12 +2672,21 @@ function App(): JSX.Element {
         return <LazyNoteTile tileId={tile.id} filePath={tile.filePath} workspacePath={workspace?.path} />
       case 'image':
         return tile.filePath ? <LazyImageTile filePath={tile.filePath} /> : null
+      case 'file':
+        return tile.filePath ? (
+          <LazyFileTile
+            tileId={tile.id}
+            filePath={tile.filePath}
+            workspacePath={workspace?.path}
+            secondaryFont={settings.fonts.secondary}
+          />
+        ) : null
       case 'browser':
         return (
           <LazyBrowserTile
             tileId={tile.id}
             workspaceId={workspace?.id ?? ''}
-            initialUrl={tile.filePath ?? ''}
+            initialUrl={toBrowserTileUrl(tile.filePath ?? '')}
             width={tile.width}
             height={tile.height}
             zIndex={tile.zIndex}
@@ -2759,7 +2816,7 @@ function App(): JSX.Element {
   const negotiatedDiscoveryState = React.useMemo(() => {
     const gridStep = Math.max(8, settings.gridSize || settings.gridSpacingSmall || GRID)
     const maxDistance = getDiscoveryMaxDistance(settings.gridSpacingLarge || DEFAULT_SETTINGS.gridSpacingLarge)
-    const routes = new Map<string, { key: string; route: { x: number; y: number }[]; distance: number }>()
+    const routes = new Map<string, { key: string; route: { x: number; y: number }[]; distance: number; locked: boolean }>()
 
     // Pass empty set — panel/layout tiles must stay in the graph so peers keep their tools/connections.
     // Visual hiding is handled at ambientDiscoveryRoutes level only.
@@ -2783,10 +2840,8 @@ function App(): JSX.Element {
       const src = tileMap.get(lc.sourceTileId)
       const tgt = tileMap.get(lc.targetTileId)
       if (!src || !tgt) continue
-      // Already connected by proximity — skip
       const existingLinks = connectionGraph.byTile.get(src.id)
-      if (existingLinks?.some(l => l.peerId === tgt.id)) continue
-      // Add bidirectional link
+      const alreadyLinkedByProximity = existingLinks?.some(l => l.peerId === tgt.id) ?? false
       const srcCaps = getTileCapabilities(src)
       const tgtCaps = getTileCapabilities(tgt)
       const srcRef = getTileSpatialReference(src, gridStep)
@@ -2795,19 +2850,22 @@ function App(): JSX.Element {
       if (!pair) continue
       const route = getOrthogonalRoute(pair.source, pair.target, gridStep)
       const dist = pair.distance
-      const srcLink: DiscoveryCapabilityLink = { peerId: tgt.id, peerType: tgt.type, distance: dist, route, capabilities: [...tgtCaps.provides.map(c => `cap:${c}`), ...srcCaps.accepts.map(c => `accept:${c}`)], lastSeen: Date.now() }
-      const tgtLink: DiscoveryCapabilityLink = { peerId: src.id, peerType: src.type, distance: dist, route: [...route].reverse(), capabilities: [...srcCaps.provides.map(c => `cap:${c}`), ...tgtCaps.accepts.map(c => `accept:${c}`)], lastSeen: Date.now() }
-      connectionGraph.connectedTileIds.add(src.id)
-      connectionGraph.connectedTileIds.add(tgt.id)
-      const srcLinks = connectionGraph.byTile.get(src.id) ?? []
-      srcLinks.push(srcLink)
-      connectionGraph.byTile.set(src.id, srcLinks)
-      const tgtLinks = connectionGraph.byTile.get(tgt.id) ?? []
-      tgtLinks.push(tgtLink)
-      connectionGraph.byTile.set(tgt.id, tgtLinks)
-      // Add route for rendering
+
+      if (!alreadyLinkedByProximity) {
+        const srcLink: DiscoveryCapabilityLink = { peerId: tgt.id, peerType: tgt.type, distance: dist, route, capabilities: [...tgtCaps.provides.map(c => `cap:${c}`), ...srcCaps.accepts.map(c => `accept:${c}`)], lastSeen: Date.now() }
+        const tgtLink: DiscoveryCapabilityLink = { peerId: src.id, peerType: src.type, distance: dist, route: [...route].reverse(), capabilities: [...srcCaps.provides.map(c => `cap:${c}`), ...tgtCaps.accepts.map(c => `accept:${c}`)], lastSeen: Date.now() }
+        connectionGraph.connectedTileIds.add(src.id)
+        connectionGraph.connectedTileIds.add(tgt.id)
+        const srcLinks = connectionGraph.byTile.get(src.id) ?? []
+        srcLinks.push(srcLink)
+        connectionGraph.byTile.set(src.id, srcLinks)
+        const tgtLinks = connectionGraph.byTile.get(tgt.id) ?? []
+        tgtLinks.push(tgtLink)
+        connectionGraph.byTile.set(tgt.id, tgtLinks)
+      }
+
       const key = [src.id, tgt.id].sort().join('::')
-      if (!routes.has(key)) routes.set(key, { key, route, distance: dist })
+      routes.set(key, { key, route, distance: dist, locked: true })
     }
 
     for (const tile of tiles) {
@@ -2816,11 +2874,13 @@ function App(): JSX.Element {
 
       const key = [tile.id, discovery.match.tile.id].sort().join('::')
       const existing = routes.get(key)
+      if (existing?.locked) continue
       if (!existing || discovery.match.distance < existing.distance) {
         routes.set(key, {
           key,
           route: discovery.match.route,
           distance: discovery.match.distance,
+          locked: false,
         })
       }
     }
@@ -2828,7 +2888,7 @@ function App(): JSX.Element {
     return {
       connectedTileIds: connectionGraph.connectedTileIds,
       byTileConnections: connectionGraph.byTile,
-      ambientRoutes: Array.from(routes.values()).map(({ key, route }) => ({ key, route })),
+      ambientRoutes: Array.from(routes.values()).map(({ key, route, locked }) => ({ key, route, locked })),
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panelTileIds, settings.gridSize, settings.gridSpacingSmall, settings.gridSpacingLarge, tiles, lockedConnections, suppressedConnections, extActionsVersion])
@@ -2927,8 +2987,40 @@ function App(): JSX.Element {
     if (discoveryFocusTileId) {
       return visibleRoutes.filter(r => lockedConnectionKeys.has(r.key))
     }
-    return visibleRoutes
+    return visibleRoutes.filter(route => !lockedConnectionKeys.has(route.key) || route.locked)
   }, [discoveryFocusTileId, negotiatedDiscoveryState, lockedConnectionKeys, panelTileIds])
+
+  const ambientDiscoveryRenderRoutes = React.useMemo(() => {
+    if (ambientDiscoveryRoutes.length === 0) return []
+
+    const worldLaneSpacing = 12 / Math.max(0.25, viewport.zoom)
+    const grouped = new Map<string, Array<typeof ambientDiscoveryRoutes[number]>>()
+
+    for (const route of ambientDiscoveryRoutes) {
+      const signature = getRouteSignature(route.route)
+      const group = grouped.get(signature) ?? []
+      group.push(route)
+      grouped.set(signature, group)
+    }
+
+    const offsets = new Map<string, number>()
+    for (const routes of grouped.values()) {
+      const laneOffsets = getLaneOffsets(routes.length).map(offset => offset * worldLaneSpacing)
+      const orderedRoutes = [...routes].sort((a, b) => {
+        if (a.locked !== b.locked) return a.locked ? -1 : 1
+        return a.key.localeCompare(b.key)
+      })
+      orderedRoutes.forEach((route, index) => {
+        offsets.set(route.key, laneOffsets[index] ?? 0)
+      })
+    }
+
+    return ambientDiscoveryRoutes.map(route => ({
+      ...route,
+      baseRoute: route.route,
+      displayRoute: offsetOrthogonalRoute(route.route, offsets.get(route.key) ?? 0),
+    }))
+  }, [ambientDiscoveryRoutes, viewport.zoom])
 
   const isDraggingCanvas = dragState.type === 'pan'
 
@@ -4120,12 +4212,11 @@ function App(): JSX.Element {
             )}
 
             {/* Connection pills — rendered in screen-space under tiles, like edges */}
-            {!panelLayout && (ambientDiscoveryRoutes.length > 0 || discoveryPreview?.match) && (
+            {!panelLayout && (ambientDiscoveryRenderRoutes.length > 0 || discoveryPreview?.match) && (
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
                 {/* Ambient route pills */}
-                {ambientDiscoveryRoutes.map(connection => {
-                  const screenRoute = connection.route.map(worldToScreenPoint)
-                  const mid = getRouteMidpoint(screenRoute)
+                {ambientDiscoveryRenderRoutes.map(connection => {
+                  const mid = getRouteMidpoint(connection.displayRoute)
                   const [tileIdA, tileIdB] = connection.key.split('::')
                   return (
                     <Suspense key={`pill-${connection.key}`} fallback={null}>
@@ -4146,8 +4237,7 @@ function App(): JSX.Element {
                   const previewKey = [discoveryFocusTileId, discoveryPreview.match.tile.id].sort().join('::')
                   // Skip if already rendered as a locked ambient pill
                   if (lockedConnectionKeys.has(previewKey)) return null
-                  const screenRoute = discoveryPreview.match.route.map(worldToScreenPoint)
-                  const mid = getRouteMidpoint(screenRoute)
+                  const mid = getRouteMidpoint(discoveryPreview.match.route)
                   return (
                     <Suspense fallback={null}>
                       <LazyConnectionPill
@@ -4203,7 +4293,7 @@ function App(): JSX.Element {
               )
             })}
 
-            {!panelLayout && (ambientDiscoveryRoutes.length > 0 || discoveryPreview?.match || discoveryPulses.length > 0) && (
+            {!panelLayout && (ambientDiscoveryRenderRoutes.length > 0 || discoveryPreview?.match || discoveryPulses.length > 0) && (
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: discoveryHighlightZIndex }}>
                 {(() => {
                   const previewPairKey = discoveryPreview?.match && discoveryFocusTileId
@@ -4211,9 +4301,9 @@ function App(): JSX.Element {
                     : null
                   return (
                     <>
-                {ambientDiscoveryRoutes.map(connection => (
+                {ambientDiscoveryRenderRoutes.map(connection => (
                   <React.Fragment key={connection.key}>
-                    {getRouteSegments(connection.route, 2).map((segment, index) => (
+                    {getRouteSegments(connection.displayRoute, 2).map((segment, index) => (
                       <div
                         key={`${connection.key}-segment-${index}`}
                         style={{
@@ -4234,6 +4324,8 @@ function App(): JSX.Element {
                   </React.Fragment>
                 ))}
                 {discoveryPreview?.match && discoveryFocusTileId && (() => {
+                  const previewKey = [discoveryFocusTileId, discoveryPreview.match.tile.id].sort().join('::')
+                  if (lockedConnectionKeys.has(previewKey)) return null
                   const sourceTile = tileByIdMap.get(discoveryFocusTileId)
                   const targetTile = tileByIdMap.get(discoveryPreview.match.tile.id)
                   if (!sourceTile || !targetTile) return null
@@ -4355,7 +4447,7 @@ function App(): JSX.Element {
             )}
           </div>
 
-          {canvasGlowEnabled && !panelLayout && (ambientDiscoveryRoutes.length > 0 || discoveryPreview?.match || discoveryPulses.length > 0) && (
+          {canvasGlowEnabled && !panelLayout && (ambientDiscoveryRenderRoutes.length > 0 || discoveryPreview?.match || discoveryPulses.length > 0) && (
             <div
               ref={discoveryGlowRef}
               className="absolute inset-0 pointer-events-none"
@@ -4365,8 +4457,8 @@ function App(): JSX.Element {
                 zIndex: discoveryGlowZIndex,
               }}
             >
-              {ambientDiscoveryRoutes.map(connection => {
-                const screenRoute = connection.route.map(worldToScreenPoint)
+              {ambientDiscoveryRenderRoutes.map(connection => {
+                const screenRoute = connection.displayRoute.map(worldToScreenPoint)
                 return getRouteSegments(screenRoute, 2.5).map((segment, index) => (
                   <div
                     key={`${connection.key}-glow-${index}`}
@@ -4387,6 +4479,8 @@ function App(): JSX.Element {
               })}
 
               {discoveryPreview?.match && discoveryFocusTileId && (() => {
+                const previewKey = [discoveryFocusTileId, discoveryPreview.match.tile.id].sort().join('::')
+                if (lockedConnectionKeys.has(previewKey)) return null
                 const screenRoute = discoveryPreview.match.route.map(worldToScreenPoint)
                 return (
                   <>

@@ -513,7 +513,7 @@ export function Sidebar({
   }, [onResizeStateChange, onWidthChange])
 
   // Group tiles by type for the Extensions section
-  const coreTiles = useMemo(() => tiles.filter(t => ['terminal', 'code', 'note', 'browser', 'chat', 'files', 'kanban', 'image'].includes(t.type)), [tiles])
+  const coreTiles = useMemo(() => tiles.filter(t => ['terminal', 'code', 'note', 'browser', 'chat', 'files', 'file', 'kanban', 'image'].includes(t.type)), [tiles])
   const extensionInstances = useMemo(() => tiles.filter(t => t.type.startsWith('ext:')), [tiles])
 
   // Group core tiles by type

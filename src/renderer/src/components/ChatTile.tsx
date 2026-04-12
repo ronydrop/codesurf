@@ -191,6 +191,11 @@ const FONT_MONO = '"JetBrains Mono", "Menlo", "Monaco", "SF Mono", "Fira Code", 
 const FONT_SIZE_DEFAULT = 13
 const MONO_SIZE_DEFAULT = 13
 const CHAT_MESSAGE_MAX_WIDTH = 800
+const CHAT_RENDER_WINDOW = 120
+const CHAT_MEMORY_MESSAGE_LIMIT = 160
+const CHAT_MEMORY_CHAR_LIMIT = 300_000
+const CHAT_MEMORY_SINGLE_MESSAGE_LIMIT = 120_000
+const CHAT_TRIM_NOTICE_PREFIX = '[CodeSurf memory guard]'
 const CHAT_COMPOSER_MAX_WIDTH = 800
 const CHAT_COMPOSER_MIN_WIDTH = 400
 const CHAT_COMPOSER_MIN_HEIGHT = 105
@@ -203,6 +208,45 @@ const TOOLBAR_CHEVRON_SIZE = 12
 // Font context so sub-components can read settings-derived fonts without prop drilling
 const FontCtx = React.createContext({ sans: FONT_SANS, secondary: FONT_SANS, mono: FONT_MONO, size: FONT_SIZE_DEFAULT, monoSize: MONO_SIZE_DEFAULT })
 function useFonts() { return React.useContext(FontCtx) }
+
+function estimateMessageChars(message: ChatMessage): number {
+  const toolChars = (message.toolBlocks ?? []).reduce((sum, block) => {
+    return sum + (block.name?.length ?? 0) + (block.input?.length ?? 0) + (block.summary?.length ?? 0)
+  }, 0)
+  return (message.content?.length ?? 0) + (message.thinking?.content?.length ?? 0) + toolChars
+}
+
+function trimMessageForMemory(message: ChatMessage): ChatMessage {
+  if ((message.content?.length ?? 0) <= CHAT_MEMORY_SINGLE_MESSAGE_LIMIT) return message
+  const keptTail = message.content.slice(-CHAT_MEMORY_SINGLE_MESSAGE_LIMIT)
+  return {
+    ...message,
+    content: `${CHAT_TRIM_NOTICE_PREFIX} Older content for this message was truncated to keep the renderer alive.\n\n${keptTail}`,
+  }
+}
+
+function normalizeMessagesForMemory(messages: ChatMessage[]): ChatMessage[] {
+  const withoutNotice = messages.filter(message => !(message.role === 'system' && message.content.startsWith(CHAT_TRIM_NOTICE_PREFIX)))
+  const normalized = withoutNotice.map(trimMessageForMemory)
+
+  let start = 0
+  let totalChars = normalized.reduce((sum, message) => sum + estimateMessageChars(message), 0)
+  while (normalized.length - start > CHAT_MEMORY_MESSAGE_LIMIT || totalChars > CHAT_MEMORY_CHAR_LIMIT) {
+    totalChars -= estimateMessageChars(normalized[start])
+    start += 1
+  }
+
+  if (start === 0) return messages === normalized ? messages : normalized
+
+  const trimmedCount = normalized.length - start
+  const notice: ChatMessage = {
+    id: `msg-memory-guard-${normalized[start]?.timestamp ?? Date.now()}`,
+    role: 'system',
+    content: `${CHAT_TRIM_NOTICE_PREFIX} Dropped ${start} older message${start === 1 ? '' : 's'} from live renderer state to avoid an out-of-memory crash.`,
+    timestamp: normalized[start]?.timestamp ?? Date.now(),
+  }
+  return [notice, ...normalized.slice(start)]
+}
 
 function getRelativeMentionPath(filePath: string, workspaceDir: string): string {
   const normalizedFilePath = filePath.replace(/\\/g, '/')
@@ -605,6 +649,11 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
   const [modelFilter, setModelFilter] = useState('')
   const [attachments, setAttachments] = useState<PendingAttachment[]>(() => initialRuntimeStateRef.current?.attachments ?? [])
   const [isDropTarget, setIsDropTarget] = useState(false)
+  const setMessagesSafe = useCallback((updater: React.SetStateAction<ChatMessage[]>) => {
+    setMessages(prev => normalizeMessagesForMemory(typeof updater === 'function'
+      ? (updater as (prev: ChatMessage[]) => ChatMessage[])(prev)
+      : updater))
+  }, [])
   const stateLoadedRef = useRef(false)
   const latestStateRef = useRef<ChatTilePersistedState | null>(null)
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -697,6 +746,13 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       ? mentionItems
       : []
 
+  const renderedMessages = useMemo(() => {
+    if (messages.length <= CHAT_RENDER_WINDOW) return messages
+    return messages.slice(-CHAT_RENDER_WINDOW)
+  }, [messages])
+
+  const hiddenMessageCount = Math.max(0, messages.length - renderedMessages.length)
+
   // Clamp index when filtered items change
   useEffect(() => {
     setAcIndex(i => Math.min(i, Math.max(0, acItems.length - 1)))
@@ -735,6 +791,14 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
   }, [provider])
 
   useEffect(() => {
+    const normalized = normalizeMessagesForMemory(messages)
+    if (normalized !== messages) {
+      setMessages(normalized)
+      return
+    }
+  }, [messages])
+
+  useEffect(() => {
     latestStateRef.current = {
       messages,
       input,
@@ -771,7 +835,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
 
     const applySavedState = (saved: Partial<ChatTilePersistedState> | null | undefined) => {
       if (!saved) return
-      if (Array.isArray(saved.messages)) setMessages(saved.messages)
+      if (Array.isArray(saved.messages)) setMessagesSafe(saved.messages)
       if (typeof saved.input === 'string') setInput(saved.input)
       if (Array.isArray(saved.attachments)) {
         setAttachments(saved.attachments.filter((item: any) => typeof item?.path === 'string').map((item: any) => ({
@@ -963,7 +1027,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       if (event.cardId !== tileId) return
 
       const updateLast = (fn: (m: ChatMessage) => ChatMessage) =>
-        setMessages(prev => {
+        setMessagesSafe(prev => {
           const last = prev[prev.length - 1]
           if (last?.isStreaming) return [...prev.slice(0, -1), fn(last)]
           return prev
@@ -1117,7 +1181,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
           timestamp: Date.now(),
           isStreaming: false,
         }
-        setMessages(prev => [...prev, incomingMsg])
+        setMessagesSafe(prev => [...prev, incomingMsg])
       }
     })
     return () => unsubscribe?.()
@@ -1216,7 +1280,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       timestamp: Date.now()
     }
 
-    setMessages(prev => [...prev, userMsg])
+    setMessagesSafe(prev => [...prev, userMsg])
     setInput('')
     setAcType(null)
     setAcQuery('')
@@ -1231,7 +1295,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
     })
 
     const assistantId = `msg-${Date.now() + 1}`
-    setMessages(prev => [...prev, {
+    setMessagesSafe(prev => [...prev, {
       id: assistantId, role: 'assistant', content: '', timestamp: Date.now(), isStreaming: true
     }])
 
@@ -1257,7 +1321,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
         sessionId,
       })
     } catch (err) {
-      setMessages(prev => prev.map(m =>
+      setMessagesSafe(prev => prev.map(m =>
         m.id === assistantId ? { ...m, content: `Error: ${err}`, isStreaming: false } : m
       ))
       setIsStreaming(false)
@@ -1268,13 +1332,13 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
   const stopStreaming = useCallback(() => {
     window.electron?.chat?.stop?.(tileId)
     setIsStreaming(false)
-    setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
+    setMessagesSafe(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
     focusComposer()
   }, [tileId, focusComposer])
 
   const clearConversation = useCallback(() => {
     if (isStreaming) return
-    setMessages([])
+    setMessagesSafe([])
     setAttachments([])
     setSessionId(null)
     window.electron?.chat?.clearSession?.(tileId)
@@ -1448,17 +1512,33 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
           minHeight: '100%',
         }}>
           {messages.length === 0 && (
+             <div style={{
+               flex: 1, display: 'flex', flexDirection: 'column',
+               alignItems: 'center', justifyContent: 'center', gap: 8,
+               color: theme.chat.subtle, fontSize: 12,
+             }}>
+               <MessageSquare size={24} color={theme.chat.subtle} strokeWidth={1.5} style={{ opacity: 0.4 }} />
+               <span>Start a conversation</span>
+             </div>
+           )}
+
+          {hiddenMessageCount > 0 && (
             <div style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 8,
-              color: theme.chat.subtle, fontSize: 12,
+              alignSelf: 'center',
+              maxWidth: CHAT_MESSAGE_MAX_WIDTH,
+              padding: '8px 12px',
+              borderRadius: 10,
+              border: `1px solid ${theme.chat.divider}`,
+              background: theme.chat.userBubble,
+              color: theme.chat.muted,
+              fontSize: 11,
+              textAlign: 'center',
             }}>
-              <MessageSquare size={24} color={theme.chat.subtle} strokeWidth={1.5} style={{ opacity: 0.4 }} />
-              <span>Start a conversation</span>
+              Showing the most recent {renderedMessages.length} messages to keep this block responsive. {hiddenMessageCount} older message{hiddenMessageCount === 1 ? '' : 's'} are still preserved in session state.
             </div>
           )}
-
-          {messages.map(msg => (
+ 
+          {renderedMessages.map(msg => (
             <div key={msg.id} style={{
               display: 'flex', flexDirection: 'column',
               alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',

@@ -40,6 +40,10 @@ or this file is empty, add one observation from the codebase. Then stop.
 
 ## Done
 
+- [x] FIX: Discovery edges no longer stack directly on top of each other, and locked edges suppress same-pair proximity edges — DONE 2026-04-11. `src/renderer/src/App.tsx` now assigns lane offsets to identical ambient routes and gives locked connections precedence so only the locked route remains for that pair.
+
+- [x] FIX: Dragging images, videos, PDFs, and docs onto the canvas now creates sensible blocks — DONE 2026-04-11. `src/renderer/src/App.tsx` now classifies local media/docs into `image`, `browser`, or `file` instead of dropping unknown files into terminals, and the missing `file` render path is now wired up.
+
 - [x] FIX: Chat runtime cache now disposes cleanly on close and debounces persistence — DONE 2026-04-11. `src/renderer/src/components/ChatTile.tsx` no longer writes full tile state on every streaming token, and closing a chat block now disposes its in-memory runtime snapshot instead of letting unmount persistence recreate deleted state.
 
 - [x] FIX: Tabbed view no longer drops live chat state on remount — DONE 2026-04-11. `ChatTile` now restores from an in-memory per-tile runtime snapshot before disk and flushes its latest snapshot on unmount, including streaming state; `PanelLayout` also stops keeping every inactive lightweight tab mounted.
