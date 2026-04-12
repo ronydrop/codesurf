@@ -3600,16 +3600,16 @@ function App(): JSX.Element {
             height: 38,
             // @ts-ignore
             WebkitAppRegion: 'drag',
-            paddingLeft: sidebarCollapsed ? 90 : sidebarWidth + 16,
+            paddingLeft: sidebarCollapsed ? 78 : sidebarWidth + 4,
             transition: 'padding-left 0.15s ease',
             position: 'relative',
             zIndex: 90,
-            paddingTop: 8,
+            paddingTop: 2,
           }}
         >
           {/* Workspace pill tabs */}
           <div style={{ display: 'flex', gap: 4, alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            {openWorkspaceIds.map(id => {
+            {openWorkspaceIds.map((id, index) => {
               const ws = workspaces.find(w => w.id === id)
               if (!ws) return null
               const isActive = id === workspace?.id
@@ -3620,6 +3620,7 @@ function App(): JSX.Element {
                   onClick={() => { if (!isActive) handleSwitchWorkspace(id) }}
                   style={{
                     height: 26, paddingLeft: 12, paddingRight: openWorkspaceIds.length > 1 ? 6 : 12,
+                    marginLeft: index > 0 ? -10 : 0,
                     borderRadius: 8,
                     background: 'transparent',
                     border: '1px solid transparent',
@@ -3629,6 +3630,7 @@ function App(): JSX.Element {
                     display: 'flex', alignItems: 'center', gap: 6,
                     whiteSpace: 'nowrap', transition: 'color 0.1s',
                     boxShadow: 'none',
+                    position: 'relative',
                   }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = theme.accent.hover }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = theme.text.disabled }}
@@ -3649,6 +3651,21 @@ function App(): JSX.Element {
                       onMouseLeave={e => { e.currentTarget.style.color = isActive ? theme.text.muted : theme.text.disabled }}
                     >×</span>
                   )}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      left: 10,
+                      right: 10,
+                      bottom: -2,
+                      height: 2,
+                      borderRadius: 999,
+                      background: theme.accent.base,
+                      opacity: isActive ? 0.95 : 0.4,
+                      boxShadow: isActive ? `0 0 8px ${theme.accent.base}44` : 'none',
+                      pointerEvents: 'none',
+                    }}
+                  />
                 </button>
               )
             })}
