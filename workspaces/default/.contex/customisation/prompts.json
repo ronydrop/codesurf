@@ -1,0 +1,232 @@
+[
+  {
+    "id": "commit-message",
+    "name": "Commit Message",
+    "description": "Analisa o git diff staged e gera um conventional commit em inglês",
+    "template": "Analise o diff abaixo e escreva uma mensagem de commit seguindo Conventional Commits.\n\nRegras:\n- Tipo: {{tipo}}\n- Idioma: inglês\n- Linha de assunto: máximo 72 caracteres, imperativo (\"add\", \"fix\", \"remove\")\n- Body opcional: explique o \"por quê\", não o \"o quê\"\n- Sem emoji\n- Formato:\n  <tipo>(<escopo>): <descrição>\n  \n  [body opcional]\n\nDiff:\n```\n{{diff}}\n```\n\nRetorne apenas a mensagem de commit, sem explicações.",
+    "fields": [
+      {
+        "name": "tipo",
+        "type": "select",
+        "options": ["feat", "fix", "refactor", "chore", "docs", "test", "perf", "style", "ci"],
+        "default": "feat",
+        "required": true
+      },
+      {
+        "name": "diff",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "tags": ["git", "commit", "workflow"]
+  },
+  {
+    "id": "pr-description",
+    "name": "PR Description",
+    "description": "Gera título e corpo de Pull Request a partir do diff da branch",
+    "template": "Você é um engenheiro escrevendo a descrição de um Pull Request.\n\nBranch base: {{base}}\nTipo de mudança: {{tipo}}\n\nDiff / commits incluídos:\n```\n{{diff}}\n```\n\nGere:\n1. **Título** (máximo 70 caracteres, inglês)\n2. **Summary** (3-5 bullet points do que foi feito)\n3. **Motivation** (por que essa mudança era necessária)\n4. **Test plan** (checklist markdown do que testar)\n\nSeja objetivo. Sem floreios.",
+    "fields": [
+      {
+        "name": "base",
+        "type": "select",
+        "options": ["main", "develop", "staging"],
+        "default": "main",
+        "required": true
+      },
+      {
+        "name": "tipo",
+        "type": "select",
+        "options": ["feature", "bugfix", "refactor", "hotfix", "chore"],
+        "default": "feature",
+        "required": true
+      },
+      {
+        "name": "diff",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "tags": ["git", "pr", "github", "workflow"]
+  },
+  {
+    "id": "review-diff",
+    "name": "Review de Código",
+    "description": "Revisa um diff ou arquivo com foco configurável (segurança, lógica, performance)",
+    "template": "Faça uma revisão de código do diff/arquivo abaixo.\n\nFoco principal: **{{foco}}**\nNível de severidade mínimo para reportar: {{severidade}}\n\nPara cada problema encontrado, informe:\n- **Arquivo e linha** (se disponível)\n- **Severidade**: crítico / alto / médio / baixo\n- **Problema**: descrição clara em PT-BR\n- **Sugestão**: como corrigir\n\nSe não encontrar problemas no nível solicitado, diga explicitamente.\n\nCódigo:\n```\n{{codigo}}\n```",
+    "fields": [
+      {
+        "name": "foco",
+        "type": "select",
+        "options": ["segurança", "lógica e bugs", "performance", "qualidade geral", "estilo e convenções"],
+        "default": "qualidade geral",
+        "required": true
+      },
+      {
+        "name": "severidade",
+        "type": "select",
+        "options": ["crítico", "alto", "médio", "baixo"],
+        "default": "médio",
+        "required": true
+      },
+      {
+        "name": "codigo",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "tags": ["review", "qualidade", "segurança"]
+  },
+  {
+    "id": "bug-triage",
+    "name": "Bug Triage",
+    "description": "Analisa stack trace e contexto, propõe causa raiz e fix",
+    "template": "Analise o erro abaixo e me ajude a diagnosticar.\n\n**Stack trace / mensagem de erro:**\n```\n{{stack}}\n```\n\n**Contexto adicional:** {{contexto}}\n\nResponda em PT-BR com:\n1. **Causa raiz provável** — o que está causando o erro\n2. **Hipóteses alternativas** (se houver)\n3. **Passos para confirmar** — como validar a hipótese\n4. **Fix sugerido** — código ou ação concreta\n5. **Como evitar no futuro** (se aplicável)",
+    "fields": [
+      {
+        "name": "stack",
+        "type": "str",
+        "required": true
+      },
+      {
+        "name": "contexto",
+        "type": "str",
+        "required": false
+      }
+    ],
+    "tags": ["debug", "bug", "triage"]
+  },
+  {
+    "id": "go-handler",
+    "name": "Go HTTP Handler",
+    "description": "Gera handler HTTP Go + teste (estilo aprovei-shadow)",
+    "template": "Gere um handler HTTP em Go para o recurso abaixo.\n\nRecurso: **{{recurso}}**\nMétodo HTTP: **{{metodo}}**\nAutenticação necessária: **{{auth}}**\n\nPadrões a seguir:\n- Struct de request/response separadas\n- Validação de input com retorno de erro 400 claro\n- Erros internos retornam 500 sem expor detalhes\n- Teste unitário com table-driven tests\n- Comentários apenas onde a lógica não é óbvia\n\nGere:\n1. Handler function\n2. Request/Response structs\n3. Arquivo de teste `_test.go`",
+    "fields": [
+      {
+        "name": "recurso",
+        "type": "str",
+        "required": true
+      },
+      {
+        "name": "metodo",
+        "type": "select",
+        "options": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+        "default": "POST",
+        "required": true
+      },
+      {
+        "name": "auth",
+        "type": "select",
+        "options": ["sim", "não"],
+        "default": "sim",
+        "required": true
+      }
+    ],
+    "tags": ["go", "backend", "handler", "aprovei"]
+  },
+  {
+    "id": "nextjs-action",
+    "name": "Next.js Server Action",
+    "description": "Gera Server Action tipado com validação Zod",
+    "template": "Crie um Next.js Server Action para a seguinte funcionalidade:\n\nNome da action: **{{nome}}**\nDescrição do input: **{{schema_input}}**\n\nGere:\n1. Schema Zod para validação\n2. Server Action com tipagem completa\n3. Tipos de retorno (success/error)\n4. Hook `use client` correspondente para chamar a action\n\nUse `next-safe-action` se compatível, caso contrário use `'use server'` direto.\nNão use `any`. Prefira `unknown` quando necessário.",
+    "fields": [
+      {
+        "name": "nome",
+        "type": "str",
+        "required": true
+      },
+      {
+        "name": "schema_input",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "tags": ["nextjs", "typescript", "frontend", "aprovei"]
+  },
+  {
+    "id": "test-writer",
+    "name": "Gerador de Testes",
+    "description": "Gera testes unitários para o código fornecido",
+    "template": "Escreva testes para o código abaixo.\n\nFramework: **{{framework}}**\n\nDiretrizes:\n- Cubra: caminho feliz, edge cases, erros esperados\n- Use table-driven tests onde fizer sentido\n- Mocks apenas quando necessário (prefira implementações reais em memória)\n- Nomes descritivos que explicam o comportamento esperado\n- Sem comentários óbvios\n\nCódigo a testar:\n```\n{{codigo}}\n```",
+    "fields": [
+      {
+        "name": "framework",
+        "type": "select",
+        "options": ["go test", "vitest", "jest", "pytest", "phpunit"],
+        "default": "go test",
+        "required": true
+      },
+      {
+        "name": "codigo",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "tags": ["test", "qualidade"]
+  },
+  {
+    "id": "sql-optimize",
+    "name": "Otimização SQL",
+    "description": "Analisa query lenta e sugere índices e reescritas",
+    "template": "Analise a query SQL abaixo e otimize-a.\n\n**Query:**\n```sql\n{{query}}\n```\n\n**DDL da(s) tabela(s) envolvida(s):**\n```sql\n{{ddl}}\n```\n\nResponda com:\n1. **Problema identificado** — por que está lenta\n2. **Índices sugeridos** — com o comando `CREATE INDEX` pronto\n3. **Query reescrita** (se aplicável)\n4. **EXPLAIN esperado** — como o plano deve mudar\n5. **Trade-offs** — impacto em writes, tamanho do índice",
+    "fields": [
+      {
+        "name": "query",
+        "type": "str",
+        "required": true
+      },
+      {
+        "name": "ddl",
+        "type": "str",
+        "required": false
+      }
+    ],
+    "tags": ["sql", "postgres", "performance", "db"]
+  },
+  {
+    "id": "refactor-safe",
+    "name": "Refactor Seguro",
+    "description": "Refatora código sem mudar comportamento externo",
+    "template": "Refatore o código abaixo com objetivo de **{{objetivo}}**.\n\nRegras obrigatórias:\n- Comportamento externo idêntico (mesma assinatura, mesmos outputs)\n- Sem adicionar features ou edge cases novos\n- Sem adicionar comentários onde o código é auto-explicativo\n- Sem abstrações especulativas (\"pode ser útil no futuro\")\n\nApós o código refatorado, liste em bullets as mudanças feitas e por quê.\n\nCódigo:\n```\n{{codigo}}\n```",
+    "fields": [
+      {
+        "name": "objetivo",
+        "type": "select",
+        "options": ["clareza e legibilidade", "reduzir duplicação", "melhorar performance", "simplificar lógica"],
+        "default": "clareza e legibilidade",
+        "required": true
+      },
+      {
+        "name": "codigo",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "tags": ["refactor", "qualidade"]
+  },
+  {
+    "id": "explain-file",
+    "name": "Explicar Código",
+    "description": "Explica o que um arquivo ou função faz, para documentação ou onboarding",
+    "template": "Explique o código abaixo para **{{nivel}}**.\n\nArquivo/contexto: {{arquivo}}\n\nCubra:\n1. **O que faz** — propósito principal em 1-2 frases\n2. **Como funciona** — fluxo de execução passo a passo\n3. **Dependências importantes** — o que precisa existir/funcionar para ele rodar\n4. **Pontos de atenção** — partes complexas, edge cases, limitações conhecidas\n\nUse PT-BR. Seja direto, sem floreios.\n\nCódigo:\n```\n{{codigo}}\n```",
+    "fields": [
+      {
+        "name": "nivel",
+        "type": "select",
+        "options": ["desenvolvedor júnior do time", "desenvolvedor sênior novo no projeto", "documentação técnica"],
+        "default": "desenvolvedor sênior novo no projeto",
+        "required": true
+      },
+      {
+        "name": "arquivo",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "codigo",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "tags": ["docs", "onboarding", "explicação"]
+  }
+]
