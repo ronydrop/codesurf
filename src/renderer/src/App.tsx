@@ -3601,7 +3601,7 @@ function App(): JSX.Element {
             // @ts-ignore
             WebkitAppRegion: 'drag',
             paddingLeft: sidebarCollapsed ? 78 : sidebarWidth + 4,
-            paddingRight: navigator.userAgent.includes('Windows') ? 138 : 0,
+            paddingRight: 0,
             transition: 'padding-left 0.15s ease',
             position: 'relative',
             zIndex: 90,

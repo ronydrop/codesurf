@@ -186,7 +186,7 @@ export function ArrangeToolbar({ tiles, groups, onArrange, zoom, onZoomToggle, o
       style={{
         position: 'absolute',
         top: 6,
-        right: navigator.userAgent.includes('Windows') ? 154 : 16,
+        right: 16,
         display: 'flex',
         gap: 6,
         pointerEvents: 'all',

@@ -129,9 +129,8 @@ function createWindow(opts?: { fresh?: boolean }): BrowserWindow {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: process.platform === 'darwin' ? { x: TRAFFIC_LIGHT_X_EXPANDED, y: TRAFFIC_LIGHT_Y } : undefined,
-    titleBarOverlay: process.platform !== 'darwin' ? { color: '#00000000', symbolColor: '#ffffff', height: 40 } : false,
     ...(iconPath ? { icon: iconPath } : {}),
     ...getWindowAppearanceOptions(),
     webPreferences: {

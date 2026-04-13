@@ -47,10 +47,15 @@ const ALLOWED_SHELLS = new Set([
   '/bin/bash', '/bin/zsh', '/bin/sh', '/usr/bin/bash', '/usr/bin/zsh',
   '/usr/local/bin/bash', '/usr/local/bin/zsh', '/usr/local/bin/fish',
   '/opt/homebrew/bin/bash', '/opt/homebrew/bin/zsh', '/opt/homebrew/bin/fish',
+  // Windows shells
+  'cmd.exe', 'powershell.exe', 'pwsh.exe',
+  'C:\\Windows\\System32\\cmd.exe',
+  'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+  'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
 ])
 
 // Also allow the user's default shell
-const userShell = process.env.SHELL
+const userShell = process.env.SHELL || process.env.COMSPEC
 if (userShell) ALLOWED_SHELLS.add(userShell)
 
 // Known agent CLIs that are allowed to be spawned directly
@@ -59,8 +64,8 @@ const ALLOWED_AGENT_BINS = ['claude', 'codex', 'aider', 'opencode', 'openclaw', 
 function isAllowedBinary(bin: string): boolean {
   // Allow known shells
   if (ALLOWED_SHELLS.has(bin)) return true
-  // Allow known agent CLIs (matched by basename)
-  const base = bin.split('/').pop() || ''
+  // Allow known agent CLIs (matched by basename, strip .exe on Windows)
+  const base = (bin.split(/[/\\]/).pop() || '').replace(/\.exe$/i, '')
   if (ALLOWED_AGENT_BINS.includes(base)) return true
   return false
 }
@@ -295,7 +300,10 @@ export function registerTerminalIPC(): void {
     }
 
     // If a binary is specified, spawn it directly (no shell wrapper)
-    const bin = launchBin || process.env.SHELL || '/bin/zsh'
+    const defaultShell = process.platform === 'win32'
+      ? (process.env.COMSPEC || 'C:\\Windows\\System32\\cmd.exe')
+      : (process.env.SHELL || '/bin/zsh')
+    const bin = launchBin || defaultShell
     const args = launchBin ? (launchArgs ?? []).map(expandHome) : []
 
     // Check if we should inject MCP config for agent CLIs

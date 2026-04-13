@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, lazy } from 'react'
 import type { AppSettings, FontSettings, FontToken } from '../../../shared/types'
 import { DEFAULT_FONTS, withDefaultSettings } from '../../../shared/types'
-import { Settings, Type, Monitor, FolderOpen, Plus, Trash2, ChevronDown, ChevronRight, FileJson, AlertTriangle, Check, Copy, RotateCcw, FormInput, Code2, Puzzle, RefreshCw, Star, Wrench, Users, FileText, Globe, Eye, EyeOff, PanelRight } from 'lucide-react'
+import { Settings, Type, Monitor, FolderOpen, Plus, Trash2, ChevronDown, ChevronRight, FileJson, AlertTriangle, Check, Copy, RotateCcw, FormInput, Code2, Puzzle, RefreshCw, Star, Wrench, Users, FileText, Globe, Eye, EyeOff, PanelRight, BookOpen, Terminal, MessageSquare, Layout, Kanban, MousePointer2, ZoomIn, Cpu } from 'lucide-react'
 import { useAppFonts } from '../FontContext'
 import { useTheme } from '../ThemeContext'
 import { THEME_OPTIONS, getThemeCanvasDefaults, resolveEffectiveThemeId, getThemeById, type AppearanceMode } from '../theme'
@@ -28,7 +28,7 @@ interface Props {
   systemPrefersDark?: boolean
 }
 
-type BuiltinSection = 'general' | 'canvas' | 'sidebar' | 'browser' | 'mcp' | 'extensions' | 'prompts' | 'skills' | 'tools' | 'agents'
+type BuiltinSection = 'general' | 'canvas' | 'sidebar' | 'browser' | 'mcp' | 'extensions' | 'prompts' | 'skills' | 'tools' | 'agents' | 'guide'
 type Section = BuiltinSection | `ext:${string}`
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode; description: string; group?: string }[] = [
@@ -46,6 +46,7 @@ const SECTIONS: { id: Section; label: string; icon: React.ReactNode; description
   { id: 'agents',     label: 'Agentes',    icon: <Users size={15} />,      description: 'Modos de agente com prompts de sistema e acesso a ferramentas', group: 'customise' },
   // System
   { id: 'extensions', label: 'Extensões',  icon: <Puzzle size={15} />,     description: 'Extensões instaladas', group: 'system' },
+  { id: 'guide',      label: 'Como usar',  icon: <BookOpen size={15} />,   description: 'Guia rápido de todas as funcionalidades do CodeSurf', group: 'system' },
 ]
 
 // ─── MCP types ────────────────────────────────────────────────────────────────
@@ -472,6 +473,125 @@ function ChromeSyncSection({ settings, onUpdate, theme }: {
         <strong style={{ color: theme.text.secondary }}>Nota:</strong> no macOS será solicitado acesso ao Keychain uma vez para descriptografar os cookies do Chrome.
       </div>
     </>
+  )
+}
+
+// ─── Guide section ────────────────────────────────────────────────────────────
+function GuideSection(): React.JSX.Element {
+  const theme = useTheme()
+  const fonts = useAppFonts()
+
+  const accent = theme.accent.base
+  const muted = theme.text.muted
+  const disabled = theme.text.disabled
+  const primary = theme.text.primary
+  const panelMuted = theme.surface.panelMuted
+  const border = theme.border.default
+
+  function Card({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+    return (
+      <div style={{ background: panelMuted, borderRadius: 10, padding: '14px 16px', border: `1px solid ${border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{ color: accent }}>{icon}</span>
+          <span style={{ fontSize: fonts.size, fontWeight: 700, color: primary }}>{title}</span>
+        </div>
+        <div style={{ fontSize: fonts.secondarySize, color: muted, lineHeight: 1.55 }}>{children}</div>
+      </div>
+    )
+  }
+
+  function Badge({ children }: { children: React.ReactNode }) {
+    return (
+      <span style={{
+        display: 'inline-block', padding: '1px 7px', borderRadius: 5,
+        background: `${accent}22`, color: accent,
+        fontSize: 10, fontWeight: 600, marginRight: 4, marginBottom: 2,
+      }}>{children}</span>
+    )
+  }
+
+  function SectionTitle({ children }: { children: React.ReactNode }) {
+    return (
+      <div style={{ fontSize: 10, fontWeight: 700, color: disabled, letterSpacing: 1.1, textTransform: 'uppercase', marginTop: 20, marginBottom: 8 }}>{children}</div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 8 }}>
+
+      <SectionTitle>Conceito</SectionTitle>
+      <Card icon={<MousePointer2 size={15} />} title="Canvas Infinito">
+        O CodeSurf é um canvas infinito onde você organiza <strong style={{ color: primary }}>blocos</strong> livremente.
+        Navegue arrastando o fundo, use o scroll para mover e o slider de zoom (canto superior direito) para afastar/aproximar.
+        Os botões de layout (grade, coluna, linha) organizam todos os blocos automaticamente.
+      </Card>
+
+      <SectionTitle>Tipos de Bloco</SectionTitle>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <Card icon={<Terminal size={15} />} title="Terminal">
+          Terminal interativo. Você pode rodar comandos normais ou lançar um agente de IA (<Badge>claude</Badge><Badge>codex</Badge><Badge>opencode</Badge>) diretamente nele.
+        </Card>
+        <Card icon={<MessageSquare size={15} />} title="Chat">
+          Interface de chat com agentes de IA. Ideal para perguntas, revisão de código e tarefas guiadas por conversa.
+        </Card>
+        <Card icon={<Globe size={15} />} title="Browser">
+          Navegador embutido. Acesse qualquer URL, alterne entre modo desktop e mobile, e use como referência ao lado do seu código.
+        </Card>
+        <Card icon={<FolderOpen size={15} />} title="Arquivos">
+          Explorador de arquivos do seu workspace. Abra, visualize e edite arquivos diretamente no canvas.
+        </Card>
+        <Card icon={<Kanban size={15} />} title="Kanban">
+          Quadro de tarefas. Crie colunas e cards para acompanhar o progresso de atividades, inclusive de agentes rodando.
+        </Card>
+        <Card icon={<Layout size={15} />} title="Layout">
+          Blocos de estrutura visual que agrupam outros blocos em seções nomeadas no canvas.
+        </Card>
+      </div>
+
+      <SectionTitle>Agentes de IA</SectionTitle>
+      <Card icon={<Cpu size={15} />} title="Como usar agentes">
+        <p style={{ margin: '0 0 6px' }}>Crie um bloco <strong style={{ color: primary }}>Terminal</strong> e execute um agente da linha de comando:</p>
+        <code style={{ display: 'block', background: theme.surface.panel, border: `1px solid ${border}`, borderRadius: 6, padding: '8px 10px', fontSize: 11, color: accent, marginBottom: 8 }}>claude  /  codex  /  opencode</code>
+        <p style={{ margin: '0 0 6px' }}>O agente terá acesso automático às ferramentas MCP do CodeSurf, podendo criar blocos, navegar no canvas e se comunicar com outros blocos vinculados.</p>
+        <p style={{ margin: 0, color: disabled }}>
+          Use <strong style={{ color: muted }}>Modos de Agente</strong> (aba Agentes) para pré-configurar o comportamento, ferramentas disponíveis e prompt de sistema de cada agente.
+        </p>
+      </Card>
+
+      <SectionTitle>Organização</SectionTitle>
+      <Card icon={<ZoomIn size={15} />} title="Layout e Zoom">
+        A toolbar no canto superior direito tem três modos de arranjo automático:
+        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div><Badge>Grade</Badge> organiza blocos em grade proporcional</div>
+          <div><Badge>Coluna</Badge> empilha blocos verticalmente</div>
+          <div><Badge>Linha</Badge> alinha blocos lado a lado</div>
+        </div>
+        <div style={{ marginTop: 6 }}>O botão de porcentagem (ex: <strong style={{ color: muted }}>100%</strong>) reseta o zoom para 100%. Clique novamente para encaixar todos os blocos na tela.</div>
+      </Card>
+
+      <SectionTitle>Personalização</SectionTitle>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Card icon={<FileText size={15} />} title="Templates de Prompt">
+          Salve prompts reutilizáveis com variáveis (<code style={{ color: accent }}>{'{{campo}}'}</code>). Útil para tarefas repetidas como revisão de código, geração de testes, etc.
+        </Card>
+        <Card icon={<Star size={15} />} title="Skills (Habilidades)">
+          Controla quais ferramentas MCP o agente pode usar. Desabilitar uma skill remove ela do <code style={{ color: accent }}>--allowedTools</code> passado ao Claude Code — útil para restringir o que um agente específico pode fazer.
+        </Card>
+        <Card icon={<Wrench size={15} />} title="Ferramentas & MCP">
+          Configure permissões das ferramentas nativas (Read, Write, Bash…) e adicione servidores MCP externos. O CodeSurf injeta a config automaticamente ao lançar agentes.
+        </Card>
+        <Card icon={<Users size={15} />} title="Modos de Agente">
+          Crie personas de agente com prompt de sistema, conjunto de ferramentas e visual personalizado. Exemplos padrão: <Badge>Agent</Badge><Badge>Ask</Badge><Badge>Plan</Badge>. Você pode criar modos customizados para cada tipo de tarefa.
+        </Card>
+      </div>
+
+      <SectionTitle>Workspaces</SectionTitle>
+      <Card icon={<FolderOpen size={15} />} title="Gerenciando Workspaces">
+        Cada workspace é uma pasta no seu sistema de arquivos. Abra um workspace pela sidebar lateral — o canvas salva automaticamente a posição de todos os blocos.
+        Workspaces separados mantêm contextos, agentes e configurações MCP independentes entre si.
+      </Card>
+
+    </div>
   )
 }
 
@@ -1386,6 +1506,9 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
             <LazyAgentsSection workspacePath={workspacePath} />
           </React.Suspense>
         ) : <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>Abra um workspace primeiro</div>
+
+      case 'guide':
+        return <GuideSection />
 
       default: {
         if (section.startsWith('ext:')) {
