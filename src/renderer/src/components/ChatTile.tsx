@@ -473,7 +473,7 @@ const DEFAULT_MODELS: Record<BuiltinProvider, ModelOption[]> = {
     { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   ],
   openclaw: [
-    { id: 'main', label: 'Main (default)', description: 'Configured default OpenClaw agent' },
+    { id: 'main', label: 'Principal (padrão)', description: 'Agente OpenClaw padrão configurado' },
   ],
   hermes: [
     { id: 'anthropic/claude-opus-4-6', label: 'Opus 4.6' },
@@ -492,38 +492,38 @@ interface ModeOption { id: string; label: string; description: string; color: st
 
 const PROVIDER_MODES: Record<BuiltinProvider, ModeOption[]> = {
   claude: [
-    { id: 'bypassPermissions', label: 'Bypass', description: 'Full auto, no approval', color: '#e54d2e' },
-    { id: 'acceptEdits', label: 'Accept Edits', description: 'Auto-approve file edits', color: '#ffb432' },
-    { id: 'default', label: 'Default', description: 'Ask before risky actions', color: '#3fb950' },
-    { id: 'plan', label: 'Plan', description: 'Plan only, no execution', color: '#58a6ff' },
+    { id: 'bypassPermissions', label: 'Bypass', description: 'Total automático, sem aprovação', color: '#e54d2e' },
+    { id: 'acceptEdits', label: 'Accept Edits', description: 'Aprova edições de arquivo automaticamente', color: '#ffb432' },
+    { id: 'default', label: 'Default', description: 'Pergunta antes de ações arriscadas', color: '#3fb950' },
+    { id: 'plan', label: 'Plan', description: 'Apenas planejamento, sem execução', color: '#58a6ff' },
   ],
   codex: [
-    { id: 'full-access', label: 'Full Access', description: 'Full auto, no approval', color: '#e54d2e' },
-    { id: 'auto', label: 'Auto', description: 'Auto-approve safe actions', color: '#ffb432' },
-    { id: 'read-only', label: 'Read Only', description: 'No file modifications', color: '#58a6ff' },
+    { id: 'full-access', label: 'Full Access', description: 'Total automático, sem aprovação', color: '#e54d2e' },
+    { id: 'auto', label: 'Auto', description: 'Aprova ações seguras automaticamente', color: '#ffb432' },
+    { id: 'read-only', label: 'Read Only', description: 'Sem modificações de arquivo', color: '#58a6ff' },
   ],
   opencode: [
-    { id: 'build', label: 'Build', description: 'Execute and build code', color: '#ffb432' },
-    { id: 'plan', label: 'Plan', description: 'Plan only, no execution', color: '#58a6ff' },
+    { id: 'build', label: 'Build', description: 'Executa e compila código', color: '#ffb432' },
+    { id: 'plan', label: 'Plan', description: 'Apenas planejamento, sem execução', color: '#58a6ff' },
   ],
   openclaw: [
-    { id: 'full-auto', label: 'Full Auto', description: 'Full auto, no approval', color: '#e54d2e' },
-    { id: 'auto', label: 'Auto', description: 'Auto-approve safe actions', color: '#ffb432' },
-    { id: 'default', label: 'Default', description: 'Ask before risky actions', color: '#3fb950' },
-    { id: 'plan', label: 'Plan', description: 'Plan only, no execution', color: '#58a6ff' },
+    { id: 'full-auto', label: 'Full Auto', description: 'Total automático, sem aprovação', color: '#e54d2e' },
+    { id: 'auto', label: 'Auto', description: 'Aprova ações seguras automaticamente', color: '#ffb432' },
+    { id: 'default', label: 'Default', description: 'Pergunta antes de ações arriscadas', color: '#3fb950' },
+    { id: 'plan', label: 'Plan', description: 'Apenas planejamento, sem execução', color: '#58a6ff' },
   ],
   hermes: [
-    { id: 'full', label: 'Full', description: 'All toolsets enabled', color: '#e54d2e' },
-    { id: 'terminal', label: 'Terminal', description: 'Terminal + file tools', color: '#ffb432' },
-    { id: 'web', label: 'Web', description: 'Web + browser tools', color: '#3fb950' },
-    { id: 'query', label: 'Query', description: 'No tools, query only', color: '#58a6ff' },
+    { id: 'full', label: 'Full', description: 'Todos os conjuntos de ferramentas ativos', color: '#e54d2e' },
+    { id: 'terminal', label: 'Terminal', description: 'Ferramentas de terminal + arquivo', color: '#ffb432' },
+    { id: 'web', label: 'Web', description: 'Ferramentas de web + browser', color: '#3fb950' },
+    { id: 'query', label: 'Query', description: 'Sem ferramentas, apenas consultas', color: '#58a6ff' },
   ],
 }
 
 const EXTENSION_PROVIDER_MODE: ModeOption = {
   id: 'proxy',
   label: 'Proxy',
-  description: 'Connected extension transport',
+  description: 'Transporte de extensão conectado',
   color: '#58a6ff',
 }
 
@@ -532,12 +532,12 @@ const EXTENSION_PROVIDER_MODE: ModeOption = {
 interface ThinkingOption { id: string; label: string; description: string }
 
 const THINKING_OPTIONS: ThinkingOption[] = [
-  { id: 'adaptive', label: 'Adaptive', description: 'Model decides when to think' },
-  { id: 'none', label: 'Off', description: 'No extended thinking' },
-  { id: 'low', label: 'Low', description: '~2K tokens budget' },
-  { id: 'medium', label: 'Medium', description: '~8K tokens budget' },
-  { id: 'high', label: 'High', description: '~32K tokens budget' },
-  { id: 'max', label: 'Max', description: '~128K tokens budget' },
+  { id: 'adaptive', label: 'Adaptativo', description: 'O modelo decide quando pensar' },
+  { id: 'none', label: 'Desligado', description: 'Sem raciocínio estendido' },
+  { id: 'low', label: 'Baixo', description: '~2K tokens de orçamento' },
+  { id: 'medium', label: 'Médio', description: '~8K tokens de orçamento' },
+  { id: 'high', label: 'Alto', description: '~32K tokens de orçamento' },
+  { id: 'max', label: 'Máximo', description: '~128K tokens de orçamento' },
 ]
 
 const PROVIDER_ICON: Record<BuiltinProvider, React.ReactNode> = {
@@ -634,14 +634,14 @@ function normalizeExtensionProviders(value: unknown): ExtensionChatProviderConfi
 const SHIMMER_ID = 'chat-tile-shimmer'
 function relativeTime(ts: number): string {
   const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000))
-  if (diff < 5) return 'just now'
-  if (diff < 60) return `${diff}s ago`
+  if (diff < 5) return 'agora'
+  if (diff < 60) return `${diff}s atrás`
   const mins = Math.floor(diff / 60)
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 60) return `${mins}m atrás`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
+  if (hrs < 24) return `${hrs}h atrás`
   const days = Math.floor(hrs / 24)
-  return `${days}d ago`
+  return `${days}d atrás`
 }
 
 function ensureShimmerStyle(): void {
@@ -924,19 +924,19 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
 
   // Slash commands
   const SLASH_COMMANDS = [
-    { value: '/compact', description: 'Compact conversation' },
-    { value: '/clear', description: 'Clear conversation' },
-    { value: '/model', description: 'Switch model' },
-    { value: '/mode', description: 'Switch mode (plan, build, etc.)' },
-    { value: '/help', description: 'Show help' },
-    { value: '/init', description: 'Initialize workspace' },
+    { value: '/compact', description: 'Compactar conversa' },
+    { value: '/clear', description: 'Limpar conversa' },
+    { value: '/model', description: 'Trocar modelo' },
+    { value: '/mode', description: 'Trocar modo (plan, build, etc.)' },
+    { value: '/help', description: 'Mostrar ajuda' },
+    { value: '/init', description: 'Inicializar workspace' },
   ]
 
   // File mention stubs
   const MENTION_STUBS = [
-    { value: '@CLAUDE.md', description: 'Project instructions' },
-    { value: '@package.json', description: 'Package manifest' },
-    { value: '@src/', description: 'Source directory' },
+    { value: '@CLAUDE.md', description: 'Instruções do projeto' },
+    { value: '@package.json', description: 'Manifesto do pacote' },
+    { value: '@src/', description: 'Diretório de fontes' },
   ]
 
   const mentionItems = useMemo<AutocompleteItem[]>(() => {
@@ -1872,7 +1872,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
               color: theme.chat.subtle, padding: 2, display: 'flex', alignItems: 'center',
               opacity: isStreaming ? 0.3 : 0.6,
             }}
-            title="Clear conversation"
+            title="Limpar conversa"
           >
             <Trash2 size={10} />
           </button>
@@ -1904,7 +1904,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
                color: theme.chat.subtle, fontSize: 12,
              }}>
                <MessageSquare size={24} color={theme.chat.subtle} strokeWidth={1.5} style={{ opacity: 0.4 }} />
-               <span>Start a conversation</span>
+               <span>Inicie uma conversa</span>
              </div>
            )}
 
@@ -1920,7 +1920,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
               fontSize: 11,
               textAlign: 'center',
             }}>
-              Showing the most recent {renderedMessages.length} messages to keep this block responsive. {hiddenMessageCount} older message{hiddenMessageCount === 1 ? '' : 's'} are still preserved in compacted session state.
+              Exibindo as {renderedMessages.length} mensagens mais recentes para manter este bloco responsivo. {hiddenMessageCount} mensagem{hiddenMessageCount === 1 ? '' : 's'} mais antiga{hiddenMessageCount === 1 ? '' : 's'} ainda está preservada no estado compactado da sessão.
             </div>
           )}
  
@@ -2065,7 +2065,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       {showScrollToLatest && (
         <button
           onClick={() => scrollToLatest()}
-          title="Jump to latest"
+          title="Ir para o mais recente"
           style={{
             position: 'absolute',
             right: 20,
@@ -2086,7 +2086,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
           }}
         >
           <ArrowDown size={13} />
-          <span>Latest</span>
+          <span>Mais recente</span>
         </button>
       )}
 
@@ -2124,7 +2124,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
                 padding: '6px 10px', fontSize: 11, color: theme.chat.muted,
                 fontFamily: fontMono,
               }}>
-                Connected files appear first. Type to search files...
+                Arquivos conectados aparecem primeiro. Digite para pesquisar arquivos...
               </div>
             )}
             {acItems.map((item, i) => (
@@ -2166,7 +2166,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
               width: 6, height: 6, borderRadius: '50%', background: theme.status.danger,
               animation: 'chat-pulse 1s ease-in-out infinite',
             }} />
-            <span>Recording{dictationText ? ': ' : ''}</span>
+            <span>Gravando{dictationText ? ': ' : ''}</span>
             {dictationText && <span style={{ color: theme.chat.muted, fontStyle: 'italic' }}>{dictationText}</span>}
           </div>
         )}
@@ -2225,7 +2225,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
                     color: theme.chat.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: 0,
                   }}
-                  title="Remove attachment"
+                  title="Remover anexo"
                 >
                   <Trash2 size={9} />
                 </button>
@@ -2261,7 +2261,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
               opacity: 0.95,
             }} />
             <span>
-              CONNECTED
+              CONECTADO
             </span>
           </div>
         )}
@@ -2271,7 +2271,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder={isDictating ? 'Listening...' : 'Message the agent, or use /commands and /skills'}
+          placeholder={isDictating ? 'Ouvindo...' : 'Mensagem ao agente, ou use /comandos e /habilidades'}
           rows={1}
           style={{
             width: '100%', boxSizing: 'border-box', flex: 1,
@@ -2296,7 +2296,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
                 <>
                   <ToolbarBtn
                     icon={<ShieldCheck size={TOOLBAR_ICON_SIZE} />}
-                    tooltip={`Permissions: ${currentMode.label}`}
+                    tooltip={`Permissões: ${currentMode.label}`}
                     color={currentMode.color}
                     onClick={() => toggleMenu('mode')}
                   />
@@ -2325,7 +2325,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
           <div ref={thinkingMenuRef} style={{ position: 'relative' }}>
             <ToolbarBtn
               icon={<ThinkingIcon level={thinking} />}
-              tooltip={`Thinking: ${THINKING_OPTIONS.find(t => t.id === thinking)?.label ?? 'Adaptive'}`}
+              tooltip={`Pensamento: ${THINKING_OPTIONS.find(t => t.id === thinking)?.label ?? 'Adaptativo'}`}
               color={thinking === 'none' ? undefined : theme.chat.text}
               onClick={() => toggleMenu('thinking')}
             />
@@ -2351,7 +2351,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
           <div ref={providerMenuRef} style={{ position: 'relative' }}>
             <ToolbarPill
               prefix={currentProviderEntry?.icon ?? <Bot size={TOOLBAR_PILL_ICON_SIZE} />}
-              label={currentProviderEntry?.label ?? 'Provider'}
+              label={currentProviderEntry?.label ?? 'Provedor'}
               active={showProviderMenu}
               onClick={() => toggleMenu('provider')}
             />
@@ -2401,9 +2401,9 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
             icon={<Bot size={TOOLBAR_ICON_SIZE} />}
             tooltip={agentMode
               ? ((typeof isAutoConnected === 'boolean' ? isAutoConnected : autoAgentMode)
-                ? 'Agent mode (auto-enabled by proximity)'
-                : 'Agent mode (on)')
-              : 'Agent mode (off)'}
+                ? 'Modo agente (ativado automaticamente por proximidade)'
+                : 'Modo agente (ativado)')
+              : 'Modo agente (desativado)'}
             color={agentMode || isConnected ? theme.accent.base : undefined}
             onClick={() => {
               setAgentMode(p => !p)
@@ -2415,7 +2415,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
           <div ref={mcpMenuRef} style={{ position: 'relative' }}>
             <ToolbarBtn
               icon={<MCPIcon size={TOOLBAR_ICON_SIZE} />}
-              tooltip={`MCP Tools: ${mcpEnabled ? 'On' : 'Off'}`}
+              tooltip={`MCP Tools: ${mcpEnabled ? 'Ativado' : 'Desativado'}`}
               color={mcpEnabled ? theme.chat.text : undefined}
               onClick={() => toggleMenu('mcp')}
             />
@@ -2453,14 +2453,14 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
                 )}
                 {mcpEnabled && mcpServers.length === 0 && (
                   <div style={{ padding: '6px 10px', fontSize: 11, color: theme.chat.muted, fontStyle: 'italic' }}>
-                    No MCP servers configured
+                    Nenhum servidor MCP configurado
                   </div>
                 )}
                 {mcpEnabled && peerToolNames.length > 0 && (
                   <>
                     <div style={{ height: 1, background: dropdownBorder, margin: '4px 0' }} />
                     <div style={{ padding: '4px 10px 2px 10px', fontSize: 11, color: theme.chat.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      Connected peer tools
+                      Ferramentas do peer conectado
                     </div>
                     {peerToolNames.map(tool => (
                       <DropdownItem
@@ -2493,7 +2493,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
             }}
             onMouseEnter={e => (e.currentTarget.style.color = theme.chat.text)}
             onMouseLeave={e => (e.currentTarget.style.color = theme.chat.muted)}
-            title="Attach files"
+            title="Anexar arquivos"
           >
             <Paperclip size={14} />
           </button>
@@ -2514,7 +2514,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
               }}
               onMouseEnter={e => (e.currentTarget.style.background = theme.status.dangerHover)}
               onMouseLeave={e => (e.currentTarget.style.background = theme.status.danger)}
-              title="Stop generation"
+              title="Parar geração"
             >
               <Square size={10} fill="#fff" color="#fff" />
             </button>
@@ -2533,7 +2533,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
               }}
               onMouseEnter={e => { if (input.trim() || attachments.length > 0) e.currentTarget.style.background = theme.accent.hover }}
               onMouseLeave={e => { if (input.trim() || attachments.length > 0) e.currentTarget.style.background = theme.accent.base }}
-              title="Send message"
+              title="Enviar mensagem"
             >
               <ArrowUp size={16} color="#fff" strokeWidth={2.5} style={{ opacity: input.trim() || attachments.length > 0 ? 1 : 0.3 }} />
             </button>
@@ -2587,10 +2587,10 @@ function ThinkingBlockView({ thinking }: { thinking: ThinkingBlock }): JSX.Eleme
         <Brain size={11} style={{ opacity: isActive ? 0.8 : 0.4, flexShrink: 0 }} />
         {isActive ? (
           <ShimmerText baseColor={theme.accent.hover} style={{ fontSize: 12, fontWeight: 500 }}>
-            Thinking
+            Pensando
           </ShimmerText>
         ) : (
-          <span style={{ opacity: 0.6, fontSize: 12, fontWeight: 500 }}>Thought</span>
+          <span style={{ opacity: 0.6, fontSize: 12, fontWeight: 500 }}>Pensou</span>
         )}
         {isActive && !hasContent && (
           <WorkingDots color={theme.accent.hover} size={3} />
@@ -2888,7 +2888,7 @@ function ModelDropdown({ models, activeId, filter, onFilterChange, providerIcon,
             type="text"
             value={filter}
             onChange={e => onFilterChange(e.target.value)}
-            placeholder={`Filter ${noun}s...`}
+            placeholder={`Filtrar ${noun}s...`}
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '5px 8px', fontSize: 11,
@@ -2907,7 +2907,7 @@ function ModelDropdown({ models, activeId, filter, onFilterChange, providerIcon,
       }}>
         {filtered.length === 0 && (
           <div style={{ padding: '8px 10px', fontSize: 11, color: theme.chat.muted, fontFamily: fonts.sans }}>
-            {`No matching ${noun}s`}
+            {`Nenhum ${noun} encontrado`}
           </div>
         )}
         {filtered.map(m => (

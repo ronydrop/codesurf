@@ -10,18 +10,18 @@ const APP_ICON_URL = new URL('../../../../resources/icon.png', import.meta.url).
 
 const TILE_DEFS: Array<{ type: string; label: string; icon: JSX.Element; disabled?: boolean }> = [
   { type: 'terminal', label: 'Terminal', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><path d="M5 8l7 6-7 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><path d="M14 20h9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg> },
-  { type: 'code', label: 'Code', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><path d="M10 8L4 14l6 6M18 8l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> },
+  { type: 'code', label: 'Código', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><path d="M10 8L4 14l6 6M18 8l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> },
   { type: 'browser', label: 'Browser', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><rect x="3" y="5" width="22" height="18" rx="2.5" stroke="currentColor" strokeWidth="2" /><path d="M3 10h22" stroke="currentColor" strokeWidth="2" /></svg> },
   { type: 'chat', label: 'Chat', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><path d="M4 5h20a2 2 0 012 2v11a2 2 0 01-2 2H10l-5 4V20H4a2 2 0 01-2-2V7a2 2 0 012-2z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg> },
-  { type: 'files', label: 'Files', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><path d="M3 6.5C3 5.12 4.12 4 5.5 4h5L13 6.5h9.5C23.88 6.5 25 7.62 25 9v13c0 1.38-1.12 2.5-2.5 2.5h-17C4.12 24.5 3 23.38 3 22V6.5z" stroke="currentColor" strokeWidth="2" /></svg> },
-  { type: 'note', label: 'Note', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><rect x="3" y="3" width="22" height="22" rx="2" stroke="currentColor" strokeWidth="2" /><path d="M8 10h12M8 14h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" /></svg> },
-  { type: 'kanban', label: 'Board', disabled: true, icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><rect x="3" y="3" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="2" /><rect x="16" y="3" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="2" /><rect x="3" y="16" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="2" /><rect x="16" y="16" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="2" /></svg> },
-  { type: 'ext:artifact-builder', label: 'Artifact', disabled: true, icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><path d="M6 4h16a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" strokeWidth="2" /><path d="M8 12l4 4 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" /></svg> },
+  { type: 'files', label: 'Arquivos', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><path d="M3 6.5C3 5.12 4.12 4 5.5 4h5L13 6.5h9.5C23.88 6.5 25 7.62 25 9v13c0 1.38-1.12 2.5-2.5 2.5h-17C4.12 24.5 3 23.38 3 22V6.5z" stroke="currentColor" strokeWidth="2" /></svg> },
+  { type: 'note', label: 'Nota', icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><rect x="3" y="3" width="22" height="22" rx="2" stroke="currentColor" strokeWidth="2" /><path d="M8 10h12M8 14h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" /></svg> },
+  { type: 'kanban', label: 'Quadro', disabled: true, icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><rect x="3" y="3" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="2" /><rect x="16" y="3" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="2" /><rect x="3" y="16" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="2" /><rect x="16" y="16" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="2" /></svg> },
+  { type: 'ext:artifact-builder', label: 'Artefato', disabled: true, icon: <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><path d="M6 4h16a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" strokeWidth="2" /><path d="M8 12l4 4 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" /></svg> },
 ]
 
 const TYPE_LABELS: Record<string, string> = {
-  terminal: 'Terminal', code: 'Code', browser: 'Browser', chat: 'Chat',
-  files: 'Files', note: 'Note', kanban: 'Board',
+  terminal: 'Terminal', code: 'Código', browser: 'Browser', chat: 'Chat',
+  files: 'Arquivos', note: 'Nota', kanban: 'Quadro',
 }
 
 const TILE_COLORS: Record<string, string> = {
@@ -328,7 +328,7 @@ function SavedLayoutCard({ template, onLaunch, onEdit, onDelete }: {
         {hovered && (
           <>
             {/* Edit */}
-            <button onClick={e => { e.stopPropagation(); onEdit() }} title="Edit" style={{
+            <button onClick={e => { e.stopPropagation(); onEdit() }} title="Editar" style={{
               position: 'absolute', top: 3, left: 3,
               width: 18, height: 18, borderRadius: 4, border: 'none',
               background: 'rgba(0,0,0,0.4)', color: '#fff',
@@ -337,7 +337,7 @@ function SavedLayoutCard({ template, onLaunch, onEdit, onDelete }: {
               <svg width="9" height="9" viewBox="0 0 13 13" fill="none"><path d="M9 1.5L11.5 4L4.5 11H2V8.5L9 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
             {/* Delete */}
-            <button onClick={e => { e.stopPropagation(); onDelete() }} title="Delete" style={{
+            <button onClick={e => { e.stopPropagation(); onDelete() }} title="Excluir" style={{
               position: 'absolute', top: 3, right: 3,
               width: 18, height: 18, borderRadius: 4, border: 'none',
               background: 'rgba(0,0,0,0.4)', color: '#fff',
@@ -577,7 +577,7 @@ export function LayoutBuilder({ onAddTile, onLaunchTemplate }: Props): JSX.Eleme
               // Center: tile picker
               return (
                 <div key="center" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 8 }}>
-                  <span style={{ fontSize: Math.max(11, fonts.secondarySize), fontWeight: 700, color: theme.text.secondary, letterSpacing: 1.2, textTransform: 'uppercase' }}>Blocks</span>
+                  <span style={{ fontSize: Math.max(11, fonts.secondarySize), fontWeight: 700, color: theme.text.secondary, letterSpacing: 1.2, textTransform: 'uppercase' }}>Blocos</span>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 56px)', gap: 6, justifyContent: 'center', maxWidth: '100%' }}>
                     {TILE_DEFS.map(def => (
                       <div key={def.type} onMouseDown={def.disabled ? undefined : e => startDrag(def.type, e)} style={{
@@ -634,18 +634,18 @@ export function LayoutBuilder({ onAddTile, onLaunchTemplate }: Props): JSX.Eleme
                     </>
                   ) : isEditing ? (
                     <input value={card.name} onChange={e => setCards(prev => { const n = [...prev]; n[cardIdx] = { ...n[cardIdx], name: e.target.value }; return n })}
-                      placeholder="Name..."
+                      placeholder="Nome..."
                       onBlur={() => toggleEditing(cardIdx)}
                       style={{ flex: 1, padding: '3px 7px', fontSize: Math.max(11, fonts.size - 1), borderRadius: 4, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}`, outline: 'none', fontFamily: 'inherit', minWidth: 0 }}
                     />
                   ) : (
                     <span style={{ flex: 1, fontSize: Math.max(12, fonts.size - 1), fontWeight: 700, color: theme.text.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {card.name || 'Untitled'}
+                      {card.name || 'Sem título'}
                     </span>
                   )}
                   {!isEmpty && (
                     <>
-                      <button onClick={() => toggleEditing(cardIdx)} title={isEditing ? 'Done editing' : 'Edit layout'} style={{
+                      <button onClick={() => toggleEditing(cardIdx)} title={isEditing ? 'Concluir edição' : 'Editar layout'} style={{
                         width: 18, height: 18, borderRadius: 4, border: 'none', background: 'transparent',
                         color: isEditing ? theme.accent.base : theme.text.disabled, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -655,7 +655,7 @@ export function LayoutBuilder({ onAddTile, onLaunchTemplate }: Props): JSX.Eleme
                       }}>
                         <svg width="11" height="11" viewBox="0 0 13 13" fill="none"><path d="M9 1.5L11.5 4L4.5 11H2V8.5L9 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       </button>
-                      <button onClick={() => saveCard(cardIdx)} title="Save" style={{
+                      <button onClick={() => saveCard(cardIdx)} title="Salvar" style={{
                         width: 18, height: 18, borderRadius: 4, border: 'none', background: 'transparent',
                         color: theme.text.disabled, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         opacity: hoveredLayoutCard === cardIdx || isEditing ? 1 : 0,
@@ -696,7 +696,7 @@ export function LayoutBuilder({ onAddTile, onLaunchTemplate }: Props): JSX.Eleme
                 >
                   {isEmpty ? (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.disabled, fontSize: Math.max(12, fonts.size - 1), fontWeight: 600, userSelect: 'none' }}>
-                      {isCardHovered ? <span style={{ color: theme.accent.base }}>Drop here</span> : 'Drag blocks here'}
+                      {isCardHovered ? <span style={{ color: theme.accent.base }}>Solte aqui</span> : 'Arraste blocos aqui'}
                     </div>
                   ) : (
                     <div style={{ flex: 1, display: 'flex', padding: 3, position: 'relative' }}>

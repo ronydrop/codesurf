@@ -42,7 +42,7 @@ const GIT_LABELS: Record<GitStatus, string> = {
 }
 
 const SORT_MODES: SortMode[] = ['name', 'type', 'ext']
-const SORT_LABELS: Record<SortMode, string> = { name: 'Name', type: 'Type', ext: 'Ext' }
+const SORT_LABELS: Record<SortMode, string> = { name: 'Nome', type: 'Tipo', ext: 'Ext' }
 const IGNORED = new Set(['.git', 'node_modules', '.next', 'dist', 'dist-electron', '.DS_Store', '__pycache__', '.cache', 'out'])
 
 // ─── Special file / extension metadata ───────────────────────────────────────
@@ -933,16 +933,16 @@ export default function FileExplorerTile({
     const { entry } = ctx
     const dir = entry.isDir ? entry.path : entry.path.split('/').slice(0, -1).join('/')
     const items: MenuItem[] = []
-    if (!entry.isDir) items.push({ label: 'Open', action: () => handleOpenFile(entry.path) })
-    items.push({ label: 'New File', action: () => startCreate(dir, 'file') })
-    items.push({ label: 'New Folder', action: () => startCreate(dir, 'folder') })
+    if (!entry.isDir) items.push({ label: 'Abrir', action: () => handleOpenFile(entry.path) })
+    items.push({ label: 'Novo Arquivo', action: () => startCreate(dir, 'file') })
+    items.push({ label: 'Nova Pasta', action: () => startCreate(dir, 'folder') })
     items.push({ label: '', action: () => {}, divider: true })
     // "Open in Terminal" — only shown when connected to terminal(s)
     if (connectedTerminalIds.length === 1) {
-      items.push({ label: 'Open in Terminal', action: () => cdTerminal(dir) })
+      items.push({ label: 'Abrir no Terminal', action: () => cdTerminal(dir) })
     } else if (connectedTerminalIds.length > 1) {
       for (let i = 0; i < connectedTerminalIds.length; i++) {
-        items.push({ label: `Open in Terminal ${i + 1}`, action: () => cdTerminal(dir, connectedTerminalIds[i]) })
+        items.push({ label: `Abrir no Terminal ${i + 1}`, action: () => cdTerminal(dir, connectedTerminalIds[i]) })
       }
     }
     if (connectedTerminalIds.length > 0) {
@@ -950,17 +950,17 @@ export default function FileExplorerTile({
     }
     // Root folder scoping
     if (entry.isDir && entry.path !== rootPath) {
-      items.push({ label: 'Set as Root', action: () => setRootPath(entry.path) })
+      items.push({ label: 'Definir como Raiz', action: () => setRootPath(entry.path) })
     }
     if (rootPath !== workspacePath) {
-      items.push({ label: 'Reset Root', action: () => setRootPath(workspacePath) })
+      items.push({ label: 'Redefinir Raiz', action: () => setRootPath(workspacePath) })
     }
     items.push({ label: '', action: () => {}, divider: true })
-    items.push({ label: 'Rename', action: () => setRenamingPath(entry.path) })
-    items.push({ label: 'Copy Path', action: () => navigator.clipboard.writeText(entry.path) })
-    items.push({ label: 'Reveal in Finder', action: () => window.electron.fs.revealInFinder?.(entry.path) })
+    items.push({ label: 'Renomear', action: () => setRenamingPath(entry.path) })
+    items.push({ label: 'Copiar Caminho', action: () => navigator.clipboard.writeText(entry.path) })
+    items.push({ label: 'Mostrar no Finder', action: () => window.electron.fs.revealInFinder?.(entry.path) })
     items.push({ label: '', action: () => {}, divider: true })
-    items.push({ label: `Delete ${entry.isDir ? 'Folder' : 'File'}`, danger: true, action: () => { void handleDelete(entry) } })
+    items.push({ label: `Excluir ${entry.isDir ? 'Pasta' : 'Arquivo'}`, danger: true, action: () => { void handleDelete(entry) } })
     return items
   }, [ctx, handleOpenFile, startCreate, handleDelete, connectedTerminalIds, cdTerminal, rootPath, workspacePath])
 
@@ -995,7 +995,7 @@ export default function FileExplorerTile({
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search files"
+          placeholder="Pesquisar arquivos"
           style={{
             flex: 1, padding: '4px 10px', fontSize: fonts.size,
             background: theme.surface.input, color: theme.text.secondary,
@@ -1005,7 +1005,7 @@ export default function FileExplorerTile({
         />
         <button
           onClick={cycleSortMode}
-          title={`Sort: ${SORT_LABELS[sortMode]}`}
+          title={`Ordenar: ${SORT_LABELS[sortMode]}`}
           style={{
             background: 'transparent', border: 'none',
             cursor: 'pointer', padding: '4px 5px', borderRadius: 4,
@@ -1020,7 +1020,7 @@ export default function FileExplorerTile({
         <div ref={fileMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button
             onClick={() => setShowFileMenu(p => !p)}
-            title="File actions"
+            title="Ações de arquivo"
             style={{
               background: showFileMenu ? theme.surface.panelMuted : 'transparent', border: 'none',
               cursor: 'pointer', padding: '4px 5px', borderRadius: 4,
@@ -1043,11 +1043,11 @@ export default function FileExplorerTile({
               zIndex: 9999,
             }}>
               {([
-                { label: 'New File', action: () => { rootPath && startCreate(rootPath, 'file'); setShowFileMenu(false) } },
-                { label: 'New Folder', action: () => { rootPath && startCreate(rootPath, 'folder'); setShowFileMenu(false) } },
-                { label: 'Refresh', action: () => { void reloadAll(); setShowFileMenu(false) } },
-                { label: 'Show in Finder', action: () => { rootPath && window.electron.fs.revealInFinder?.(rootPath); setShowFileMenu(false) } },
-                ...(rootPath !== workspacePath ? [{ label: 'Reset Root', action: () => { setRootPath(workspacePath); setShowFileMenu(false) } }] : []),
+                { label: 'Novo Arquivo', action: () => { rootPath && startCreate(rootPath, 'file'); setShowFileMenu(false) } },
+                { label: 'Nova Pasta', action: () => { rootPath && startCreate(rootPath, 'folder'); setShowFileMenu(false) } },
+                { label: 'Atualizar', action: () => { void reloadAll(); setShowFileMenu(false) } },
+                { label: 'Mostrar no Finder', action: () => { rootPath && window.electron.fs.revealInFinder?.(rootPath); setShowFileMenu(false) } },
+                ...(rootPath !== workspacePath ? [{ label: 'Redefinir Raiz', action: () => { setRootPath(workspacePath); setShowFileMenu(false) } }] : []),
               ]).map(item => (
                 <div
                   key={item.label}
@@ -1070,12 +1070,12 @@ export default function FileExplorerTile({
       {/* File tree */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0 4px', position: 'relative' }} onContextMenu={handleBgCtxMenu}>
         {!rootPath ? (
-          <div style={{ padding: '16px', fontSize: fonts.size, color: theme.text.disabled, fontFamily: 'inherit' }}>No workspace open</div>
+          <div style={{ padding: '16px', fontSize: fonts.size, color: theme.text.disabled, fontFamily: 'inherit' }}>Nenhum workspace aberto</div>
         ) : loadingTree && treeEntries.length === 0 ? (
-          <div style={{ padding: '16px', fontSize: fonts.size, color: theme.text.muted, fontFamily: 'inherit' }}>Loading files...</div>
+          <div style={{ padding: '16px', fontSize: fonts.size, color: theme.text.muted, fontFamily: 'inherit' }}>Carregando arquivos...</div>
         ) : viewMode === 'list' ? (
           filteredFlat.length === 0 ? (
-            <div style={{ padding: '16px', fontSize: fonts.size, color: theme.text.disabled, fontFamily: 'inherit' }}>{search ? 'No matches' : 'Empty'}</div>
+            <div style={{ padding: '16px', fontSize: fonts.size, color: theme.text.disabled, fontFamily: 'inherit' }}>{search ? 'Sem resultados' : 'Vazio'}</div>
           ) : (
             filteredFlat.map(entry => (
               <FlatEntry
@@ -1107,7 +1107,7 @@ export default function FileExplorerTile({
             )}
 
             {filteredTree.length === 0 ? (
-              <div style={{ padding: '16px', fontSize: fonts.size, color: theme.text.disabled, fontFamily: 'inherit' }}>{search ? 'No matches' : 'Empty'}</div>
+              <div style={{ padding: '16px', fontSize: fonts.size, color: theme.text.disabled, fontFamily: 'inherit' }}>{search ? 'Sem resultados' : 'Vazio'}</div>
             ) : (
               filteredTree.map(entry => (
                 <TreeNode
@@ -1150,10 +1150,10 @@ export default function FileExplorerTile({
           flexShrink: 0,
           cursor: rootPath !== workspacePath ? 'pointer' : 'default',
         }}
-        title={rootPath !== workspacePath ? `Click to reset to ${workspacePath}` : rootPath}
+        title={rootPath !== workspacePath ? `Clique para redefinir para ${workspacePath}` : rootPath}
         onClick={rootPath !== workspacePath ? () => setRootPath(workspacePath) : undefined}
       >
-        {rootPath || 'No workspace'}
+        {rootPath || 'Sem workspace'}
       </div>
 
       {ctx && <ContextMenu x={ctx.x} y={ctx.y} items={ctxItems()} onClose={() => setCtx(null)} />}

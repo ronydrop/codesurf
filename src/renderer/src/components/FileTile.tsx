@@ -59,7 +59,7 @@ export function FileTile({ tileId, filePath, workspacePath, secondaryFont }: Pro
   const meta = useMemo(() => {
     const parts = [extLabel(filePath)]
     if (stats?.size !== undefined) parts.push(formatBytes(stats.size))
-    parts.push(inWorkspace ? 'In workspace' : 'Reference')
+    parts.push(inWorkspace ? 'No workspace' : 'Referência')
     return parts.join(' · ')
   }, [filePath, stats?.size, inWorkspace])
 
@@ -191,7 +191,7 @@ export function FileTile({ tileId, filePath, workspacePath, secondaryFont }: Pro
             overflow: 'hidden',
             textOverflow: 'ellipsis',
           }}
-          title="Drag to another tile or the file explorer"
+          title="Arraste para outro bloco ou para o explorador de arquivos"
         >
           {basename(filePath)}
         </div>

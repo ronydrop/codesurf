@@ -208,7 +208,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
         {/* Header */}
         <div style={{ padding: '14px 20px', borderBottom: `1px solid ${theme.border.default}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: fonts.size, fontWeight: 700, color: theme.text.primary }}>MCP Configuration</div>
+            <div style={{ fontSize: fonts.size, fontWeight: 700, color: theme.text.primary }}>Configuração MCP</div>
             <div style={{ fontSize: 10, color: theme.text.disabled, fontFamily: fonts.mono, marginTop: 2 }}>{CONFIG_PATH}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -218,7 +218,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
                 <span style={{ fontSize: 10, color: theme.status.success, fontFamily: fonts.mono }}>:{port}</span>
               </div>
             )}
-            {saved && <span style={{ fontSize: 10, color: theme.status.success }}>saved</span>}
+            {saved && <span style={{ fontSize: 10, color: theme.status.success }}>salvo</span>}
             <button onClick={onClose} style={{ fontSize: fonts.secondarySize, color: theme.text.disabled, background: 'none', border: 'none', cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.color = theme.text.primary)}
               onMouseLeave={e => (e.currentTarget.style.color = theme.text.disabled)}>x</button>
@@ -229,10 +229,10 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
 
           {/* Built-in server */}
-          <Section label="BUILT-IN">
+          <Section label="INTEGRADO">
             <ServerRow
               name="contex"
-              description="Canvas, kanban, files, blocks — always running"
+              description="Canvas, kanban, arquivos, blocos — sempre ativo"
               url={config?.url}
               enabled={true}
               builtin
@@ -241,9 +241,9 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
           </Section>
 
           {/* External servers */}
-          <Section label="MCP SERVERS">
+          <Section label="SERVIDORES MCP">
             {loading ? (
-              <div style={{ fontSize: fonts.secondarySize, color: theme.text.muted, padding: '8px 0' }}>Loading...</div>
+              <div style={{ fontSize: fonts.secondarySize, color: theme.text.muted, padding: '8px 0' }}>Carregando...</div>
             ) : (
               <>
                 {servers.filter(s => s.name !== 'contex').map((s, i) => (
@@ -259,23 +259,23 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
                   <div style={{ background: theme.surface.panelMuted, border: `1px solid ${theme.border.default}`, borderRadius: 6, padding: 12, marginTop: 6 }}>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                       <input value={newServer.name ?? ''} onChange={e => setNewServer(p => ({ ...p, name: e.target.value }))}
-                        placeholder="server name" autoFocus style={{ ...getInputStyle(theme), flex: '0 0 120px', background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}` }} />
+                        placeholder="nome do servidor" autoFocus style={{ ...getInputStyle(theme), flex: '0 0 120px', background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}` }} />
                       <input value={newServer.url ?? ''} onChange={e => setNewServer(p => ({ ...p, url: e.target.value, cmd: undefined }))}
                         placeholder="http://..." style={{ ...getInputStyle(theme), flex: 1, fontFamily: fonts.mono, fontSize: 10, color: theme.status.success, background: theme.surface.input, border: `1px solid ${theme.border.default}` }} />
                     </div>
                     <input value={newServer.cmd ?? ''} onChange={e => setNewServer(p => ({ ...p, cmd: e.target.value, url: undefined }))}
-                      placeholder="or stdio command: npx @modelcontextprotocol/server-name"
+                      placeholder="ou comando stdio: npx @modelcontextprotocol/server-name"
                       style={{ ...getInputStyle(theme), fontFamily: fonts.mono, fontSize: 10, marginBottom: 8, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}` }} />
                     <input value={newServer.description ?? ''} onChange={e => setNewServer(p => ({ ...p, description: e.target.value }))}
-                      placeholder="Description (optional)" style={{ ...getInputStyle(theme), marginBottom: 8, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}` }} />
+                      placeholder="Descrição (opcional)" style={{ ...getInputStyle(theme), marginBottom: 8, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}` }} />
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button onClick={addServer}
                         style={{ flex: 1, padding: '5px 0', borderRadius: 5, background: theme.accent.base, color: theme.text.inverse, border: 'none', fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit' }}>
-                        Add Server
+                        Adicionar Servidor
                       </button>
                       <button onClick={() => setAdding(false)}
                         style={{ padding: '5px 12px', borderRadius: 5, background: theme.surface.panelMuted, color: theme.text.muted, border: `1px solid ${theme.border.default}`, fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit' }}>
-                        Cancel
+                        Cancelar
                       </button>
                     </div>
                   </div>
@@ -284,7 +284,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
                     style={{ width: '100%', padding: '7px 0', borderRadius: 6, background: 'none', border: `1px dashed ${theme.border.default}`, color: theme.text.muted, fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit', marginTop: 4 }}
                     onMouseEnter={e => { e.currentTarget.style.color = theme.accent.base; e.currentTarget.style.borderColor = theme.accent.soft }}
                     onMouseLeave={e => { e.currentTarget.style.color = theme.text.muted; e.currentTarget.style.borderColor = theme.border.default }}>
-                    + Add MCP Server
+                    + Adicionar Servidor MCP
                   </button>
                 )}
               </>
@@ -292,7 +292,7 @@ export function MCPPanel({ onClose }: Props): JSX.Element {
           </Section>
 
           {/* Catalogue */}
-          <Section label="CATALOGUE — ADD SERVERS">
+          <Section label="CATÁLOGO — ADICIONAR SERVIDORES">
             <CatalogueView
               installed={servers.map(s => s.name)}
               onAdd={s => {
@@ -384,7 +384,7 @@ function EditableServerRow({ server, onUpdate, onRemove }: {
           style={{ fontSize: 9, color: theme.text.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
           onMouseEnter={e => (e.currentTarget.style.color = theme.text.secondary)}
           onMouseLeave={e => (e.currentTarget.style.color = theme.text.muted)}>
-          {expanded ? 'less' : 'edit'}
+          {expanded ? 'menos' : 'editar'}
         </button>
         <button onClick={onRemove}
           style={{ fontSize: 10, color: theme.text.disabled, background: 'none', border: 'none', cursor: 'pointer' }}
@@ -403,7 +403,7 @@ function EditableServerRow({ server, onUpdate, onRemove }: {
               placeholder="http://localhost:3000" style={{ ...iStyle, fontFamily: fonts.mono, fontSize: 10, color: theme.status.success }} />
           </div>
           <div>
-            <label style={{ fontSize: 9, color: theme.text.muted, fontFamily: 'inherit', display: 'block', marginBottom: 3 }}>STDIO COMMAND</label>
+            <label style={{ fontSize: 9, color: theme.text.muted, fontFamily: 'inherit', display: 'block', marginBottom: 3 }}>COMANDO STDIO</label>
             <input value={server.cmd ?? ''} onChange={e => onUpdate({
                 cmd: e.target.value || undefined,
                 url: undefined,
@@ -412,9 +412,9 @@ function EditableServerRow({ server, onUpdate, onRemove }: {
               placeholder="npx @modelcontextprotocol/server-name" style={{ ...iStyle, fontFamily: fonts.mono, fontSize: 10 }} />
           </div>
           <div>
-            <label style={{ fontSize: 9, color: theme.text.muted, fontFamily: 'inherit', display: 'block', marginBottom: 3 }}>DESCRIPTION</label>
+            <label style={{ fontSize: 9, color: theme.text.muted, fontFamily: 'inherit', display: 'block', marginBottom: 3 }}>DESCRIÇÃO</label>
             <input value={server.description ?? ''} onChange={e => onUpdate({ description: e.target.value })}
-              placeholder="What does this server provide?" style={iStyle} />
+              placeholder="O que este servidor fornece?" style={iStyle} />
           </div>
         </div>
       )}
@@ -446,7 +446,7 @@ function CatalogueView({ installed, onAdd }: {
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
         <button onClick={() => setCat(null)}
           style={{ ...catBtnStyle, background: cat === null ? theme.accent.base : theme.surface.panelMuted, color: cat === null ? theme.text.inverse : theme.text.muted, border: `1px solid ${cat === null ? theme.accent.base : theme.border.default}` }}>
-          All
+          Todos
         </button>
         {CATEGORIES.map(c => (
           <button key={c} onClick={() => setCat(cat === c ? null : c)}
@@ -458,7 +458,7 @@ function CatalogueView({ installed, onAdd }: {
 
       {/* Search */}
       <input value={filter} onChange={e => setFilter(e.target.value)}
-        placeholder="Search servers..."
+        placeholder="Buscar servidores..."
         style={{ ...iStyle, marginBottom: 8 }} />
 
       {/* Server list */}
@@ -471,7 +471,7 @@ function CatalogueView({ installed, onAdd }: {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: fonts.secondarySize, fontWeight: 600, color: isInstalled ? theme.text.disabled : theme.text.primary }}>{s.name}</span>
                   <span style={{ fontSize: 9, color: theme.accent.base, background: theme.accent.soft, border: `1px solid ${theme.border.accent}`, borderRadius: 3, padding: '0 5px', fontFamily: 'inherit' }}>{s.category}</span>
-                  {isInstalled && <span style={{ fontSize: 9, color: theme.status.success, fontFamily: 'inherit' }}>added</span>}
+                  {isInstalled && <span style={{ fontSize: 9, color: theme.status.success, fontFamily: 'inherit' }}>adicionado</span>}
                 </div>
                 <div style={{ fontSize: 10, color: theme.text.disabled, marginTop: 1 }}>{s.description}</div>
                 <div style={{ fontSize: 9, color: theme.text.disabled, fontFamily: fonts.mono, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -489,7 +489,7 @@ function CatalogueView({ installed, onAdd }: {
                 onMouseEnter={e => { if (!isInstalled) { e.currentTarget.style.background = theme.accent.base; e.currentTarget.style.color = theme.text.inverse } }}
                 onMouseLeave={e => { if (!isInstalled) { e.currentTarget.style.background = theme.surface.panelElevated; e.currentTarget.style.color = theme.text.muted } }}
               >
-                {isInstalled ? 'added' : '+ add'}
+                {isInstalled ? 'adicionado' : '+ add'}
               </button>
             </div>
           )

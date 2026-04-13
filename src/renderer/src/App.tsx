@@ -3488,8 +3488,8 @@ function App(): JSX.Element {
         >
           <button
             type="button"
-            title="Previous/next logo"
-            aria-label="Change CodeSurf logo"
+            title="Logo anterior/próximo"
+            aria-label="Alterar logo do CodeSurf"
             onClick={() => setBrandWordmarkIndex(index => (index + 1) % brandWordmarks.length)}
             style={{
               position: 'absolute',
@@ -3504,7 +3504,7 @@ function App(): JSX.Element {
           />
           <button
             type="button"
-            title="Cycle logo colors"
+            title="Alternar cores do logo"
             aria-label="Change CodeSurf logo colors"
             onClick={() => setBrandPaletteIndex(index => (index + 1) % brandPalettes.length)}
             style={{
@@ -3672,7 +3672,7 @@ function App(): JSX.Element {
             })}
             {/* New empty view in current project */}
             <button
-              title="New layout view (same project)"
+              title="Nova visão de layout (mesmo projeto)"
               onClick={handleNewBlankView}
               style={{
                 width: 26, height: 26, borderRadius: 8,
@@ -3931,7 +3931,7 @@ function App(): JSX.Element {
                           {g.label ?? 'layout'}
                         </span>
                         <div
-                          title="Expand fullscreen"
+                          title="Expandir em tela cheia"
                           onClick={e => { e.stopPropagation(); expandLayoutGroup(g.id) }}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 4, cursor: 'pointer', color: labelColor, opacity: 0.6 }}
                           onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
@@ -3940,7 +3940,7 @@ function App(): JSX.Element {
                           <Maximize2 size={11} />
                         </div>
                         <div
-                          title="Back to blocks"
+                          title="Voltar para blocos"
                           onClick={e => { e.stopPropagation(); revertLayoutGroup(g.id) }}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 4, cursor: 'pointer', color: labelColor, opacity: 0.6 }}
                           onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
@@ -4002,7 +4002,7 @@ function App(): JSX.Element {
                               const t = tiles.find(ti => ti.id === tileId)
                               if (!t) return null
                               return (
-                                <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12 }}>Loading…</div>}>
+                                <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12 }}>Carregando…</div>}>
                                   {renderTileBody(t)}
                                 </Suspense>
                               )
@@ -4344,7 +4344,7 @@ function App(): JSX.Element {
               return (
                 <Suspense
                   key={tile.id}
-                  fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panel }}>Loading block…</div>}
+                  fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panel }}>Carregando bloco…</div>}
                 >
                   <TileColorProvider>
                   <LazyTileChrome
@@ -4363,7 +4363,7 @@ function App(): JSX.Element {
                     connectedPeers={negotiatedDiscoveryState.byTileConnections.get(tile.id)?.map(link => link.peerId) ?? []}
                     titlebarExtra={tile.type === 'note' && !tile.filePath ? <Suspense fallback={null}><LazyStickyColorPicker /></Suspense> : undefined}
                   >
-                    <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panelMuted }}>Loading block…</div>}>
+                    <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panelMuted }}>Carregando bloco…</div>}>
                       {renderTileBody(tile)}
                     </Suspense>
                   </LazyTileChrome>
@@ -4688,7 +4688,7 @@ function App(): JSX.Element {
                   const t = tiles.find(ti => ti.id === tileId)
                   if (!t) return null
                   return (
-                    <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panelMuted }}>Loading block…</div>}>
+                    <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.muted, fontSize: 12, background: theme.surface.panelMuted }}>Carregando bloco…</div>}>
                       {renderTileBody(t)}
                     </Suspense>
                   )

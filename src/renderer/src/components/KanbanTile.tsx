@@ -57,9 +57,9 @@ function trimTaskMessage(message: string): string {
 
 const DEFAULT_COLUMNS: KanbanColumn[] = [
   { id: 'backlog', title: 'Backlog' },
-  { id: 'running', title: 'Running' },
-  { id: 'review',  title: 'Review' },
-  { id: 'done',    title: 'Done' }
+  { id: 'running', title: 'Executando' },
+  { id: 'review',  title: 'Revisão' },
+  { id: 'done',    title: 'Concluído' }
 ]
 
 type KanbanMode = 'board' | 'overview'
@@ -118,7 +118,7 @@ function AgentOverview({ workspaceId, onFocusTile }: {
   })
 
   if (loading) {
-    return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>Loading activity...</div>
+    return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>Carregando atividade...</div>
   }
 
   if (agentKeys.length === 0) {
@@ -128,7 +128,7 @@ function AgentOverview({ workspaceId, onFocusTile }: {
           <rect x="3" y="3" width="18" height="18" rx="4" />
           <path d="M9 12h6M12 9v6" strokeLinecap="round" />
         </svg>
-        <span style={{ fontSize: fonts.secondarySize }}>No activity yet</span>
+        <span style={{ fontSize: fonts.secondarySize }}>Nenhuma atividade ainda</span>
         <span style={{ fontSize: 10, color: theme.text.disabled, maxWidth: 200, textAlign: 'center', lineHeight: 1.4 }}>
           Activity from terminals and chats will appear here automatically, grouped by agent
         </span>
@@ -811,7 +811,7 @@ export function KanbanTile({ tileId, workspaceId, workspaceDir, width, height, o
       {/* Board mode — terminal task activity */}
       {mode === 'board' && terminalTaskCards.length > 0 && (
         <div style={{ borderBottom: `1px solid ${theme.border.subtle}`, background: theme.surface.panel, padding: '4px 8px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: theme.accent.base, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 }}>Task Activity</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: theme.accent.base, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 }}>Atividade de Tarefas</div>
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
             {terminalTaskCards.map(card => {
               const ev = terminalEventByCard[card.id]
@@ -836,7 +836,7 @@ export function KanbanTile({ tileId, workspaceId, workspaceDir, width, height, o
                   <span style={{ fontSize: fonts.secondarySize, color: theme.accent.base, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.title}</span>
                   <span style={{ fontSize: 10, color: hasAny ? theme.text.muted : theme.text.disabled, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: isLive ? theme.status.success : theme.border.default, boxShadow: isLive ? `0 0 6px ${theme.status.success}` : 'none', display: 'inline-block' }} />
-                    {hasAny ? ev.message : 'No terminal output yet'}
+                    {hasAny ? ev.message : 'Sem saída do terminal ainda'}
                   </span>
                   <span style={{ fontSize: 9, color: theme.text.disabled, letterSpacing: 0.2 }}>
                     {hasAny ? new Date(ev.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '---'}
@@ -887,7 +887,7 @@ export function KanbanTile({ tileId, workspaceId, workspaceDir, width, height, o
                   style={{ fontSize: 20, lineHeight: 1, color: theme.text.primary, background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', fontFamily: 'inherit', fontWeight: 800 }}
                   onMouseEnter={e => { e.currentTarget.style.opacity = '0.75' }}
                   onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
-                  title="Add card"
+                  title="Adicionar card"
                 >+
                 </button>
                 <span style={{ fontSize: fonts.size, color: theme.text.primary, background: theme.surface.panelElevated, borderRadius: 10, minWidth: 24, height: 24, padding: '0 8px', border: `1px solid ${theme.border.default}`, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{colCards.length}</span>
@@ -926,17 +926,17 @@ export function KanbanTile({ tileId, workspaceId, workspaceDir, width, height, o
                   <div style={{ background: theme.surface.panelElevated, border: `1px solid ${theme.border.default}`, borderRadius: 6, padding: 8, flexShrink: 0 }}>
                     <input autoFocus value={addTitle} onChange={e => setAddTitle(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Escape') { setAddingTo(null); setAddTitle(''); setAddInstructions('') } }}
-                      placeholder="Title…"
+                      placeholder="Título…"
                       style={{ width: '100%', fontSize: fonts.secondarySize, padding: '5px 8px', borderRadius: 4, background: theme.surface.input, color: theme.text.primary, border: `1px solid ${theme.accent.base}`, outline: 'none', fontFamily: 'inherit', marginBottom: 6 }}
                     />
                     <textarea value={addInstructions} onChange={e => setAddInstructions(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addCard(col.id); if (e.key === 'Escape') { setAddingTo(null); setAddTitle(''); setAddInstructions('') } }}
-                      placeholder="Instructions…"
+                      placeholder="Instruções…"
                       style={{ width: '100%', minHeight: 68, fontSize: fonts.secondarySize, padding: '6px 8px', borderRadius: 4, resize: 'vertical', background: theme.surface.input, color: theme.text.primary, border: `1px solid ${theme.border.default}`, outline: 'none', fontFamily: 'inherit', marginBottom: 6, lineHeight: 1.5 }}
                     />
                     <div style={{ display: 'flex', gap: 5 }}>
-                      <button onClick={() => addCard(col.id)} style={{ flex: 1, padding: '4px 0', borderRadius: 4, background: theme.accent.base, color: theme.text.inverse, border: 'none', fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
-                      <button onClick={() => { setAddingTo(null); setAddTitle(''); setAddInstructions('') }} style={{ padding: '4px 8px', borderRadius: 4, background: theme.surface.panel, color: theme.text.muted, border: `1px solid ${theme.border.default}`, fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                      <button onClick={() => addCard(col.id)} style={{ flex: 1, padding: '4px 0', borderRadius: 4, background: theme.accent.base, color: theme.text.inverse, border: 'none', fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit' }}>Adicionar</button>
+                      <button onClick={() => { setAddingTo(null); setAddTitle(''); setAddInstructions('') }} style={{ padding: '4px 8px', borderRadius: 4, background: theme.surface.panel, color: theme.text.muted, border: `1px solid ${theme.border.default}`, fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit' }}>Cancelar</button>
                     </div>
                   </div>
                 ) : null}

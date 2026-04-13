@@ -82,7 +82,7 @@ function PageHeader({ title, description, onNew, newLabel, onLocations }: {
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
         {onLocations && (
-          <button onClick={onLocations} title="Configure scan locations"
+          <button onClick={onLocations} title="Configurar locais de varredura"
             style={{ fontSize: fonts.secondarySize, padding: '5px 12px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: 'transparent', color: theme.text.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
               <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="10" y2="12"/>
@@ -351,21 +351,21 @@ export function PromptsSection({ workspacePath }: { workspacePath: string }): JS
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <PageHeader
-        title="Prompt Templates"
-        description="Reusable prompt templates with variable fields"
-        newLabel="New Template"
+        title="Templates de Prompt"
+        description="Templates de prompt reutilizáveis com campos variáveis"
+        newLabel="Novo Template"
         onNew={() => setEditing({ id: `prompt-${Date.now()}`, name: '', description: '', template: '', fields: [], tags: [] })}
         onLocations={() => setLocationsOpen(true)}
       />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
         {items.map(p => (
-          <ItemCard key={p.id} title={p.name || 'Untitled'} description={p.description}
-            chips={[`${p.fields.length} field${p.fields.length !== 1 ? 's' : ''}`, ...p.tags]}
+          <ItemCard key={p.id} title={p.name || 'Sem título'} description={p.description}
+            chips={[`${p.fields.length} campo${p.fields.length !== 1 ? 's' : ''}`, ...p.tags]}
             onEdit={() => setEditing(p)} onDelete={() => save(items.filter(i => i.id !== p.id))}
           />
         ))}
       </div>
-      {items.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>No templates yet. Create one to get started.</div>}
+      {items.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>Nenhum template ainda. Crie um para começar.</div>}
     </div>
   )
 }
@@ -412,14 +412,15 @@ function PromptEditor({ item, onSave, onCancel }: { item: PromptTemplate; onSave
           ))}
           <input value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder="Add tag..."
             onKeyDown={e => { if (e.key === 'Enter' && tagInput.trim()) { up({ tags: [...draft.tags, tagInput.trim()] }); setTagInput('') } }}
+            placeholder="Adicionar tag..."
             style={{ padding: '3px 8px', fontSize: fonts.secondarySize, border: 'none', background: 'transparent', color: theme.text.secondary, outline: 'none', width: 80 }}
           />
         </div>
       </Field>
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8 }}>
-        <button onClick={onCancel} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: theme.surface.panelElevated, color: theme.text.muted, fontSize: fonts.secondarySize, cursor: 'pointer' }}>Cancel</button>
-        <button onClick={() => onSave(draft)} style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: theme.accent.base, color: theme.text.inverse, fontSize: fonts.secondarySize, fontWeight: 600, cursor: 'pointer' }}>Save</button>
+        <button onClick={onCancel} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: theme.surface.panelElevated, color: theme.text.muted, fontSize: fonts.secondarySize, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={() => onSave(draft)} style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: theme.accent.base, color: theme.text.inverse, fontSize: fonts.secondarySize, fontWeight: 600, cursor: 'pointer' }}>Salvar</button>
       </div>
     </div>
   )
@@ -502,8 +503,8 @@ export function SkillsSection({ workspacePath }: { workspacePath: string }): JSX
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%', minHeight: 0 }}>
       <PageHeader
         title="Skills"
-        description="Custom skills and discovered commands"
-        newLabel="New Skill"
+        description="Skills personalizadas e comandos descobertos"
+        newLabel="Nova Skill"
         onNew={() => setEditing({ id: `skill-${Date.now()}`, name: '', description: '', content: '' })}
         onLocations={() => setLocationsOpen(true)}
       />
@@ -519,11 +520,11 @@ export function SkillsSection({ workspacePath }: { workspacePath: string }): JSX
             onMouseEnter={e => { if (selected?.id !== s.id) e.currentTarget.style.background = theme.surface.hover }}
             onMouseLeave={e => { if (selected?.id !== s.id) e.currentTarget.style.background = 'transparent' }}
           >
-            <div style={{ fontSize: fonts.secondarySize, fontWeight: 500, color: theme.text.primary }}>{s.name || 'Untitled'}</div>
+            <div style={{ fontSize: fonts.secondarySize, fontWeight: 500, color: theme.text.primary }}>{s.name || 'Sem título'}</div>
             {s.command && <div style={{ fontSize: 10, color: theme.text.disabled, fontFamily: fonts.mono, marginTop: 2 }}>/{s.command}</div>}
           </div>
         ))}
-        {items.length === 0 && <div style={{ padding: 10, fontSize: fonts.secondarySize, color: theme.text.disabled }}>No skills yet</div>}
+        {items.length === 0 && <div style={{ padding: 10, fontSize: fonts.secondarySize, color: theme.text.disabled }}>Nenhuma skill ainda</div>}
       </div>
       {/* Right detail */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
@@ -531,13 +532,13 @@ export function SkillsSection({ workspacePath }: { workspacePath: string }): JSX
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: fonts.size, fontWeight: 600, color: theme.text.primary, flex: 1 }}>{selected.name}</span>
-              <button onClick={() => setEditing(selected)} style={{ fontSize: 10, padding: '4px 10px', borderRadius: 5, border: `1px solid ${theme.border.default}`, background: 'transparent', color: theme.text.muted, cursor: 'pointer' }}>Edit</button>
-              <button onClick={() => { save(items.filter(i => i.id !== selected.id)); setSelected(null) }} style={{ fontSize: 10, padding: '4px 10px', borderRadius: 5, border: `1px solid ${theme.border.default}`, background: 'transparent', color: theme.status.danger, cursor: 'pointer' }}>Delete</button>
+              <button onClick={() => setEditing(selected)} style={{ fontSize: 10, padding: '4px 10px', borderRadius: 5, border: `1px solid ${theme.border.default}`, background: 'transparent', color: theme.text.muted, cursor: 'pointer' }}>Editar</button>
+              <button onClick={() => { save(items.filter(i => i.id !== selected.id)); setSelected(null) }} style={{ fontSize: 10, padding: '4px 10px', borderRadius: 5, border: `1px solid ${theme.border.default}`, background: 'transparent', color: theme.status.danger, cursor: 'pointer' }}>Excluir</button>
             </div>
             {selected.description && <div style={{ fontSize: fonts.secondarySize, color: theme.text.muted, lineHeight: 1.5 }}>{selected.description}</div>}
             <div style={{ display: 'flex', gap: 4 }}>
-              <button onClick={() => setViewMode('preview')} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 4, border: `1px solid ${viewMode === 'preview' ? theme.border.accent : theme.border.default}`, background: viewMode === 'preview' ? theme.accent.soft : 'transparent', color: viewMode === 'preview' ? theme.accent.base : theme.text.muted, cursor: 'pointer' }}>Preview</button>
-              <button onClick={() => setViewMode('raw')} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 4, border: `1px solid ${viewMode === 'raw' ? theme.border.accent : theme.border.default}`, background: viewMode === 'raw' ? theme.accent.soft : 'transparent', color: viewMode === 'raw' ? theme.accent.base : theme.text.muted, cursor: 'pointer' }}>Raw</button>
+              <button onClick={() => setViewMode('preview')} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 4, border: `1px solid ${viewMode === 'preview' ? theme.border.accent : theme.border.default}`, background: viewMode === 'preview' ? theme.accent.soft : 'transparent', color: viewMode === 'preview' ? theme.accent.base : theme.text.muted, cursor: 'pointer' }}>Prévia</button>
+              <button onClick={() => setViewMode('raw')} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 4, border: `1px solid ${viewMode === 'raw' ? theme.border.accent : theme.border.default}`, background: viewMode === 'raw' ? theme.accent.soft : 'transparent', color: viewMode === 'raw' ? theme.accent.base : theme.text.muted, cursor: 'pointer' }}>Bruto</button>
             </div>
             <div style={{
               flex: 1, padding: 12, borderRadius: 8, overflow: 'auto',
@@ -546,11 +547,11 @@ export function SkillsSection({ workspacePath }: { workspacePath: string }): JSX
               fontFamily: viewMode === 'raw' ? '"JetBrains Mono", monospace' : 'inherit',
               color: theme.text.secondary, whiteSpace: viewMode === 'raw' ? 'pre-wrap' : 'normal',
             }}>
-              {selected.content || 'No content'}
+              {selected.content || 'Sem conteúdo'}
             </div>
           </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>Select a skill to view details</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>Selecione uma skill para ver detalhes</div>
         )}
       </div>
       </div>
@@ -566,14 +567,14 @@ function SkillEditor({ item, onSave, onCancel }: { item: SkillDefinition; onSave
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <span style={{ fontSize: fonts.size, fontWeight: 600, color: theme.text.primary }}>{item.name ? 'Edit Skill' : 'New Skill'}</span>
-      <Field label="Name"><Input value={draft.name} onChange={v => up({ name: v })} placeholder="Skill name" /></Field>
-      <Field label="Description"><Input value={draft.description} onChange={v => up({ description: v })} placeholder="What does this skill do?" /></Field>
-      <Field label="Command"><Input value={draft.command ?? ''} onChange={v => up({ command: v })} placeholder="e.g. my-skill" /></Field>
-      <Field label="Content (Markdown)"><Input value={draft.content} onChange={v => up({ content: v })} placeholder="# Skill content..." multiline mono rows={12} /></Field>
+      <span style={{ fontSize: fonts.size, fontWeight: 600, color: theme.text.primary }}>{item.name ? 'Editar Skill' : 'Nova Skill'}</span>
+      <Field label="Nome"><Input value={draft.name} onChange={v => up({ name: v })} placeholder="Nome da skill" /></Field>
+      <Field label="Descrição"><Input value={draft.description} onChange={v => up({ description: v })} placeholder="O que esta skill faz?" /></Field>
+      <Field label="Comando"><Input value={draft.command ?? ''} onChange={v => up({ command: v })} placeholder="ex: minha-skill" /></Field>
+      <Field label="Conteúdo (Markdown)"><Input value={draft.content} onChange={v => up({ content: v })} placeholder="# Conteúdo da skill..." multiline mono rows={12} /></Field>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8 }}>
-        <button onClick={onCancel} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: theme.surface.panelElevated, color: theme.text.muted, fontSize: fonts.secondarySize, cursor: 'pointer' }}>Cancel</button>
-        <button onClick={() => onSave(draft)} style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: theme.accent.base, color: theme.text.inverse, fontSize: fonts.secondarySize, fontWeight: 600, cursor: 'pointer' }}>Save</button>
+        <button onClick={onCancel} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: theme.surface.panelElevated, color: theme.text.muted, fontSize: fonts.secondarySize, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={() => onSave(draft)} style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: theme.accent.base, color: theme.text.inverse, fontSize: fonts.secondarySize, fontWeight: 600, cursor: 'pointer' }}>Salvar</button>
       </div>
     </div>
   )
@@ -672,15 +673,15 @@ export function ToolsSection(): JSX.Element {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <PageHeader
-        title="Tools & Actions"
-        description="Builtin tools, MCP servers, and integrations"
-        newLabel="Browse Registry"
+        title="Ferramentas &amp; Ações"
+        description="Ferramentas integradas, servidores MCP e integrações"
+        newLabel="Explorar Registro"
         onNew={() => setShowRegistry(true)}
       />
 
       {/* ── Builtin Tools ── */}
       <div>
-        <div style={{ fontSize: fonts.secondarySize, fontWeight: 700, color: theme.text.disabled, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Built-in Tools</div>
+        <div style={{ fontSize: fonts.secondarySize, fontWeight: 700, color: theme.text.disabled, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Ferramentas Integradas</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {Object.entries(categories).map(([cat, tools]) => (
             <div key={cat}>
@@ -781,7 +782,7 @@ export function ToolsSection(): JSX.Element {
             <div style={{ padding: '14px 18px', borderBottom: `1px solid ${theme.border.default}`, display: 'flex', alignItems: 'center', gap: 10 }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3" /><path d="M4 4V2.5A1.5 1.5 0 015.5 1h5A1.5 1.5 0 0112 2.5V4" stroke="currentColor" strokeWidth="1.3" /><path d="M1 8h14" stroke="currentColor" strokeWidth="1.3" /><rect x="6" y="6.5" width="4" height="3" rx="0.5" fill="currentColor" /></svg>
               <span style={{ fontSize: fonts.size, fontWeight: 700, color: theme.text.primary, flex: 1 }}>MCP Registry</span>
-              {regTotal > 0 && <span style={{ fontSize: 10, color: theme.text.disabled, background: theme.surface.panelMuted, padding: '2px 8px', borderRadius: 4 }}>{regTotal} servers</span>}
+              {regTotal > 0 && <span style={{ fontSize: 10, color: theme.text.disabled, background: theme.surface.panelMuted, padding: '2px 8px', borderRadius: 4 }}>{regTotal} servidores</span>}
               <button onClick={() => setShowRegistry(false)} style={{ width: 24, height: 24, border: 'none', background: 'transparent', color: theme.text.disabled, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>x</button>
             </div>
 
@@ -790,7 +791,7 @@ export function ToolsSection(): JSX.Element {
               <input value={regQuery}
                 onChange={e => setRegQuery(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') searchRegistry(regQuery) }}
-                placeholder="Search MCP servers..."
+                placeholder="Buscar servidores MCP..."
                 style={{ width: '100%', padding: '7px 10px', fontSize: fonts.secondarySize, borderRadius: 6, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}`, outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
@@ -798,10 +799,10 @@ export function ToolsSection(): JSX.Element {
             {/* Results */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px 18px' }}>
               {regLoading ? (
-                <div style={{ padding: 24, textAlign: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>Searching registry...</div>
+                <div style={{ padding: 24, textAlign: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>Buscando no registro...</div>
               ) : regResults.length === 0 ? (
                 <div style={{ padding: 24, textAlign: 'center', color: theme.text.disabled, fontSize: fonts.secondarySize }}>
-                  {regQuery ? 'No servers found matching your search' : 'Enter a search term or press Enter to browse'}
+                  {regQuery ? 'Nenhum servidor encontrado para sua busca' : 'Digite um termo de busca ou pressione Enter para explorar'}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -990,18 +991,18 @@ export function AgentsSection({ workspacePath }: { workspacePath: string }): JSX
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <PageHeader
-        title="Agent Modes"
-        description="Agent personas with system prompts and tool access"
-        newLabel="New Mode"
+        title="Modos de Agente"
+        description="Personas de agente com prompts de sistema e acesso a ferramentas"
+        newLabel="Novo Modo"
         onNew={() => setEditing({ id: `mode-${Date.now()}`, name: '', description: '', systemPrompt: '', tools: null, icon: 'robot', color: '#3568ff', isBuiltin: false })}
         onLocations={() => setLocationsOpen(true)}
       />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
         {items.map(m => (
-          <ItemCard key={m.id} title={m.name || 'Untitled'} description={m.description} color={m.color}
+          <ItemCard key={m.id} title={m.name || 'Sem título'} description={m.description} color={m.color}
             chips={[
-              m.tools ? `${m.tools.length} tool${m.tools.length !== 1 ? 's' : ''}` : 'All tools',
-              ...(m.isBuiltin ? ['Built-in'] : []),
+              m.tools ? `${m.tools.length} ferramenta${m.tools.length !== 1 ? 's' : ''}` : 'Todas as ferramentas',
+              ...(m.isBuiltin ? ['Integrado'] : []),
               ...(m.source ? [m.source] : []),
             ]}
             onEdit={() => setEditing(m)} onDelete={m.isBuiltin ? undefined : () => save(items.filter(i => i.id !== m.id))}
@@ -1021,12 +1022,12 @@ function AgentEditor({ item, modes, onSave, onCancel }: { item: AgentMode; modes
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <span style={{ fontSize: fonts.size, fontWeight: 600, color: theme.text.primary }}>{item.name ? 'Edit Mode' : 'New Mode'}</span>
-      <Field label="Name"><Input value={draft.name} onChange={v => up({ name: v })} placeholder="Mode name" /></Field>
-      <Field label="Description"><Input value={draft.description} onChange={v => up({ description: v })} placeholder="What is this mode for?" /></Field>
-      <Field label="System Prompt"><Input value={draft.systemPrompt} onChange={v => up({ systemPrompt: v })} placeholder="Instructions for the agent..." multiline rows={6} /></Field>
+      <span style={{ fontSize: fonts.size, fontWeight: 600, color: theme.text.primary }}>{item.name ? 'Editar Modo' : 'Novo Modo'}</span>
+      <Field label="Nome"><Input value={draft.name} onChange={v => up({ name: v })} placeholder="Nome do modo" /></Field>
+      <Field label="Descrição"><Input value={draft.description} onChange={v => up({ description: v })} placeholder="Para que serve este modo?" /></Field>
+      <Field label="Prompt de Sistema"><Input value={draft.systemPrompt} onChange={v => up({ systemPrompt: v })} placeholder="Instruções para o agente..." multiline rows={6} /></Field>
 
-      <Field label="Icon & Color">
+      <Field label="Ícone &amp; Cor">
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 3 }}>
             {Object.entries(AGENT_ICONS).map(([key, icon]) => (
@@ -1050,11 +1051,11 @@ function AgentEditor({ item, modes, onSave, onCancel }: { item: AgentMode; modes
         </div>
       </Field>
 
-      <Field label="Tools">
+      <Field label="Ferramentas">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: restrictTools ? 8 : 0 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: fonts.secondarySize, color: theme.text.secondary, cursor: 'pointer' }}>
             <input type="checkbox" checked={restrictTools} onChange={e => { setRestrictTools(e.target.checked); if (!e.target.checked) up({ tools: null }) }} />
-            Restrict tools
+            Restringir ferramentas
           </label>
         </div>
         {restrictTools && (
@@ -1062,10 +1063,10 @@ function AgentEditor({ item, modes, onSave, onCancel }: { item: AgentMode; modes
         )}
       </Field>
 
-      <Field label="Default Next Mode">
+      <Field label="Próximo Modo Padrão">
         <select value={draft.defaultNextMode ?? ''} onChange={e => up({ defaultNextMode: e.target.value || undefined })}
           style={{ padding: '6px 10px', fontSize: fonts.secondarySize, borderRadius: 6, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}`, outline: 'none' }}>
-          <option value="">None</option>
+          <option value="">Nenhum</option>
           {modes.filter(m => m.id !== draft.id).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </Field>
@@ -1075,10 +1076,10 @@ function AgentEditor({ item, modes, onSave, onCancel }: { item: AgentMode; modes
           <button onClick={() => {
             const d = DEFAULT_MODES.find(m => m.id === item.id)
             if (d) onSave(d)
-          }} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: 'transparent', color: theme.text.disabled, fontSize: fonts.secondarySize, cursor: 'pointer', marginRight: 'auto' }}>Reset to Default</button>
+          }} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: 'transparent', color: theme.text.disabled, fontSize: fonts.secondarySize, cursor: 'pointer', marginRight: 'auto' }}>Restaurar Padrão</button>
         )}
-        <button onClick={onCancel} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: theme.surface.panelElevated, color: theme.text.muted, fontSize: fonts.secondarySize, cursor: 'pointer' }}>Cancel</button>
-        <button onClick={() => onSave(draft)} style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: theme.accent.base, color: theme.text.inverse, fontSize: fonts.secondarySize, fontWeight: 600, cursor: 'pointer' }}>Save</button>
+        <button onClick={onCancel} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: theme.surface.panelElevated, color: theme.text.muted, fontSize: fonts.secondarySize, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={() => onSave(draft)} style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: theme.accent.base, color: theme.text.inverse, fontSize: fonts.secondarySize, fontWeight: 600, cursor: 'pointer' }}>Salvar</button>
       </div>
     </div>
   )

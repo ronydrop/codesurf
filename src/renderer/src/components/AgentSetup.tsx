@@ -179,14 +179,14 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
             textTransform: 'uppercase',
             marginBottom: 6,
           }}>
-            Setup
+            Configuração
           </div>
           <div style={{
             fontSize: fonts.size,
             color: '#888',
             lineHeight: 1.4,
           }}>
-            Detected coding agents on your system. Confirm the paths or set them manually.
+            Agentes de código detectados no sistema. Confirme os caminhos ou defina manualmente.
           </div>
         </div>
 
@@ -255,7 +255,7 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
                           padding: '1px 5px',
                           borderRadius: 3,
                         }}>
-                          {entry.version || 'found'}
+                          {entry.version || 'encontrado'}
                         </span>
                       ) : (
                         <span style={{
@@ -265,7 +265,7 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
                           padding: '1px 5px',
                           borderRadius: 3,
                         }}>
-                          not found
+                          não encontrado
                         </span>
                       )}
                     </div>
@@ -306,7 +306,7 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
                         flexShrink: 0,
                       }}
                     >
-                      {found ? 'Change' : 'Set path'}
+                      {found ? 'Alterar' : 'Definir caminho'}
                     </button>
                   )}
                 </div>
@@ -349,7 +349,7 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
                           cursor: 'pointer',
                         }}
                       >
-                        Save
+                        Salvar
                       </button>
                       <button
                         onClick={() => setEditingAgent(null)}
@@ -363,7 +363,7 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
                           cursor: 'pointer',
                         }}
                       >
-                        Cancel
+                        Cancelar
                       </button>
                     </div>
                     {found && (
@@ -379,7 +379,7 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
                           marginTop: 4,
                         }}
                       >
-                        Clear path
+                        Limpar caminho
                       </button>
                     )}
                   </div>
@@ -410,7 +410,7 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
               opacity: detecting ? 0.5 : 1,
             }}
           >
-            {detecting ? 'Scanning...' : 'Re-detect'}
+            {detecting ? 'Verificando...' : 'Redetectar'}
           </button>
           <button
             onClick={handleConfirmAll}
@@ -425,7 +425,7 @@ export function AgentSetup({ onComplete }: AgentSetupProps) {
               cursor: 'pointer',
             }}
           >
-            Looks good
+            Tudo certo
           </button>
         </div>
       </div>

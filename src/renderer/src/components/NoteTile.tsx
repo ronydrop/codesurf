@@ -207,7 +207,7 @@ function StickyNote({ initialContent, tileId, workspacePath }: { initialContent:
       <textarea
         value={content}
         onChange={e => handleChange(e.target.value)}
-        placeholder="Type a note..."
+        placeholder="Digite uma nota..."
         style={{
           flex: 1, resize: 'none', border: 'none', outline: 'none',
           background: 'transparent',
@@ -295,7 +295,7 @@ export function StickyColorPicker(): JSX.Element {
         ref={colourButtonRef}
         data-no-drag
         onClick={() => { setShowColourPicker(v => !v); setShowFontPicker(false) }}
-        title="Change note colour"
+        title="Mudar cor da nota"
         style={{
           width: 14, height: 14, borderRadius: 7,
           background: colour.bg, border: `1.5px solid ${colour.border}`,
@@ -308,7 +308,7 @@ export function StickyColorPicker(): JSX.Element {
         ref={fontButtonRef}
         data-no-drag
         onClick={() => { setShowFontPicker(v => !v); setShowColourPicker(false) }}
-        title="Change note font"
+        title="Mudar fonte da nota"
         style={{
           width: 18, height: 18,
           borderRadius: 5,
@@ -466,7 +466,7 @@ function FileNote({ filePath, initialContent }: { filePath?: string; initialCont
       <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 2 }}>
         <button
           onClick={() => setMode('edit')}
-          title="Edit"
+          title="Editar"
           style={{
             width: 24, height: 24, borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -482,7 +482,7 @@ function FileNote({ filePath, initialContent }: { filePath?: string; initialCont
         </button>
         <button
           onClick={() => setMode('preview')}
-          title="Preview"
+          title="Visualizar"
           style={{
             width: 24, height: 24, borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',

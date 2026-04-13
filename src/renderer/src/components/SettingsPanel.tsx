@@ -33,19 +33,19 @@ type Section = BuiltinSection | `ext:${string}`
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode; description: string; group?: string }[] = [
   // App settings
-  { id: 'general',    label: 'General',    icon: <Type size={15} />,       description: 'Display settings — fonts, weights, sizes, line heights, and raw JSON', group: 'app' },
-  { id: 'canvas',     label: 'Canvas',     icon: <Monitor size={15} />,    description: 'Background, grid and snap settings', group: 'app' },
+  { id: 'general',    label: 'Geral',       icon: <Type size={15} />,       description: 'Configurações de exibição — fontes, pesos, tamanhos, alturas de linha e JSON bruto', group: 'app' },
+  { id: 'canvas',     label: 'Canvas',     icon: <Monitor size={15} />,    description: 'Fundo, grade e configurações de encaixe', group: 'app' },
 
-  { id: 'sidebar',    label: 'Sidebar',    icon: <FolderOpen size={15} />, description: 'File tree sort and ignored folders', group: 'app' },
+  { id: 'sidebar',    label: 'Sidebar',    icon: <FolderOpen size={15} />, description: 'Ordenação da árvore de arquivos e pastas ignoradas', group: 'app' },
 
-  { id: 'browser',    label: 'Browser',    icon: <Globe size={15} />,      description: 'Chrome data sync — cookies, bookmarks, history', group: 'app' },
+  { id: 'browser',    label: 'Browser',    icon: <Globe size={15} />,      description: 'Sincronização de dados do Chrome — cookies, favoritos, histórico', group: 'app' },
   // Customisation
-  { id: 'prompts',    label: 'Prompts',    icon: <FileText size={15} />,   description: 'Prompt templates with variables and fields', group: 'customise' },
-  { id: 'skills',     label: 'Skills',     icon: <Star size={15} />,       description: 'Custom skills and skill registry', group: 'customise' },
-  { id: 'tools',      label: 'Tools',      icon: <Wrench size={15} />,     description: 'MCP servers, tools, integrations and registry', group: 'customise' },
-  { id: 'agents',     label: 'Agents',     icon: <Users size={15} />,      description: 'Agent modes with system prompts and tool access', group: 'customise' },
+  { id: 'prompts',    label: 'Prompts',    icon: <FileText size={15} />,   description: 'Modelos de prompt com variáveis e campos', group: 'customise' },
+  { id: 'skills',     label: 'Habilidades', icon: <Star size={15} />,      description: 'Habilidades personalizadas e registro de habilidades', group: 'customise' },
+  { id: 'tools',      label: 'Ferramentas', icon: <Wrench size={15} />,    description: 'Servidores MCP, ferramentas, integrações e registro', group: 'customise' },
+  { id: 'agents',     label: 'Agentes',    icon: <Users size={15} />,      description: 'Modos de agente com prompts de sistema e acesso a ferramentas', group: 'customise' },
   // System
-  { id: 'extensions', label: 'Extensions', icon: <Puzzle size={15} />,     description: 'Installed extensions', group: 'system' },
+  { id: 'extensions', label: 'Extensões',  icon: <Puzzle size={15} />,     description: 'Extensões instaladas', group: 'system' },
 ]
 
 // ─── MCP types ────────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ function ExtSettingsPanel({ extId, tileType }: { extId: string; tileType: string
       .then((url: string | null) => setSrc(url ?? null))
       .catch(() => setSrc(null))
   }, [extId, tileType])
-  if (!src) return <div style={{ fontSize: 12, color: theme.text.muted }}>Loading…</div>
+  if (!src) return <div style={{ fontSize: 12, color: theme.text.muted }}>Carregando…</div>
   return (
     <iframe
       key={src}
@@ -397,8 +397,8 @@ function ChromeSyncSection({ settings, onUpdate, theme }: {
 
   return (
     <>
-      <SectionLabel label="Chrome Data Sync" />
-      <SettingRow label="Enable Chrome sync" description="Import cookies, bookmarks, and history from Chrome into browser blocks">
+      <SectionLabel label="Sincronização de Dados do Chrome" />
+      <SettingRow label="Ativar sincronização com Chrome" description="Importar cookies, favoritos e histórico do Chrome para os blocos de browser">
         <button
           onClick={() => onUpdate('chromeSyncEnabled', !settings.chromeSyncEnabled)}
           style={{
@@ -418,9 +418,9 @@ function ChromeSyncSection({ settings, onUpdate, theme }: {
 
       {settings.chromeSyncEnabled && (
         <>
-          <SettingRow label="Chrome profile" description={noChrome ? 'Chrome not detected on this machine' : 'Select which Chrome profile to sync from'}>
+          <SettingRow label="Perfil do Chrome" description={noChrome ? 'Chrome não detectado nesta máquina' : 'Selecione o perfil do Chrome para sincronizar'}>
             {noChrome ? (
-              <span style={{ fontSize: fonts.secondarySize, color: theme.text.disabled }}>Not found</span>
+              <span style={{ fontSize: fonts.secondarySize, color: theme.text.disabled }}>Não encontrado</span>
             ) : (
               <select
                 value={settings.chromeSyncProfileDir ?? ''}
@@ -441,7 +441,7 @@ function ChromeSyncSection({ settings, onUpdate, theme }: {
             )}
           </SettingRow>
 
-          <SettingRow label="Sync now" description="Import Chrome cookies into all new browser blocks">
+          <SettingRow label="Sincronizar agora" description="Importar cookies do Chrome para todos os novos blocos de browser">
             <button
               onClick={handleSync}
               disabled={syncing || noChrome}
@@ -452,7 +452,7 @@ function ChromeSyncSection({ settings, onUpdate, theme }: {
                 opacity: syncing || noChrome ? 0.5 : 1,
               }}
             >
-              {syncing ? 'Syncing...' : 'Sync'}
+              {syncing ? 'Sincronizando...' : 'Sincronizar'}
             </button>
           </SettingRow>
 
@@ -464,12 +464,12 @@ function ChromeSyncSection({ settings, onUpdate, theme }: {
         </>
       )}
 
-      <SectionLabel label="What gets synced" />
+      <SectionLabel label="O que é sincronizado" />
       <div style={{ fontSize: fonts.secondarySize, color: theme.text.muted, lineHeight: 1.6, padding: '0 2px' }}>
-        <strong style={{ color: theme.text.secondary }}>Cookies</strong> — Logged-in sessions from Chrome are injected into each new browser block so you are immediately authenticated.<br />
-        <strong style={{ color: theme.text.secondary }}>Bookmarks</strong> — Available in the browser toolbar (coming soon).<br />
-        <strong style={{ color: theme.text.secondary }}>History</strong> — Address bar autocomplete from Chrome history (coming soon).<br />
-        <strong style={{ color: theme.text.secondary }}>Note:</strong> macOS will prompt you once for Keychain access to decrypt Chrome cookies.
+        <strong style={{ color: theme.text.secondary }}>Cookies</strong> — Sessões ativas do Chrome são injetadas em cada novo bloco de browser para autenticação automática.<br />
+        <strong style={{ color: theme.text.secondary }}>Favoritos</strong> — Disponíveis na barra do browser (em breve).<br />
+        <strong style={{ color: theme.text.secondary }}>Histórico</strong> — Autocompletar da barra de endereço com histórico do Chrome (em breve).<br />
+        <strong style={{ color: theme.text.secondary }}>Nota:</strong> no macOS será solicitado acesso ao Keychain uma vez para descriptografar os cookies do Chrome.
       </div>
     </>
   )
@@ -756,8 +756,8 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
         const appearanceMode = settings.appearance ?? 'dark'
         return (
           <>
-            <SectionLabel label="Appearance" />
-            <SettingRow label="Mode" description="Dark uses the palette below. Light uses the Paper Light theme. System follows your OS dark/light setting.">
+            <SectionLabel label="Aparência" />
+            <SettingRow label="Modo" description="Escuro usa a paleta abaixo. Claro usa o tema Paper Light. Sistema segue a configuração do seu OS.">
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {(['dark', 'light', 'system'] as const).map(mode => (
                   <button
@@ -776,13 +776,13 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                       textTransform: 'capitalize',
                     }}
                   >
-                    {mode === 'system' ? 'System' : mode}
+                    {mode === 'system' ? 'Sistema' : mode === 'dark' ? 'Escuro' : 'Claro'}
                   </button>
                 ))}
               </div>
             </SettingRow>
-            <SectionLabel label="Theme" />
-            <SettingRow label="Preset" description="Changes block chrome, terminal colours, shell surfaces, and resets the canvas palette to the preset defaults. Presets match the current light or dark mode.">
+            <SectionLabel label="Tema" />
+            <SettingRow label="Preset" description="Altera o chrome dos blocos, cores do terminal, superfícies do shell e redefine a paleta do canvas para os padrões do preset. Os presets correspondem ao modo claro ou escuro atual.">
               <select
                 value={resolvedThemeId}
                 onChange={e => applyThemePreset(e.target.value)}
@@ -817,14 +817,14 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
       case 'canvas':
         return (
           <>
-            <SectionLabel label="Display" />
-            <SettingRow label="Background colour" description="Canvas background color">
+            <SectionLabel label="Exibição" />
+            <SettingRow label="Cor de fundo" description="Cor de fundo do canvas">
               <ColorSwatch value={settings.canvasBackground} onChange={v => update('canvasBackground', v)} />
             </SettingRow>
-            <SettingRow label="Canvas translucency" description="Slide left for see-through vibrancy, all the way right for fully opaque">
+            <SettingRow label="Translucidez do canvas" description="Deslize à esquerda para transparência, todo à direita para opaco">
               <RangeInput value={settings.translucentBackgroundOpacity} min={0.05} max={1} step={0.01} onChange={v => update('translucentBackgroundOpacity', Number(v.toFixed(2)))} formatValue={v => `${Math.round(v * 100)}%`} />
             </SettingRow>
-            <SettingRow label="Cursor glow" description="Show or hide the cursor-proximity glow over the canvas grid. Radius is measured in screen pixels.">
+            <SettingRow label="Brilho do cursor" description="Exibir ou ocultar o brilho de proximidade do cursor sobre a grade do canvas. O raio é medido em pixels.">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Toggle value={settings.canvasGlowEnabled} onChange={v => update('canvasGlowEnabled', v)} />
                 <div style={{ opacity: settings.canvasGlowEnabled ? 1 : 0.45, pointerEvents: settings.canvasGlowEnabled ? 'auto' : 'none' }}>
@@ -832,24 +832,24 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                 </div>
               </div>
             </SettingRow>
-            <SectionLabel label="Grid" />
-            <SettingRow label="Small dot colour" description="Color of the small grid dots">
+            <SectionLabel label="Grade" />
+            <SettingRow label="Cor dos pontos pequenos" description="Cor dos pontos pequenos da grade">
               <ColorSwatch value={settings.gridColorSmall} onChange={v => update('gridColorSmall', v)} />
             </SettingRow>
-            <SettingRow label="Large dot colour" description="Color of the large grid dots">
+            <SettingRow label="Cor dos pontos grandes" description="Cor dos pontos grandes da grade">
               <ColorSwatch value={settings.gridColorLarge} onChange={v => update('gridColorLarge', v)} />
             </SettingRow>
-            <SettingRow label="Small dot spacing" description="Distance between small dots in pixels">
+            <SettingRow label="Espaçamento dos pontos pequenos" description="Distância entre os pontos pequenos em pixels">
               <NumInput value={settings.gridSpacingSmall} min={4} max={200} onChange={v => update('gridSpacingSmall', v)} />
             </SettingRow>
-            <SettingRow label="Large dot spacing" description="Distance between large dots in pixels">
+            <SettingRow label="Espaçamento dos pontos grandes" description="Distância entre os pontos grandes em pixels">
               <NumInput value={settings.gridSpacingLarge} min={20} max={500} onChange={v => update('gridSpacingLarge', v)} />
             </SettingRow>
-            <SectionLabel label="Snap" />
-            <SettingRow label="Snap grid size" description="Snap grid size in pixels">
+            <SectionLabel label="Encaixe" />
+            <SettingRow label="Tamanho da grade de encaixe" description="Tamanho da grade de encaixe em pixels">
               <NumInput value={settings.gridSize} min={4} max={80} onChange={v => update('gridSize', v)} />
             </SettingRow>
-            <SettingRow label="Snap to grid" description="Snap blocks to the grid when dragging">
+            <SettingRow label="Encaixar na grade" description="Encaixar blocos na grade ao arrastar">
               <Toggle value={settings.snapToGrid} onChange={v => update('snapToGrid', v)} />
             </SettingRow>
           </>
@@ -859,8 +859,8 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
         return (
           <>
             <SectionLabel label="Sidebar" />
-            <SettingRow label="Navigation" description="The sidebar shows workspaces and canvases. Use Files blocks on the canvas for file browsing.">
-              <span style={{ fontSize: fonts.secondarySize, color: theme.text.muted }}>Files block replaces sidebar file browser</span>
+            <SettingRow label="Navegação" description="A sidebar exibe workspaces e canvases. Use blocos de Arquivos no canvas para navegar por arquivos.">
+              <span style={{ fontSize: fonts.secondarySize, color: theme.text.muted }}>Bloco de Arquivos substitui o navegador de arquivos da sidebar</span>
             </SettingRow>
           </>
         )
@@ -879,19 +879,19 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
             {/* Tools & permissions — only when accessed via Tools tab */}
             {section === 'tools' && (
               <div style={{ marginBottom: 20 }}>
-                <React.Suspense fallback={<div style={{ color: theme.text.muted, fontSize: fonts.secondarySize }}>Loading...</div>}>
+                <React.Suspense fallback={<div style={{ color: theme.text.muted, fontSize: fonts.secondarySize }}>Carregando...</div>}>
                   <LazyToolsSection />
                 </React.Suspense>
               </div>
             )}
 
             {/* MCP Server Status */}
-            <SectionLabel label="Server Status" />
+            <SectionLabel label="Status do Servidor" />
             <div style={{ background: theme.surface.panelMuted, borderRadius: 10, padding: '12px 16px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: mcpConfig ? theme.status.success : '#555', boxShadow: mcpConfig ? '0 0 6px #3fb950' : 'none', flexShrink: 0 }} />
                 <span style={{ fontSize: fonts.size, color: theme.text.primary, fontWeight: 500 }}>contex</span>
-                <span style={{ fontSize: fonts.secondarySize, color: theme.text.muted, fontFamily: 'inherit', marginLeft: 'auto' }}>built-in</span>
+                <span style={{ fontSize: fonts.secondarySize, color: theme.text.muted, fontFamily: 'inherit', marginLeft: 'auto' }}>integrado</span>
               </div>
               {mcpConfig && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -918,7 +918,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
                   <span
                     onClick={() => updateServer(name, { enabled: !(s.enabled !== false) })}
-                    title="Toggle enabled"
+                    title="Alternar ativado"
                     style={{ width: 7, height: 7, borderRadius: '50%', background: s.enabled !== false ? theme.status.success : theme.border.default, flexShrink: 0, cursor: 'pointer' }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -953,7 +953,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                         style={{ width: '100%', padding: '6px 10px', fontSize: fonts.secondarySize, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}`, borderRadius: 6, outline: 'none', fontFamily: fonts.mono, boxSizing: 'border-box' }} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: theme.text.muted, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Stdio Command</div>
+                      <div style={{ fontSize: 10, color: theme.text.muted, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Comando Stdio</div>
                       <input value={s.cmd ?? ''} onChange={e => {
                             const cmd = e.target.value || undefined
                             updateServer(name, { cmd, url: undefined, type: cmd ? 'stdio' : 'http' })
@@ -962,13 +962,13 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                         style={{ width: '100%', padding: '6px 10px', fontSize: fonts.secondarySize, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}`, borderRadius: 6, outline: 'none', fontFamily: fonts.mono, boxSizing: 'border-box' }} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: theme.text.muted, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Description</div>
+                      <div style={{ fontSize: 10, color: theme.text.muted, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Descrição</div>
                       <input value={s.description ?? ''} onChange={e => updateServer(name, { description: e.target.value })}
-                        placeholder="What does this server provide?"
+                        placeholder="O que este servidor fornece?"
                         style={{ width: '100%', padding: '6px 10px', fontSize: fonts.secondarySize, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.border.default}`, borderRadius: 6, outline: 'none', boxSizing: 'border-box' }} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: fonts.secondarySize, color: theme.text.primary }}>Enabled</span>
+                      <span style={{ fontSize: fonts.secondarySize, color: theme.text.primary }}>Ativado</span>
                       <Toggle value={s.enabled !== false} onChange={v => updateServer(name, { enabled: v })} />
                     </div>
                   </div>
@@ -979,12 +979,12 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
             {/* Add server */}
             {addingServer ? (
               <div style={{ background: theme.surface.panelMuted, borderRadius: 10, padding: '14px 16px', marginTop: 4 }}>
-                <SectionLabel label="New Server" />
+                <SectionLabel label="Novo Servidor" />
                 {[
-                  { key: 'name', label: 'Name', placeholder: 'my-server', mono: false },
+                  { key: 'name', label: 'Nome', placeholder: 'meu-servidor', mono: false },
                   { key: 'url',  label: 'URL',  placeholder: 'http://localhost:3000', mono: true },
-                  { key: 'cmd',  label: 'Stdio Command', placeholder: 'npx @modelcontextprotocol/server-name', mono: true },
-                  { key: 'description', label: 'Description', placeholder: 'What does this server do?', mono: false },
+                  { key: 'cmd',  label: 'Comando Stdio', placeholder: 'npx @modelcontextprotocol/server-name', mono: true },
+                  { key: 'description', label: 'Descrição', placeholder: 'O que este servidor faz?', mono: false },
                 ].map(f => (
                   <div key={f.key} style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 10, color: theme.text.muted, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{f.label}</div>
@@ -999,11 +999,11 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                   <button onClick={addServer}
                     style={{ flex: 1, padding: '7px 0', borderRadius: 8, background: theme.accent.base, color: theme.text.inverse, border: 'none', fontSize: fonts.size, fontWeight: 600, cursor: 'pointer' }}>
-                    Add Server
+                    Adicionar Servidor
                   </button>
                   <button onClick={() => setAddingServer(false)}
                     style={{ padding: '7px 16px', borderRadius: 8, background: theme.surface.panelElevated, color: theme.text.muted, border: `1px solid ${theme.border.default}`, fontSize: fonts.size, cursor: 'pointer' }}>
-                    Cancel
+                    Cancelar
                   </button>
                 </div>
               </div>
@@ -1017,16 +1017,16 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                 }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = theme.accent.base; e.currentTarget.style.color = theme.accent.base }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border.default; e.currentTarget.style.color = theme.text.disabled }}>
-                <Plus size={14} /> Add MCP Server
+                <Plus size={14} /> Adicionar Servidor MCP
               </button>
             )}
 
             {/* Workspace servers */}
             {workspaces.length > 0 && (
               <>
-                <SectionLabel label="Workspace Servers" />
+                <SectionLabel label="Servidores do Workspace" />
                 <div style={{ fontSize: fonts.secondarySize, color: theme.text.muted, marginBottom: 10 }}>
-                  MCP servers scoped to a specific workspace — only active when that workspace is open.
+                  Servidores MCP vinculados a um workspace específico — ativos apenas quando aquele workspace estiver aberto.
                 </div>
 
                 {/* Workspace tabs */}
@@ -1098,7 +1098,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                         }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = theme.accent.base; e.currentTarget.style.color = theme.accent.base }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border.default; e.currentTarget.style.color = theme.text.disabled }}>
-                        <Plus size={14} /> Add to {ws.name}
+                        <Plus size={14} /> Adicionar a {ws.name}
                       </button>
                     </>
                   )
@@ -1109,9 +1109,9 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
             {/* Config paths */}
             <div style={{ marginTop: 20, padding: '14px 16px', background: theme.surface.panel, borderRadius: 10, border: `1px solid ${theme.border.default}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                { label: 'Global config', path: '~/.contex/mcp-server.json' },
-                { label: 'Workspace servers', path: '~/.contex/workspaces/<id>/mcp-servers.json' },
-                { label: 'Merged config (point agents here)', path: '~/.contex/workspaces/<id>/.contex/mcp-merged.json', highlight: true },
+                { label: 'Config global', path: '~/.contex/mcp-server.json' },
+                { label: 'Servidores do workspace', path: '~/.contex/workspaces/<id>/mcp-servers.json' },
+                { label: 'Config mesclada (aponte os agentes aqui)', path: '~/.contex/workspaces/<id>/.contex/mcp-merged.json', highlight: true },
               ].map(row => (
                 <div key={row.label}>
                   <div style={{ fontSize: 10, color: theme.text.muted, marginBottom: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{row.label}</div>
@@ -1129,7 +1129,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
               ))}
               <div style={{ marginTop: 4, padding: '8px 10px', background: theme.surface.input, borderRadius: 6, border: `1px solid ${theme.border.subtle}` }}>
                 <div style={{ fontSize: fonts.secondarySize, color: theme.text.disabled }}>
-                  The merged config combines global + workspace servers into one file. Point Claude Code, Cursor, or any MCP client at the merged path for the active workspace.
+                  A config mesclada combina servidores globais + do workspace em um único arquivo. Aponte o Claude Code, Cursor ou qualquer cliente MCP para o caminho mesclado do workspace ativo.
                 </div>
               </div>
             </div>
@@ -1140,7 +1140,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
       case 'extensions':
         return (
           <>
-            <SectionLabel label="Installed extensions" />
+            <SectionLabel label="Extensões instaladas" />
             {/* Master kill-switch */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1150,9 +1150,9 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
               transition: 'background 0.15s, border-color 0.15s',
             }}>
               <div>
-                <div style={{ fontSize: fonts.size, fontWeight: 600, color: theme.text.primary }}>Disable all extensions</div>
+                <div style={{ fontSize: fonts.size, fontWeight: 600, color: theme.text.primary }}>Desativar todas as extensões</div>
                 <div style={{ fontSize: fonts.secondarySize, color: theme.text.muted, marginTop: 2 }}>
-                  {settings.extensionsDisabled ? 'Extensions are hidden from the sidebar and footer' : 'Hide all extensions from the sidebar and footer'}
+                  {settings.extensionsDisabled ? 'Extensões ocultadas da sidebar e rodapé' : 'Ocultar todas as extensões da sidebar e rodapé'}
                 </div>
               </div>
               <Toggle value={settings.extensionsDisabled ?? false} onChange={v => updateSettingsPatch({ extensionsDisabled: v })} />
@@ -1163,7 +1163,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                 {workspaces.length > 0 && (
                   <> and the active workspace&apos;s <code style={{ fontSize: fonts.secondarySize, color: theme.text.muted, fontFamily: fonts.mono }}>.contex/extensions</code></>
                 )}
-                . Disable a power extension to unload its main process code; use Refresh after adding folders.
+                . Desative uma extensão power para descarregar seu código do processo principal; use Atualizar após adicionar pastas.
               </div>
               <button
                 type="button"
@@ -1180,7 +1180,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                 }}
               >
                 <RefreshCw size={14} style={{ opacity: extensionsLoading ? 0.5 : 1 }} />
-                Rescan
+                Reescanear
               </button>
             </div>
 
@@ -1191,10 +1191,10 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
             )}
 
             {extensionsLoading && extensionsList.length === 0 ? (
-              <div style={{ fontSize: fonts.size, color: theme.text.muted, padding: '12px 0' }}>Loading extensions…</div>
+              <div style={{ fontSize: fonts.size, color: theme.text.muted, padding: '12px 0' }}>Carregando extensões…</div>
             ) : extensionsList.length === 0 ? (
               <div style={{ fontSize: fonts.size, color: theme.text.disabled, padding: '16px', background: theme.surface.panelMuted, borderRadius: 10, border: `1px dashed ${theme.border.default}` }}>
-                No extensions found. Add a folder under <span style={{ fontFamily: fonts.mono, fontSize: fonts.secondarySize }}>~/.contex/extensions</span> with an <span style={{ fontFamily: fonts.mono, fontSize: fonts.secondarySize }}>extension.json</span> manifest.
+                Nenhuma extensão encontrada. Adicione uma pasta em <span style={{ fontFamily: fonts.mono, fontSize: fonts.secondarySize }}>~/.contex/extensions</span> com um manifesto <span style={{ fontFamily: fonts.mono, fontSize: fonts.secondarySize }}>extension.json</span>.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1239,7 +1239,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                               fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
                               background: ext.enabled ? 'rgba(63,185,80,0.12)' : 'rgba(136,136,136,0.15)',
                               color: ext.enabled ? theme.status.success : theme.text.disabled,
-                            }}>{ext.enabled ? 'enabled' : 'disabled'}</span>
+                            }}>{ext.enabled ? 'ativado' : 'desativado'}</span>
                           </div>
                           <div style={{ fontSize: fonts.secondarySize, color: theme.text.muted, fontFamily: fonts.mono, marginBottom: 4 }}>{ext.id}</div>
                           {ext.description && (
@@ -1250,13 +1250,13 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                             {tiles > 0 && menus > 0 && ' · '}
                             {menus > 0 && <span>{menus} menu item{menus === 1 ? '' : 's'}</span>}
                             {(tiles > 0 || menus > 0) && ' · '}
-                            <span>{ext.ui?.mode === 'custom' ? 'bespoke extension surface' : 'host-aligned extension surface'}</span>
+                            <span>{ext.ui?.mode === 'custom' ? 'superfície de extensão personalizada' : 'superfície de extensão alinhada ao host'}</span>
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                           {/* Show in sidebar toggle (ON by default) */}
                           <button
-                            title={isHiddenFromSidebar ? 'Show in sidebar' : 'Hide from sidebar'}
+                            title={isHiddenFromSidebar ? 'Mostrar na sidebar' : 'Ocultar da sidebar'}
                             onClick={() => {
                               const next = isHiddenFromSidebar
                                 ? (settings.hiddenFromSidebarExtIds ?? []).filter(id => id !== ext.id)
@@ -1274,7 +1274,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                           {/* Show as settings panel toggle */}
                           {ext.contributes?.tiles && ext.contributes.tiles.length > 0 && (
                             <button
-                              title={isInSettingsPanel ? 'Remove from settings' : 'Show in settings panel'}
+                              title={isInSettingsPanel ? 'Remover das configurações' : 'Mostrar no painel de configurações'}
                               onClick={() => {
                                 const next = isInSettingsPanel
                                   ? (settings.settingsPanelExtIds ?? []).filter(id => id !== ext.id)
@@ -1294,7 +1294,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                           {/* Settings cog — only show if extension declares settings */}
                           {extSettings.length > 0 && (
                             <button
-                              title="Extension settings"
+                              title="Configurações da extensão"
                               onClick={async () => {
                                 if (isExpanded) { setExpandedExtId(null); return }
                                 // Load current settings for this extension
@@ -1324,7 +1324,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
                           background: theme.surface.panel,
                           display: 'flex', flexDirection: 'column', gap: 10,
                         }}>
-                          <div style={{ fontSize: fonts.secondarySize, fontWeight: 600, color: theme.text.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Settings</div>
+                          <div style={{ fontSize: fonts.secondarySize, fontWeight: 600, color: theme.text.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Configurações</div>
                           {extSettings.map((s) => (
                             <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <label style={{ fontSize: fonts.secondarySize, color: theme.text.secondary, flex: 1 }}>{s.label}</label>
@@ -1368,24 +1368,24 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
 
       case 'prompts':
         return workspacePath ? (
-          <React.Suspense fallback={<div style={{ color: theme.text.muted, fontSize: fonts.secondarySize }}>Loading...</div>}>
+          <React.Suspense fallback={<div style={{ color: theme.text.muted, fontSize: fonts.secondarySize }}>Carregando...</div>}>
             <LazyPromptsSection workspacePath={workspacePath} />
           </React.Suspense>
-        ) : <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>Open a workspace first</div>
+        ) : <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>Abra um workspace primeiro</div>
 
       case 'skills':
         return workspacePath ? (
-          <React.Suspense fallback={<div style={{ color: theme.text.muted, fontSize: fonts.secondarySize }}>Loading...</div>}>
+          <React.Suspense fallback={<div style={{ color: theme.text.muted, fontSize: fonts.secondarySize }}>Carregando...</div>}>
             <LazySkillsSection workspacePath={workspacePath} />
           </React.Suspense>
-        ) : <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>Open a workspace first</div>
+        ) : <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>Abra um workspace primeiro</div>
 
       case 'agents':
         return workspacePath ? (
-          <React.Suspense fallback={<div style={{ color: theme.text.muted, fontSize: fonts.secondarySize }}>Loading...</div>}>
+          <React.Suspense fallback={<div style={{ color: theme.text.muted, fontSize: fonts.secondarySize }}>Carregando...</div>}>
             <LazyAgentsSection workspacePath={workspacePath} />
           </React.Suspense>
-        ) : <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>Open a workspace first</div>
+        ) : <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>Abra um workspace primeiro</div>
 
       default: {
         if (section.startsWith('ext:')) {
@@ -1395,7 +1395,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
           if (ext && tile) {
             return <ExtSettingsPanel extId={extId} tileType={tile.type} />
           }
-          return <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>Extension has no block.</div>
+          return <div style={{ color: theme.text.disabled, fontSize: fonts.secondarySize }}>A extensão não possui bloco.</div>
         }
         return null
       }
@@ -1454,14 +1454,14 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
           {/* Settings header */}
           <div style={{ padding: '8px 16px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
             <Settings size={18} color={theme.text.primary} />
-            <span style={{ fontSize: 17, fontWeight: 700, color: theme.text.primary }}>Settings</span>
+            <span style={{ fontSize: 17, fontWeight: 700, color: theme.text.primary }}>Configurações</span>
           </div>
 
           {/* Nav items — grouped */}
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {(['app', 'customise', 'system'] as const).map(group => {
               const groupSections = SECTIONS.filter(s => s.group === group)
-              const groupLabel = group === 'app' ? 'App' : group === 'customise' ? 'Customise' : 'System'
+              const groupLabel = group === 'app' ? 'App' : group === 'customise' ? 'Personalizar' : 'Sistema'
               return (
                 <div key={group}>
                   <div style={{ padding: '14px 16px 4px', fontSize: 9, fontWeight: 700, color: theme.text.disabled, letterSpacing: 1.2, textTransform: 'uppercase', userSelect: 'none' }}>{groupLabel}</div>
@@ -1495,7 +1495,7 @@ export function SettingsPanel({ onClose, settings: initialSettings, onSettingsCh
               if (panelExts.length === 0) return null
               return (
                 <div>
-                  <div style={{ padding: '14px 16px 4px', fontSize: 9, fontWeight: 700, color: theme.text.disabled, letterSpacing: 1.2, textTransform: 'uppercase', userSelect: 'none' }}>Extensions</div>
+                  <div style={{ padding: '14px 16px 4px', fontSize: 9, fontWeight: 700, color: theme.text.disabled, letterSpacing: 1.2, textTransform: 'uppercase', userSelect: 'none' }}>Extensões</div>
                   {panelExts.map(e => {
                     const sid = `ext:${e.id}` as Section
                     return (
@@ -1742,7 +1742,7 @@ function DisplaySettingsEditor({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${theme.border.default}`, paddingBottom: 8 }}>
         {[
-          { id: 'display' as const, label: 'Display', icon: <FormInput size={14} /> },
+          { id: 'display' as const, label: 'Visual', icon: <FormInput size={14} /> },
           { id: 'json' as const, label: 'JSON', icon: <Code2 size={14} /> },
         ].map(tab => {
           const isActive = view === tab.id
@@ -1789,18 +1789,18 @@ function DisplaySettingsEditor({
 
       {view === 'display' ? (
         <>
-          <SectionLabel label="Fonts" />
+          <SectionLabel label="Fontes" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <CompactFontRow label="Primary" description="Main UI text, headings, chat messages" token={settings.fonts.primary} fontOptions={SANS_FONTS} onChange={next => updateFont('primary', next)} />
-            <CompactFontRow label="Secondary" description="Metadata, subtitles, labels, smaller text" token={settings.fonts.secondary} fontOptions={SANS_FONTS} onChange={next => updateFont('secondary', next)} />
-            <CompactFontRow label="Monospace" description="Terminal, code editor, data display" token={settings.fonts.mono} fontOptions={MONO_FONTS} onChange={next => updateFont('mono', next)} />
+            <CompactFontRow label="Principal" description="Texto principal da UI, títulos, mensagens do chat" token={settings.fonts.primary} fontOptions={SANS_FONTS} onChange={next => updateFont('primary', next)} />
+            <CompactFontRow label="Secundária" description="Metadados, legendas, rótulos, texto menor" token={settings.fonts.secondary} fontOptions={SANS_FONTS} onChange={next => updateFont('secondary', next)} />
+            <CompactFontRow label="Monospace" description="Terminal, editor de código, exibição de dados" token={settings.fonts.mono} fontOptions={MONO_FONTS} onChange={next => updateFont('mono', next)} />
           </div>
 
-          <SectionLabel label="Updates" />
-          <SettingRow label="Current version" description="Installed desktop build version">
+          <SectionLabel label="Atualizações" />
+          <SettingRow label="Versão atual" description="Versão instalada do aplicativo desktop">
             <span style={{ fontSize: fonts.secondarySize, color: theme.text.muted, fontFamily: fonts.mono }}>{updateState.result?.currentVersion ?? __VERSION__}</span>
           </SettingRow>
-          <SettingRow label="Check for updates" description="Look for a newer GitHub release and show install actions here">
+          <SettingRow label="Verificar atualizações" description="Buscar uma versão mais recente no GitHub e exibir ações de instalação aqui">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
                 onClick={onCheckForUpdates}
@@ -1815,7 +1815,7 @@ function DisplaySettingsEditor({
                   cursor: updateState.checking ? 'default' : 'pointer'
                 }}
               >
-                {updateState.checking ? 'Checking…' : 'Check now'}
+                {updateState.checking ? 'Verificando…' : 'Verificar agora'}
               </button>
               {updateState.result?.updateAvailable && (
                 <button
@@ -1831,7 +1831,7 @@ function DisplaySettingsEditor({
                     cursor: updateState.downloading ? 'default' : 'pointer'
                   }}
                 >
-                  {updateState.downloading ? 'Downloading…' : 'Download'}
+                  {updateState.downloading ? 'Baixando…' : 'Baixar'}
                 </button>
               )}
               {updateState.result?.status === 'downloaded' && (
@@ -1847,7 +1847,7 @@ function DisplaySettingsEditor({
                     cursor: 'pointer'
                   }}
                 >
-                  Restart to install
+                  Reiniciar para instalar
                 </button>
               )}
             </div>
@@ -1856,9 +1856,9 @@ function DisplaySettingsEditor({
             <div style={{ marginBottom: 8, padding: '12px 16px', background: theme.surface.panel, borderRadius: 10, border: `1px solid ${theme.border.default}` }}>
               <div style={{ fontSize: fonts.secondarySize, color: updateState.result.ok ? '#777' : '#c77' }}>
                 {updateState.result.updateAvailable
-                  ? `Update available${updateState.result.updateInfo?.version ? `: ${updateState.result.updateInfo.version}` : ''}`
+                  ? `Atualização disponível${updateState.result.updateInfo?.version ? `: ${updateState.result.updateInfo.version}` : ''}`
                   : updateState.result.status === 'up-to-date'
-                    ? 'You are up to date.'
+                    ? 'Você está atualizado.'
                     : updateState.result.status}
               </div>
               {updateState.result.updateInfo?.releaseDate && (
@@ -1897,7 +1897,7 @@ function DisplaySettingsEditor({
             }}
           />
           <div style={{ fontSize: fonts.secondarySize, color: theme.text.disabled, lineHeight: 1.6 }}>
-            Edit the display settings as JSON. Valid top-level keys: <span style={{ fontFamily: fonts.mono }}>appearance</span>, <span style={{ fontFamily: fonts.mono }}>themeId</span>, <span style={{ fontFamily: fonts.mono }}>fonts</span> (with <span style={{ fontFamily: fonts.mono }}>primary</span>, <span style={{ fontFamily: fonts.mono }}>secondary</span>, <span style={{ fontFamily: fonts.mono }}>mono</span>). The form and JSON stay in sync when the JSON is valid.
+            Edite as configurações de exibição como JSON. Chaves válidas: <span style={{ fontFamily: fonts.mono }}>appearance</span>, <span style={{ fontFamily: fonts.mono }}>themeId</span>, <span style={{ fontFamily: fonts.mono }}>fonts</span> (com <span style={{ fontFamily: fonts.mono }}>primary</span>, <span style={{ fontFamily: fonts.mono }}>secondary</span>, <span style={{ fontFamily: fonts.mono }}>mono</span>). O formulário e o JSON ficam sincronizados quando o JSON é válido.
           </div>
         </div>
       )}
@@ -2069,7 +2069,7 @@ export function FontTokenEditor({ settings, onSettingsChange }: {
   }, [rawJson, handleChange])
 
   if (loading) {
-    return <div style={{ fontSize: fonts.secondarySize, color: theme.text.disabled, padding: 20 }}>Loading config...</div>
+    return <div style={{ fontSize: fonts.secondarySize, color: theme.text.disabled, padding: 20 }}>Carregando configuração...</div>
   }
 
   const monoFont = fonts.mono
@@ -2092,7 +2092,7 @@ export function FontTokenEditor({ settings, onSettingsChange }: {
             color: view === v ? theme.text.primary : '#555',
             borderBottom: view === v ? '2px solid #388bfd' : '2px solid transparent',
           }}>
-            {v === 'editor' ? 'JSON Editor' : 'Token Reference'}
+            {v === 'editor' ? 'Editor JSON' : 'Referência de Tokens'}
           </button>
         ))}
       </div>
@@ -2108,17 +2108,17 @@ export function FontTokenEditor({ settings, onSettingsChange }: {
                 color: error ? '#444' : saved ? theme.status.success : '#fff',
                 border: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
               }}>
-              {saved ? <><Check size={10} /> Saved</> : 'Save'}
+              {saved ? <><Check size={10} /> Salvo</> : 'Salvar'}
             </button>
             <button onClick={handleReset}
               style={{ padding: '4px 10px', borderRadius: 5, fontSize: 10, cursor: 'pointer', background: theme.surface.panelMuted, color: theme.text.secondary, border: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}
-              title="Reset to defaults (remove all overrides)">
-              <RotateCcw size={9} /> Reset
+              title="Redefinir para padrões (remover todas as substituições)">
+              <RotateCcw size={9} /> Redefinir
             </button>
             <button onClick={handleCopyDefaults}
               style={{ padding: '4px 10px', borderRadius: 5, fontSize: 10, cursor: 'pointer', background: theme.surface.panelMuted, color: theme.text.secondary, border: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}
-              title="Copy all default tokens to clipboard">
-              <Copy size={9} /> Copy Defaults
+              title="Copiar todos os tokens padrão para a área de transferência">
+              <Copy size={9} /> Copiar Padrões
             </button>
             <div style={{ flex: 1 }} />
             {error && (
@@ -2163,8 +2163,8 @@ export function FontTokenEditor({ settings, onSettingsChange }: {
 
           {/* Hint */}
           <div style={{ fontSize: 10, color: theme.text.disabled, lineHeight: 1.6 }}>
-            Override only the tokens you want. Properties: <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>family</span>, <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>size</span>, <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>lineHeight</span>, <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>weight</span>, <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>letterSpacing</span>.
-            Unset tokens inherit from General. <span style={{ color: theme.text.disabled }}>Cmd+S</span> to save.
+            Substitua apenas os tokens desejados. Propriedades: <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>family</span>, <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>size</span>, <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>lineHeight</span>, <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>weight</span>, <span style={{ color: theme.text.disabled, fontFamily: monoFont }}>letterSpacing</span>.
+            Tokens não definidos herdam de Geral. <span style={{ color: theme.text.disabled }}>Cmd+S</span> para salvar.
           </div>
         </>
       ) : (

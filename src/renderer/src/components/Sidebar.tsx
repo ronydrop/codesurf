@@ -131,9 +131,9 @@ const TILE_ICONS: Record<string, JSX.Element> = {
 
 const RESOURCE_ITEMS = [
   { id: 'prompts', label: 'Prompts', icon: <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M3 2h8a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2" /><path d="M4 5h6M4 7.5h4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" /></svg> },
-  { id: 'skills', label: 'Skills', icon: <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.8 3.6L13 5.2l-3 2.9.7 4.1L7 10.3 3.3 12.2l.7-4.1-3-2.9 4.2-.6L7 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg> },
-  { id: 'tools', label: 'Tools', icon: <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M8.5 2.5a3 3 0 00-4.2 4.2L2 9l1 2 2 1 2.3-2.3a3 3 0 004.2-4.2L9.5 7.5 8 7l-.5-1.5L9.5 3.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg> },
-  { id: 'agents', label: 'Agents', icon: <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" strokeWidth="1.2" /><path d="M2.5 12.5c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg> },
+  { id: 'skills', label: 'Habilidades', icon: <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.8 3.6L13 5.2l-3 2.9.7 4.1L7 10.3 3.3 12.2l.7-4.1-3-2.9 4.2-.6L7 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg> },
+  { id: 'tools', label: 'Ferramentas', icon: <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M8.5 2.5a3 3 0 00-4.2 4.2L2 9l1 2 2 1 2.3-2.3a3 3 0 004.2-4.2L9.5 7.5 8 7l-.5-1.5L9.5 3.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg> },
+  { id: 'agents', label: 'Agentes', icon: <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" strokeWidth="1.2" /><path d="M2.5 12.5c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg> },
 ]
 
 const SESSION_SOURCE_ICONS: Record<string, JSX.Element> = {
@@ -277,8 +277,8 @@ function tileLabel(tile: TileState): string {
     return name
   }
   const TYPE_LABELS: Record<string, string> = {
-    terminal: 'Terminal', note: 'Note', code: 'Code', image: 'Image',
-    kanban: 'Board', browser: 'Browser', chat: 'Chat', files: 'Files',
+    terminal: 'Terminal', note: 'Nota', code: 'Código', image: 'Imagem',
+    kanban: 'Quadro', browser: 'Browser', chat: 'Chat', files: 'Arquivos',
   }
   return TYPE_LABELS[tile.type] ?? tile.type
 }
@@ -315,7 +315,7 @@ export function SidebarFooter({
   return (
     <div style={{ padding: '11px 8px 2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-        <div title="Alpha build" style={{
+        <div title="Build alpha" style={{
           height: 17, padding: '0 9px', borderRadius: 5,
           border: `1px solid ${theme.border.default}`, background: theme.surface.panelElevated,
           color: footerIconColor,
@@ -334,13 +334,13 @@ export function SidebarFooter({
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 2, flexShrink: 0 }}>
         {([
-          { label: 'New Terminal', icon: TILE_ICONS.terminal, action: onNewTerminal },
-          { label: 'Agent Board', icon: TILE_ICONS.kanban, action: onNewKanban, disabled: true },
+          { label: 'Novo Terminal', icon: TILE_ICONS.terminal, action: onNewTerminal },
+          { label: 'Quadro de Agentes', icon: TILE_ICONS.kanban, action: onNewKanban, disabled: true },
           { label: 'Browser', icon: TILE_ICONS.browser, action: onNewBrowser },
           { label: 'Chat', icon: TILE_ICONS.chat, action: onNewChat },
-          { label: 'Files', icon: TILE_ICONS.files, action: onNewFiles },
+          { label: 'Arquivos', icon: TILE_ICONS.files, action: onNewFiles },
         ] as { label: string; icon: React.ReactNode; action: () => void; disabled?: boolean }[]).map(btn => (
-          <button key={btn.label} title={btn.disabled ? `${btn.label} disabled` : btn.label} style={{
+          <button key={btn.label} title={btn.disabled ? `${btn.label} desativado` : btn.label} style={{
             width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent',
             color: btn.disabled ? theme.text.disabled : footerIconColor, cursor: btn.disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             opacity: btn.disabled ? 0.45 : 1,
@@ -355,7 +355,7 @@ export function SidebarFooter({
 
         {extensionTiles && extensionTiles.length > 0 && (
           <div style={{ position: 'relative' }} ref={extMenuRef}>
-            <button title="Extensions" style={{
+            <button title="Extensões" style={{
               width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent',
               color: showExtMenu ? theme.text.primary : footerIconColor, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -473,17 +473,17 @@ export function Sidebar({
 
   const tileContextMenuItems = useCallback((tile: TileState): MenuItem[] => {
     const items: MenuItem[] = [
-      { label: 'Rename', action: () => { setRenamingTileId(tile.id); setRenameValue(tile.label ?? tileLabel(tile)) } },
+      { label: 'Renomear', action: () => { setRenamingTileId(tile.id); setRenameValue(tile.label ?? tileLabel(tile)) } },
       { label: '', action: () => {}, divider: true },
-      { label: tile.hideTitlebar ? 'Show Titlebar' : 'Hide Titlebar', action: () => onUpdateTile(tile.id, { hideTitlebar: !tile.hideTitlebar }) },
+      { label: tile.hideTitlebar ? 'Mostrar Barra de Título' : 'Ocultar Barra de Título', action: () => onUpdateTile(tile.id, { hideTitlebar: !tile.hideTitlebar }) },
     ]
     if (tile.type === 'browser') {
-      items.push({ label: tile.hideNavbar ? 'Show Navbar' : 'Hide Navbar', action: () => onUpdateTile(tile.id, { hideNavbar: !tile.hideNavbar }) })
+      items.push({ label: tile.hideNavbar ? 'Mostrar Barra de Nav.' : 'Ocultar Barra de Nav.', action: () => onUpdateTile(tile.id, { hideNavbar: !tile.hideNavbar }) })
     }
     items.push(
       { label: `Corner Radius: ${tile.borderRadius ?? 8}px`, action: () => cycleBorderRadius(tile) },
       { label: '', action: () => {}, divider: true },
-      { label: 'Close', action: () => onCloseTile(tile.id), danger: true },
+      { label: 'Fechar', action: () => onCloseTile(tile.id), danger: true },
     )
     return items
   }, [onUpdateTile, onCloseTile, cycleBorderRadius])
@@ -491,19 +491,19 @@ export function Sidebar({
     const items: MenuItem[] = []
 
     if (session.tileId) {
-      items.push({ label: 'Focus Existing Chat', action: () => onFocusTile(session.tileId!) })
+      items.push({ label: 'Focar Chat Existente', action: () => onFocusTile(session.tileId!) })
     }
     if (session.canOpenInChat !== false) {
-      items.push({ label: 'Open in Chat', action: () => onOpenSessionInChat(session) })
+      items.push({ label: 'Abrir no Chat', action: () => onOpenSessionInChat(session) })
     }
     if (session.canOpenInApp) {
-      items.push({ label: `Open in ${session.sourceLabel}`, action: () => onOpenSessionInApp(session) })
+      items.push({ label: `Abrir em ${session.sourceLabel}`, action: () => onOpenSessionInApp(session) })
     }
     if (session.filePath) {
-      items.push({ label: 'Open Raw File', action: () => onOpenFile(session.filePath!) })
+      items.push({ label: 'Abrir Arquivo Bruto', action: () => onOpenFile(session.filePath!) })
     }
 
-    return items.length > 0 ? items : [{ label: 'No actions available', action: () => {} }]
+    return items.length > 0 ? items : [{ label: 'Nenhuma ação disponível', action: () => {} }]
   }, [onFocusTile, onOpenFile, onOpenSessionInApp, onOpenSessionInChat])
   const resizing = useRef(false)
   const startX = useRef(0)
@@ -632,7 +632,7 @@ export function Sidebar({
             fontSize: fonts.size, color: theme.text.primary, fontWeight: 500,
             flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'inherit'
           }}>
-            {workspace?.name ?? 'No workspace'}
+            {workspace?.name ?? 'Sem workspace'}
           </span>
           <span style={{ fontSize: 9, color: theme.text.disabled }}>{wsDropdownOpen ? '\u25B4' : '\u25BE'}</span>
         </div>
@@ -651,7 +651,7 @@ export function Sidebar({
               >
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
                 <button
-                  title="Delete workspace record"
+                  title="Excluir registro do workspace"
                   onClick={e => {
                     e.stopPropagation()
                     onDeleteWorkspace(ws.id)
@@ -676,7 +676,7 @@ export function Sidebar({
                     if (e.key === 'Enter' && newWsName.trim()) { onNewWorkspace(newWsName.trim()); setNewWsName(''); setNewWsInput(false); setWsDropdownOpen(false) }
                     if (e.key === 'Escape') { setNewWsInput(false); setNewWsName('') }
                   }}
-                  placeholder="Workspace name..."
+                  placeholder="Nome do workspace..."
                   style={{ width: '100%', padding: '4px 8px', fontSize: fonts.size, borderRadius: 4, background: theme.surface.input, color: theme.text.secondary, border: `1px solid ${theme.accent.base}`, outline: 'none', fontFamily: 'inherit' }}
                 />
               </div>
@@ -686,12 +686,12 @@ export function Sidebar({
                   onMouseEnter={e => (e.currentTarget.style.background = theme.surface.hover)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   onClick={() => { onOpenFolder(); setWsDropdownOpen(false) }}
-                >Open Folder...</div>
+                >Abrir Pasta...</div>
                 <div style={{ padding: '7px 14px', fontSize: fonts.size, color: theme.text.muted, cursor: 'pointer', fontFamily: 'inherit' }}
                   onMouseEnter={e => (e.currentTarget.style.background = theme.surface.hover)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   onClick={() => setNewWsInput(true)}
-                >+ New empty workspace</div>
+                >+ Novo workspace vazio</div>
               </>
             )}
           </div>
@@ -710,7 +710,7 @@ export function Sidebar({
           if (pinned.length === 0) return null
           return (
             <>
-              <SectionHeader label="Extensions" collapsed={!!sectionsCollapsed.extensions} onToggle={() => toggleSection('extensions')} />
+              <SectionHeader label="Extensões" collapsed={!!sectionsCollapsed.extensions} onToggle={() => toggleSection('extensions')} />
               {!sectionsCollapsed.extensions && (
                 <div style={{ paddingBottom: 6 }}>
                   {pinned.map(ext => (
@@ -728,7 +728,7 @@ export function Sidebar({
         })()}
 
         {/* ── RESOURCES ── */}
-        <SectionHeader label="Resources" collapsed={!!sectionsCollapsed.resources} onToggle={() => toggleSection('resources')} />
+        <SectionHeader label="Recursos" collapsed={!!sectionsCollapsed.resources} onToggle={() => toggleSection('resources')} />
         {!sectionsCollapsed.resources && (
           <div style={{ paddingBottom: 6 }}>
             {RESOURCE_ITEMS.map(item => (
@@ -743,7 +743,7 @@ export function Sidebar({
         )}
 
         {/* ── BLOCKS ── */}
-        <SectionHeader label="Blocks" collapsed={!!sectionsCollapsed.blocks} onToggle={() => toggleSection('blocks')} />
+        <SectionHeader label="Blocos" collapsed={!!sectionsCollapsed.blocks} onToggle={() => toggleSection('blocks')} />
         {!sectionsCollapsed.blocks && (
           <div style={{ paddingBottom: 6 }}>
             {Object.entries(coreGroups).map(([type, instances]) => (
@@ -788,7 +788,7 @@ export function Sidebar({
                         <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
                           {/* Hide/show titlebar */}
                           <button onClick={e => { e.stopPropagation(); onUpdateTile(tile.id, { hideTitlebar: !tile.hideTitlebar }) }}
-                            title={tile.hideTitlebar ? 'Show titlebar' : 'Hide titlebar'}
+                            title={tile.hideTitlebar ? 'Mostrar barra de título' : 'Ocultar barra de título'}
                             style={{ width: 18, height: 18, borderRadius: 3, border: 'none', background: 'transparent', color: tile.hideTitlebar ? theme.accent.base : theme.text.disabled, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0 }}
                             className="sidebar-tile-action"
                           >
@@ -810,21 +810,21 @@ export function Sidebar({
               </React.Fragment>
             ))}
             {coreTiles.length === 0 && (
-              <div style={{ padding: '4px 12px', fontSize: fonts.secondarySize, color: theme.text.disabled }}>No blocks open</div>
+              <div style={{ padding: '4px 12px', fontSize: fonts.secondarySize, color: theme.text.disabled }}>Nenhum bloco aberto</div>
             )}
           </div>
         )}
 
         {/* ── SESSIONS ── */}
         <SectionHeader
-          label="Sessions"
+          label="Sessões"
           collapsed={!!sectionsCollapsed.sessions}
           onToggle={() => toggleSection('sessions')}
           extra={(
             <>
               <button
-                title={showCronSessions ? 'Hide cron sessions' : 'Show cron sessions'}
-                aria-label={showCronSessions ? 'Hide cron sessions' : 'Show cron sessions'}
+                title={showCronSessions ? 'Ocultar sessões cron' : 'Mostrar sessões cron'}
+                aria-label={showCronSessions ? 'Ocultar sessões cron' : 'Mostrar sessões cron'}
                 onClick={() => setShowCronSessions(value => !value)}
                 style={{
                   width: 26,
@@ -846,8 +846,8 @@ export function Sidebar({
                 </svg>
               </button>
               <button
-                title={showSubagentSessions ? 'Hide subagent sessions' : 'Show subagent sessions'}
-                aria-label={showSubagentSessions ? 'Hide subagent sessions' : 'Show subagent sessions'}
+                title={showSubagentSessions ? 'Ocultar sessões de subagente' : 'Mostrar sessões de subagente'}
+                aria-label={showSubagentSessions ? 'Ocultar sessões de subagente' : 'Mostrar sessões de subagente'}
                 onClick={() => setShowSubagentSessions(value => !value)}
                 style={{
                   width: 26,
@@ -874,7 +874,7 @@ export function Sidebar({
         {!sectionsCollapsed.sessions && (
           <div style={{ paddingBottom: 6 }}>
             {visibleSessions.length === 0 ? (
-              <div style={{ padding: '4px 12px', fontSize: fonts.secondarySize, color: theme.text.disabled }}>No sessions yet</div>
+              <div style={{ padding: '4px 12px', fontSize: fonts.secondarySize, color: theme.text.disabled }}>Nenhuma sessão ainda</div>
             ) : (
               <>
                 {displayedSessions.map(session => (
@@ -903,7 +903,7 @@ export function Sidebar({
                           {session.sourceLabel}{session.messageCount > 0 ? ` · ${session.messageCount} msg` : ''}
                         </span>
                         <button
-                          title={pendingDeleteSessionId === session.id ? 'Click again to confirm delete' : 'Delete session'}
+                          title={pendingDeleteSessionId === session.id ? 'Clique novamente para confirmar exclusão' : 'Excluir sessão'}
                           onClick={e => {
                             e.stopPropagation()
                             if (pendingDeleteSessionId === session.id) {
@@ -970,7 +970,7 @@ export function Sidebar({
         {/* ── EXTENSIONS ── (hidden when extensionTiles is empty and no instances) */}
         {(extensionInstances.length > 0 || (extensionTiles && extensionTiles.length > 0)) && (
           <>
-            <SectionHeader label="Extensions" collapsed={!!sectionsCollapsed.extensions} onToggle={() => toggleSection('extensions')} />
+            <SectionHeader label="Extensões" collapsed={!!sectionsCollapsed.extensions} onToggle={() => toggleSection('extensions')} />
             {!sectionsCollapsed.extensions && (
               <div style={{ paddingBottom: 6 }}>
                 {/* Installed extensions with instances */}
@@ -1003,7 +1003,7 @@ export function Sidebar({
                   />
                 ))}
                 {extensionInstances.length === 0 && !extensionTiles?.length && (
-                  <div style={{ padding: '4px 12px', fontSize: fonts.secondarySize, color: theme.text.disabled }}>No extensions</div>
+                  <div style={{ padding: '4px 12px', fontSize: fonts.secondarySize, color: theme.text.disabled }}>Nenhuma extensão</div>
                 )}
               </div>
             )}

@@ -579,7 +579,7 @@ export function ExtensionTile({ tileId, extType, width, height, workspaceId, wor
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: theme.text.disabled, fontSize: fonts.secondarySize,
       }}>
-        Loading extension…
+        Carregando extensão…
       </div>
     )
   }

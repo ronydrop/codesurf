@@ -40,11 +40,11 @@ function getEventColor(theme: ReturnType<typeof useTheme>, type: ActivityEvent['
 }
 
 const TYPE_LABEL: Record<string, string> = {
-  complete: 'done',
-  update:   'update',
-  error:    'error',
-  custom:   'event',
-  input:    'input?',
+  complete: 'concluído',
+  update:   'atualiz.',
+  error:    'erro',
+  custom:   'evento',
+  input:    'entrada?',
   terminal: 'term'
 }
 
@@ -127,7 +127,7 @@ function EventRow({ ev, onJump, onReply }: { ev: ActivityEvent; onJump: (id: str
             value={reply}
             onChange={e => setReply(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && reply.trim()) { onReply(ev.id, ev.cardId, reply); setReply('') } }}
-            placeholder="Reply to agent…"
+            placeholder="Responder ao agente…"
             style={{
               flex: 1,
               fontSize: fonts.secondarySize,
@@ -143,7 +143,7 @@ function EventRow({ ev, onJump, onReply }: { ev: ActivityEvent; onJump: (id: str
           />
           <button onClick={() => { if (reply.trim()) { onReply(ev.id, ev.cardId, reply); setReply('') } }}
             style={{ padding: '3px 10px', borderRadius: 4, background: eventColor, color: theme.text.inverse, border: 'none', fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-            send
+            enviar
           </button>
         </div>
       )}
@@ -185,7 +185,7 @@ export function ActivityFeed({ events, onClearAll, onJumpToCard, onReply }: Prop
       }} onClick={() => setCollapsed(p => !p)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 10, color: theme.accent.base, fontFamily: 'inherit', letterSpacing: 1, fontWeight: 700 }}>
-            ACTIVITY
+            ATIVIDADE
           </span>
           {events.length > 0 && (
             <span style={{ fontSize: 10, color: theme.text.disabled, background: theme.surface.panelMuted, border: `1px solid ${theme.border.default}`, borderRadius: 8, padding: '0 6px' }}>
@@ -201,7 +201,7 @@ export function ActivityFeed({ events, onClearAll, onJumpToCard, onReply }: Prop
             <button onClick={onClearAll} style={{ fontSize: 10, color: theme.text.disabled, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => (e.currentTarget.style.color = theme.status.danger)}
               onMouseLeave={e => (e.currentTarget.style.color = theme.text.disabled)}>
-              clear
+              limpar
             </button>
           )}
           <span style={{ fontSize: 10, color: theme.text.disabled, fontFamily: 'inherit' }}>{collapsed ? 'v' : '^'}</span>
@@ -212,7 +212,7 @@ export function ActivityFeed({ events, onClearAll, onJumpToCard, onReply }: Prop
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           {recent.length === 0 ? (
             <div style={{ fontSize: fonts.secondarySize, color: theme.text.disabled, padding: '8px 12px', fontFamily: 'inherit' }}>
-              No activity yet. Launch an agent to see events here.
+              Nenhuma atividade ainda. Inicie um agente para ver eventos aqui.
             </div>
           ) : (
             recent.map(ev => <EventRow key={ev.id} ev={ev} onJump={onJumpToCard} onReply={onReply} />)

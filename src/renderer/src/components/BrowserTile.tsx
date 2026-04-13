@@ -1211,20 +1211,20 @@ export function BrowserTile({ tileId, workspaceId, initialUrl, width, height, zI
     >
       {/* Nav buttons */}
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-        <ToolbarButton label="Back" title="Back" disabled={!canGoBack} onClick={goBack}>
+        <ToolbarButton label="Voltar" title="Voltar" disabled={!canGoBack} onClick={goBack}>
           <ArrowLeft size={12} />
         </ToolbarButton>
-        <ToolbarButton label="Forward" title="Forward" disabled={!canGoForward} onClick={goForward}>
+        <ToolbarButton label="Avançar" title="Avançar" disabled={!canGoForward} onClick={goForward}>
           <ArrowRight size={12} />
         </ToolbarButton>
         <ToolbarButton
-          label={isLoading ? 'Stop' : 'Reload'}
-          title={isLoading ? 'Stop' : 'Reload'}
+          label={isLoading ? 'Parar' : 'Recarregar'}
+          title={isLoading ? 'Parar' : 'Recarregar'}
           onClick={isLoading ? stop : reload}
         >
           {isLoading ? <RotateCcw size={12} /> : <RotateCw size={12} />}
         </ToolbarButton>
-        <ToolbarButton label="Home" title="Home" onClick={goHome}>
+        <ToolbarButton label="Início" title="Início" onClick={goHome}>
           <Home size={12} />
         </ToolbarButton>
       </div>
@@ -1233,7 +1233,7 @@ export function BrowserTile({ tileId, workspaceId, initialUrl, width, height, zI
       <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
         <input
           ref={inputRef}
-          aria-label="Address"
+          aria-label="Endereço"
           value={addressBar}
           onFocus={() => setIsAddressFocused(true)}
           onBlur={() => setIsAddressFocused(false)}
@@ -1281,7 +1281,7 @@ export function BrowserTile({ tileId, workspaceId, initialUrl, width, height, zI
       <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
         <ToolbarButton
           label="Desktop"
-          title="Desktop mode"
+          title="Modo desktop"
           active={mode === 'desktop'}
           onClick={() => switchMode('desktop')}
         >
@@ -1289,7 +1289,7 @@ export function BrowserTile({ tileId, workspaceId, initialUrl, width, height, zI
         </ToolbarButton>
         <ToolbarButton
           label="Mobile"
-          title="Mobile mode"
+          title="Modo mobile"
           active={mode === 'mobile'}
           onClick={() => switchMode('mobile')}
         >

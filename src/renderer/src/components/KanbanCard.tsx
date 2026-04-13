@@ -262,7 +262,7 @@ function ThinkingBlockView({ thinking }: { thinking: ThinkingBlock }): JSX.Eleme
         }}
       >
         <Brain size={11} style={{ opacity: isActive ? 0.8 : 0.4, flexShrink: 0 }} />
-        {isActive ? <ShimmerText baseColor={theme.accent.hover} style={{ fontSize: fonts.secondarySize, fontWeight: 500 }}>Thinking</ShimmerText> : <span style={{ opacity: 0.6, fontSize: fonts.secondarySize, fontWeight: 500 }}>Thought</span>}
+        {isActive ? <ShimmerText baseColor={theme.accent.hover} style={{ fontSize: fonts.secondarySize, fontWeight: 500 }}>Pensando</ShimmerText> : <span style={{ opacity: 0.6, fontSize: fonts.secondarySize, fontWeight: 500 }}>Pensou</span>}
         {isActive && !hasContent && <WorkingDots color={theme.accent.hover} size={3} />}
         {hasContent && <ChevronRight size={10} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', opacity: 0.4, flexShrink: 0 }} />}
       </button>
@@ -550,13 +550,13 @@ export function KanbanCard({
           {showColorPicker ? cardPalette.map(color => (
             <button key={color} onClick={() => { onUpdate(card.id, { color }); setShowColorPicker(false) }} style={{ width: 12, height: 12, borderRadius: 6, background: color, border: `1px solid ${theme.border.default}`, cursor: 'pointer', padding: 0, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} />
           )) : (
-            <button onClick={() => setShowColorPicker(true)} title="Change colour" style={{ width: 12, height: 12, borderRadius: 6, background: card.color, border: `1px solid ${theme.border.default}`, cursor: 'pointer', padding: 0 }} />
+            <button onClick={() => setShowColorPicker(true)} title="Mudar cor" style={{ width: 12, height: 12, borderRadius: 6, background: card.color, border: `1px solid ${theme.border.default}`, cursor: 'pointer', padding: 0 }} />
           )}
           {onFocus && hovered && <Btn onClick={onFocus} color={theme.accent.base}>go</Btn>}
           {card.agent !== 'shell' && (
             <button
               onClick={() => card.launched ? onPause(card.id) : onLaunch(card.id)}
-              title={card.launched ? 'Pause' : (canStart ? 'Start' : `Start after ${unresolvedStartAfter.map(c => c.title).join(', ')}`)}
+              title={card.launched ? 'Pausar' : (canStart ? 'Iniciar' : `Iniciar após ${unresolvedStartAfter.map(c => c.title).join(', ')}`)}
               style={{
                 width: 24, height: 24, borderRadius: 6,
                 border: 'none',
@@ -579,7 +579,7 @@ export function KanbanCard({
       {!expanded && (
         <div style={{ padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: fonts.size, color: instructionPreview ? theme.text.primary : theme.text.disabled, lineHeight: 1.5, minHeight: 40, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', fontWeight: 400 } as React.CSSProperties}>
-            {instructionPreview || 'No instructions yet'}
+            {instructionPreview || 'Sem instruções ainda'}
           </div>
           {(card.tools.length > 0 || card.fileRefs.length > 0 || card.cardRefs.length > 0) && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -602,7 +602,7 @@ export function KanbanCard({
               style={{ fontSize: 10, color: theme.text.disabled, background: theme.surface.panel, border: `1px solid ${theme.border.subtle}`, borderRadius: 4, padding: '2px 7px', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4 }}
               onMouseEnter={e => { e.currentTarget.style.color = theme.text.primary; e.currentTarget.style.borderColor = theme.border.default }}
               onMouseLeave={e => { e.currentTarget.style.color = theme.text.disabled; e.currentTarget.style.borderColor = theme.border.subtle }}
-              title="Collapse"
+              title="Recolher"
             >
               ^
             </button>
@@ -671,40 +671,40 @@ export function KanbanCard({
                   value={card.title}
                   onChange={e => onUpdate(card.id, { title: e.target.value })}
                   style={{ ...getTitleInputStyle(theme), marginBottom: 8 }}
-                  placeholder="Task title"
+                  placeholder="Título da tarefa"
                 />
                 {/* Instructions */}
                 <textarea
                   value={card.instructions}
                   onChange={e => onUpdate(card.id, { instructions: e.target.value })}
                   rows={5}
-                  placeholder="Instructions…"
+                  placeholder="Instruções…"
                   style={getTextareaStyle(theme)}
                 />
               </div>
 
               {/* Context */}
               <div style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border.subtle}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <Label>Context</Label>
+                <Label>Contexto</Label>
                 <ChipInput values={card.tools} onChange={v => onUpdate(card.id, { tools: v })}
-                  prefix="@" placeholder="default @all or specify"
+                  prefix="@" placeholder="padrão @all ou especifique"
                   suggestions={toolSuggestions}
                   suggestionMeta={Object.fromEntries(mcpServers.map(s => [s.name, s.description ?? '']))}
-                  sublabel="Tools" />
+                  sublabel="Ferramentas" />
                 <ChipInput values={card.fileRefs} onChange={v => onUpdate(card.id, { fileRefs: v })}
-                  prefix="@" placeholder="file paths — or drop from sidebar"
-                  sublabel="Files"
+                  prefix="@" placeholder="caminhos de arquivo — ou arraste da barra lateral"
+                  sublabel="Arquivos"
                   onDropFile={path => onUpdate(card.id, {
                     fileRefs: [...card.fileRefs, path],
                     attachments: [...card.attachments, { id: `a-${Date.now()}`, name: path.split('/').pop() ?? path, path }]
                   })} />
                 <ChipInput values={card.cardRefs} onChange={v => onUpdate(card.id, { cardRefs: v })}
-                  prefix="→" placeholder="start after these cards" suggestions={cardSuggestions} sublabel="Start After" />
+                  prefix="→" placeholder="iniciar após estes cards" suggestions={cardSuggestions} sublabel="Iniciar Após" />
               </div>
 
               {/* Agent selector */}
               <div style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border.subtle}` }}>
-                <Label>CLI Agents</Label>
+                <Label>Agentes CLI</Label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                   {availableAgents.filter(a => a.available || a.id === card.agent).map(a => (
                     <button key={a.id} onClick={() => onUpdate(card.id, { agent: a.id, model: undefined })}
@@ -763,7 +763,7 @@ export function KanbanCard({
                   <div style={{ padding: '4px 16px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {/* MCP servers */}
                     <div>
-                      <Label>MCP Servers</Label>
+                      <Label>Servidores MCP</Label>
                       <div style={{ fontSize: 9, color: theme.status.success, marginBottom: 6, fontFamily: 'inherit' }}>
                         kanban (card_complete, card_update, card_error) always included
                       </div>
@@ -771,7 +771,7 @@ export function KanbanCard({
                         <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
                           <input value={s.name}
                             onChange={e => { const u = [...card.mcpServers]; u[i] = { ...s, name: e.target.value }; onUpdate(card.id, { mcpServers: u }) }}
-                            placeholder="name" style={{ ...getInputStyle(theme), flex: '0 0 80px' }} />
+                            placeholder="nome" style={{ ...getInputStyle(theme), flex: '0 0 80px' }} />
                           <input value={s.url ?? s.cmd ?? ''}
                             onChange={e => {
                               const v = e.target.value; const u = [...card.mcpServers]
@@ -790,14 +790,14 @@ export function KanbanCard({
 
                     {/* Hooks */}
                     <div>
-                      <Label>Hooks (before launch)</Label>
+                      <Label>Hooks (antes do lançamento)</Label>
                       <ChipInput values={card.hooks} onChange={v => onUpdate(card.id, { hooks: v })}
                         prefix="$" placeholder="source .env, nvm use 20…" />
                     </div>
 
                     {/* MCP config override */}
                     <div>
-                      <Label>MCP Config Path</Label>
+                      <Label>Caminho do MCP Config</Label>
                       <input value={card.mcpConfig ?? ''}
                         onChange={e => onUpdate(card.id, { mcpConfig: e.target.value || undefined })}
                         placeholder={MCP_CONFIG}
@@ -807,7 +807,7 @@ export function KanbanCard({
                     {/* Launch command preview */}
                     {card.agent !== 'shell' && launchCmd && (
                       <div>
-                        <Label>Launch command</Label>
+                        <Label>Comando de lançamento</Label>
                         <div style={{
                           fontSize: 9, color: theme.accent.base, background: theme.surface.input,
                           border: `1px solid ${theme.border.subtle}`, borderRadius: 4, padding: '6px 10px',
@@ -833,10 +833,10 @@ export function KanbanCard({
                       letterSpacing: 0.3
                     }}
                   >
-                    Save
+                    Salvar
                   </button>
                   <button onClick={() => card.launched ? onPause(card.id) : onLaunch(card.id)} disabled={card.agent === 'shell' || (!card.launched && !canStart)}
-                    title={!card.launched && !canStart ? `Start after ${unresolvedStartAfter.map(c => c.title).join(', ')}` : undefined}
+                    title={!card.launched && !canStart ? `Iniciar após ${unresolvedStartAfter.map(c => c.title).join(', ')}` : undefined}
                     style={{
                       flex: 1, padding: '10px 0', borderRadius: 8, fontSize: fonts.size, fontWeight: 700,
                       background: card.agent === 'shell' ? theme.surface.panelMuted : (card.launched ? theme.status.warning : (canStart ? theme.accent.base : theme.surface.panelMuted)),
@@ -845,7 +845,7 @@ export function KanbanCard({
                       letterSpacing: 0.3
                     }}
                   >
-                    {card.agent === 'shell' ? 'Select CLI Agent' : (card.launched ? 'Pause' : (!canStart ? 'Start After' : 'Start'))}
+                    {card.agent === 'shell' ? 'Selecionar Agente CLI' : (card.launched ? 'Pausar' : (!canStart ? 'Iniciar Após' : 'Iniciar'))}
                   </button>
                 </div>
               </div>
@@ -859,7 +859,7 @@ export function KanbanCard({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: active ? theme.status.success : theme.text.disabled, boxShadow: active ? `0 0 8px ${theme.status.success}` : 'none' }} />
                   <span style={{ fontSize: fonts.secondarySize, fontWeight: 700, color: theme.text.primary, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                    {active ? 'In Progress' : 'Running'}
+                    {active ? 'Em Andamento' : 'Executando'}
                   </span>
                 </div>
                 {card.briefPath && (
@@ -893,7 +893,7 @@ export function KanbanCard({
             <div style={{ background: theme.surface.panel, display: 'flex', flexDirection: 'column', height: 220 }}>
               <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {card.comments.length === 0 && (
-                  <div style={{ fontSize: fonts.secondarySize, color: theme.text.disabled, textAlign: 'center', paddingTop: 16 }}>No notes</div>
+                  <div style={{ fontSize: fonts.secondarySize, color: theme.text.disabled, textAlign: 'center', paddingTop: 16 }}>Sem notas</div>
                 )}
                 {card.comments.map(c => (
                   <div key={c.id} style={{ background: theme.surface.panelMuted, border: `1px solid ${theme.border.subtle}`, borderRadius: 5, padding: '6px 10px' }}>
@@ -908,7 +908,7 @@ export function KanbanCard({
               <div style={{ padding: '8px 10px', borderTop: `1px solid ${theme.border.subtle}`, display: 'flex', gap: 6 }}>
                 <input value={newNote} onChange={e => setNewNote(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') addNote() }}
-                  placeholder="Add a note…" style={{ ...getInputStyle(theme), flex: 1 }} />
+                  placeholder="Adicionar nota…" style={{ ...getInputStyle(theme), flex: 1 }} />
                 <button onClick={addNote} style={{ padding: '4px 12px', borderRadius: 5, background: theme.accent.base, color: theme.text.inverse, border: 'none', fontSize: fonts.secondarySize, cursor: 'pointer', fontFamily: 'inherit' }}>+</button>
               </div>
             </div>

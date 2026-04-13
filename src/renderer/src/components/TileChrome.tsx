@@ -88,7 +88,7 @@ const DRAWER_WIDTH = 260
 const DRAWER_TYPES = new Set(['terminal', 'chat'])
 
 const TYPE_LABELS: Record<string, string> = {
-  terminal: 'Terminal', note: 'Note', code: 'Code', image: 'Image', kanban: 'Board', browser: 'Browser', chat: 'Chat', files: 'Files', customisation: 'Settings',
+  terminal: 'Terminal', note: 'Nota', code: 'Código', image: 'Imagem', kanban: 'Quadro', browser: 'Browser', chat: 'Chat', files: 'Arquivos', customisation: 'Configurações',
 }
 
 // Extension type labels are resolved dynamically — see getTypeLabel()
@@ -165,7 +165,7 @@ function TabIcon({ tab }: { tab: DrawerTab }): JSX.Element {
 // ─── Tab labels ──────────────────────────────────────────────────────────────
 
 const TAB_LABELS: Record<DrawerTab, string> = {
-  tasks: 'Tasks', tools: 'Tools Available', skills: 'Skills', context: 'Context', messages: 'Messages'
+  tasks: 'Tarefas', tools: 'Ferramentas Disponíveis', skills: 'Habilidades', context: 'Contexto', messages: 'Mensagens'
 }
 
 const ALL_TABS: DrawerTab[] = ['tasks', 'tools', 'skills', 'context', 'messages']
@@ -320,10 +320,10 @@ function TasksPanel({ tasks, onUpdateTask, onDeleteTask, onAddTask }: {
 
   const menuItemsForTask = (task: TaskItem): MenuItem[] => {
     const statusItems: Array<{ status: TaskItem['status']; label: string }> = [
-      { status: 'pending', label: 'Mark as Pending' },
-      { status: 'in-progress', label: 'Mark as In Progress' },
-      { status: 'paused', label: 'Mark as Paused' },
-      { status: 'done', label: 'Mark as Done' },
+      { status: 'pending', label: 'Marcar como Pendente' },
+      { status: 'in-progress', label: 'Marcar como Em Andamento' },
+      { status: 'paused', label: 'Marcar como Pausada' },
+      { status: 'done', label: 'Marcar como Concluída' },
     ]
 
     return [
@@ -331,7 +331,7 @@ function TasksPanel({ tasks, onUpdateTask, onDeleteTask, onAddTask }: {
         .filter(item => item.status !== task.status)
         .map(item => ({ label: item.label, action: () => onUpdateTask(task.id, item.status) })),
       { label: '', action: () => {}, divider: true },
-      { label: 'Delete Task', danger: true, action: () => onDeleteTask(task.id) },
+      { label: 'Excluir Tarefa', danger: true, action: () => onDeleteTask(task.id) },
     ]
   }
 
@@ -346,7 +346,7 @@ function TasksPanel({ tasks, onUpdateTask, onDeleteTask, onAddTask }: {
       }}
     >
       <button
-        title={task.status === 'done' ? 'Mark pending' : 'Mark done'}
+        title={task.status === 'done' ? 'Marcar como pendente' : 'Marcar como concluída'}
         onClick={() => toggleTaskDone(task)}
         style={{
           flexShrink: 0,
@@ -370,20 +370,20 @@ function TasksPanel({ tasks, onUpdateTask, onDeleteTask, onAddTask }: {
       </div>
       <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
         {task.status === 'paused' ? (
-          <ActionBtn title="Resume" color={theme.accent.base} onClick={() => onUpdateTask(task.id, 'in-progress')}>
+          <ActionBtn title="Retomar" color={theme.accent.base} onClick={() => onUpdateTask(task.id, 'in-progress')}>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3 2l5 3-5 3z" fill="currentColor"/></svg>
           </ActionBtn>
         ) : !doneRow ? (
-          <ActionBtn title="Pause" color={theme.status.warning} onClick={() => onUpdateTask(task.id, 'paused')}>
+          <ActionBtn title="Pausar" color={theme.status.warning} onClick={() => onUpdateTask(task.id, 'paused')}>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3 2v6M7 2v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </ActionBtn>
         ) : null}
         {!doneRow && (
-          <ActionBtn title="Done" color={theme.text.muted} onClick={() => onUpdateTask(task.id, 'done')}>
+          <ActionBtn title="Concluir" color={theme.text.muted} onClick={() => onUpdateTask(task.id, 'done')}>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5.5l2.5 2.5 3.5-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </ActionBtn>
         )}
-        <ActionBtn title="Delete" color={doneRow ? theme.text.disabled : theme.text.muted} onClick={() => onDeleteTask(task.id)}>
+        <ActionBtn title="Excluir" color={doneRow ? theme.text.disabled : theme.text.muted} onClick={() => onDeleteTask(task.id)}>
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
         </ActionBtn>
       </div>
@@ -412,7 +412,7 @@ function TasksPanel({ tasks, onUpdateTask, onDeleteTask, onAddTask }: {
             e.preventDefault()
             addMany(lines)
           }}
-          placeholder="Add a task..."
+          placeholder="Adicionar tarefa..."
           rows={2}
           style={{
             width: '100%', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: theme.surface.input,
@@ -431,12 +431,12 @@ function TasksPanel({ tasks, onUpdateTask, onDeleteTask, onAddTask }: {
           <button onClick={submit} style={{
             marginTop: 3, height: 20, borderRadius: 4, border: 'none', background: theme.accent.base,
             color: theme.text.inverse, fontSize: 10, fontWeight: 600, padding: '0 8px', cursor: 'pointer',
-          }}>Add task</button>
+          }}>Adicionar tarefa</button>
         )}
       </div>
 
       {tasks.length === 0 ? (
-        <EmptyState text="No tasks yet" />
+        <EmptyState text="Nenhuma tarefa ainda" />
       ) : (
         <>
           {pending.map(task => renderTaskRow(task))}
@@ -462,7 +462,7 @@ function ToolsPanel({ tools }: { tools: ToolItem[] }): JSX.Element {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
       {tools.length === 0 ? (
-        <EmptyState text="No tool calls yet" />
+        <EmptyState text="Nenhuma chamada de ferramenta ainda" />
       ) : (
         tools.slice().reverse().map(t => (
           <div key={t.id} style={{ padding: '5px 12px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
@@ -521,12 +521,12 @@ function SkillsPanel({ skills, onToggle }: {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
       {skills.length === 0 ? (
-        <EmptyState text="No skills available" />
+        <EmptyState text="Nenhuma habilidade disponível" />
       ) : (
         <>
           {builtin.length > 0 && (
             <>
-              <div style={{ padding: '6px 8px 2px', fontSize: 9, fontWeight: 700, color: theme.text.disabled, letterSpacing: 1, textTransform: 'uppercase' }}>Built-in</div>
+              <div style={{ padding: '6px 8px 2px', fontSize: 9, fontWeight: 700, color: theme.text.disabled, letterSpacing: 1, textTransform: 'uppercase' }}>Integrado</div>
               {builtin.map(renderSkill)}
             </>
           )}
@@ -563,7 +563,7 @@ function ContextPanel({ items, onAddNote, onRemoveItem }: {
           value={note}
           onChange={e => setNote(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitNote() } }}
-          placeholder="Add a note..."
+          placeholder="Adicionar nota..."
           rows={2}
           style={{
             width: '100%', borderRadius: 4, border: `1px solid ${theme.border.default}`, background: theme.surface.input,
@@ -577,13 +577,13 @@ function ContextPanel({ items, onAddNote, onRemoveItem }: {
           <button onClick={submitNote} style={{
             marginTop: 3, height: 20, borderRadius: 3, border: 'none', background: theme.accent.base,
             color: theme.text.inverse, fontSize: 10, fontWeight: 600, padding: '0 8px', cursor: 'pointer',
-          }}>Save note</button>
+          }}>Salvar nota</button>
         )}
       </div>
 
       {/* Context items list */}
       {items.length === 0 ? (
-        <EmptyState text="No context items" />
+        <EmptyState text="Nenhum item de contexto" />
       ) : (
         items.map(c => (
           <div key={c.id} style={{ padding: '4px 8px', display: 'flex', alignItems: 'flex-start', gap: 6, borderBottom: `1px solid ${theme.border.subtle}` }}>
@@ -596,7 +596,7 @@ function ContextPanel({ items, onAddNote, onRemoveItem }: {
                 <div style={{ fontSize: 10, color: theme.text.muted, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.content.slice(0, 80)}</div>
               )}
             </div>
-            <ActionBtn title="Remove" color={theme.text.disabled} onClick={() => onRemoveItem(c.id)}>
+            <ActionBtn title="Remover" color={theme.text.disabled} onClick={() => onRemoveItem(c.id)}>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
             </ActionBtn>
           </div>
@@ -612,10 +612,10 @@ function MessagePanel({ messages }: { messages: MessageItem[] }): JSX.Element {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
       {messages.length === 0 ? (
-        <EmptyState text="No messages yet" />
+        <EmptyState text="Nenhuma mensagem ainda" />
       ) : (
         messages.map(m => {
-          const directionLabel = m.direction === 'inbound' ? 'From' : m.direction === 'outbound' ? 'To' : 'Message'
+          const directionLabel = m.direction === 'inbound' ? 'De' : m.direction === 'outbound' ? 'Para' : 'Mensagem'
           const peer = m.direction === 'inbound' ? m.fromTileId : m.toTileId
           const peerLabel = peer ? `${peer.slice(0, 8)}` : 'system'
           const badgeColor = m.source === 'group' ? theme.accent.base : theme.text.muted
@@ -779,7 +779,7 @@ function persistToActivityStore(
       tileId,
       type: 'task',
       status: p.status === 'done' ? 'done' : p.status === 'error' ? 'error' : p.status === 'in-progress' ? 'running' : 'pending',
-      title: p.title ?? 'Untitled task',
+      title: p.title ?? 'Tarefa sem título',
       detail: p.detail,
       metadata: p,
     })
@@ -791,7 +791,7 @@ function persistToActivityStore(
       tileId,
       type: 'tool',
       status: evt.type === 'tool_start' ? 'running' : (p.error ? 'error' : 'done'),
-      title: p.name ?? p.tool ?? 'Unknown tool',
+      title: p.name ?? p.tool ?? 'Ferramenta desconhecida',
       detail: p.input?.toString()?.slice(0, 200),
       metadata: p,
     })
@@ -833,7 +833,7 @@ function processEvent(evt: { type: string; payload: Record<string, unknown>; id:
         if (prev.tasks.some(t => t.id === (p.task_id ?? p.id))) return prev
         return { ...prev, tasks: [...prev.tasks, {
           id: p.task_id ?? p.id ?? evt.id,
-          title: p.title ?? 'Untitled task',
+          title: p.title ?? 'Tarefa sem título',
           status: p.status ?? 'pending',
           detail: p.detail,
           timestamp: evt.timestamp,
@@ -1264,7 +1264,7 @@ export function TileChrome({
 
           {discoveryConnected && (
             <div
-              title="Nearby connection negotiated"
+              title="Conexão próxima estabelecida"
               style={{
                 width: 8,
                 height: 8,
@@ -1294,7 +1294,7 @@ export function TileChrome({
               onMouseDown={e => e.stopPropagation()}
               onMouseEnter={e => { if (!drawerOpen) e.currentTarget.style.color = theme.text.muted }}
               onMouseLeave={e => { if (!drawerOpen) e.currentTarget.style.color = theme.text.disabled }}
-              title={drawerOpen ? 'Hide panel' : 'Show panel'}
+              title={drawerOpen ? 'Ocultar painel' : 'Mostrar painel'}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M3 3.5h8M3 7h8M3 10.5h5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -1326,7 +1326,7 @@ export function TileChrome({
             onMouseDown={e => e.stopPropagation()}
             onMouseEnter={e => (e.currentTarget.style.color = theme.text.muted)}
             onMouseLeave={e => (e.currentTarget.style.color = theme.text.disabled)}
-            title={expanded ? 'Collapse' : 'Expand'}
+            title={expanded ? 'Recolher' : 'Expandir'}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               {expanded ? (
@@ -1355,7 +1355,7 @@ export function TileChrome({
               }}
               onMouseEnter={e => (e.currentTarget.style.background = theme.accent.hover)}
               onMouseLeave={e => (e.currentTarget.style.background = theme.accent.base)}
-              title={`${busUnreadCount} new event${busUnreadCount !== 1 ? 's' : ''}`}
+              title={`${busUnreadCount} novo${busUnreadCount !== 1 ? 's' : ''} evento${busUnreadCount !== 1 ? 's' : ''}`}
             >
               {busUnreadCount! > 99 ? '99+' : busUnreadCount}
             </button>
@@ -1451,7 +1451,7 @@ export function TileChrome({
               fontSize: fonts.secondarySize, fontWeight: 600, color: theme.text.muted,
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span>Events</span>
+              <span>Eventos</span>
               <button
                 onClick={e => { e.stopPropagation(); onBusPopupToggle?.() }}
                 style={{

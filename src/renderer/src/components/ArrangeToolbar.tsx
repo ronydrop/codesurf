@@ -198,7 +198,7 @@ export function ArrangeToolbar({ tiles, groups, onArrange, zoom, onZoomToggle, o
     >
       <button
         onClick={onOpenSettings}
-        title="Settings"
+        title="Configurações"
         style={{
           width: 26,
           height: 26,
@@ -242,15 +242,15 @@ export function ArrangeToolbar({ tiles, groups, onArrange, zoom, onZoomToggle, o
           alignItems: 'center',
         }}
       >
-        <Btn label={<TabsIcon />}   title="Fullview"                 active={isTabbedView}                              loading={false}   onClick={onToggleTabs} />
+        <Btn label={<TabsIcon />}   title="Visão completa"                 active={isTabbedView}                              loading={false}   onClick={onToggleTabs} />
         <div style={{ width: 1, height: 14, background: dividerBg, margin: '0 2px' }} />
-        <Btn label={<GridIcon />}   title="Grid layout (ELK)"        active={!isTabbedView && activeCanvasMode === 'grid'}   loading={loading} onClick={() => run('grid')} />
-        <Btn label={<ColumnIcon />} title="Stack in column (ELK)"    active={!isTabbedView && activeCanvasMode === 'column'} loading={loading} onClick={() => run('column')} />
-        <Btn label={<RowIcon />}    title="Arrange in row (ELK)"     active={!isTabbedView && activeCanvasMode === 'row'}    loading={loading} onClick={() => run('row')} />
+        <Btn label={<GridIcon />}   title="Layout em grade (ELK)"        active={!isTabbedView && activeCanvasMode === 'grid'}   loading={loading} onClick={() => run('grid')} />
+        <Btn label={<ColumnIcon />} title="Empilhar em coluna (ELK)"    active={!isTabbedView && activeCanvasMode === 'column'} loading={loading} onClick={() => run('column')} />
+        <Btn label={<RowIcon />}    title="Organizar em linha (ELK)"     active={!isTabbedView && activeCanvasMode === 'row'}    loading={loading} onClick={() => run('row')} />
         <div style={{ width: 1, height: 14, background: dividerBg, margin: '0 2px' }} />
         <button
           onClick={onZoomToggle}
-          title="Toggle zoom to 100%"
+          title="Alternar zoom para 100%"
           style={{
             fontSize: 10,
             color: zoom === 1 ? theme.accent.base : theme.text.muted,
