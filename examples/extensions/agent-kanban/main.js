@@ -297,15 +297,33 @@ function makeSession(taskId, agentId, wPath) {
   return { taskId, agentId, worktreePath: wPath, proc: null, state: 'idle', outputLines: [], startedAt: null, exitCode: null }
 }
 
+function windowsPathToWsl(winPath) {
+  // Convert C:\foo\bar -> /mnt/c/foo/bar
+  return winPath.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, d) => `/mnt/${d.toLowerCase()}`)
+}
+
 function startAgentProcess(session, task, bus) {
   const entry = AGENT_CATALOG.find(a => a.id === session.agentId)
   if (!entry) throw new Error(`Unknown agent: ${session.agentId}`)
 
-  const args = [...entry.autonomousArgs, task.prompt]
+  const agentArgs = [...entry.autonomousArgs, task.prompt]
   const env = { ...process.env, CARD_ID: task.id }
 
-  const proc = spawn(entry.binary, args, {
-    cwd: session.worktreePath,
+  // On Windows, agents live in WSL — spawn via wsl.exe
+  let binary, args, spawnCwd
+  if (process.platform === 'win32') {
+    const wslCwd = windowsPathToWsl(session.worktreePath || process.cwd())
+    binary = 'wsl'
+    args = ['-e', 'bash', '-lc', `cd ${JSON.stringify(wslCwd)} && exec ${entry.binary} ${agentArgs.map(a => JSON.stringify(a)).join(' ')}`]
+    spawnCwd = undefined // wsl handles cwd via bash -c
+  } else {
+    binary = entry.binary
+    args = agentArgs
+    spawnCwd = session.worktreePath || undefined
+  }
+
+  const proc = spawn(binary, args, {
+    cwd: spawnCwd,
     env,
     stdio: ['pipe', 'pipe', 'pipe'],
   })

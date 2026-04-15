@@ -105,21 +105,32 @@ export const MODELS: Record<string, string[]> = {
   shell:    []
 }
 
-const MCP_CONFIG = '~/.contex/mcp-server.json'
+const MCP_CONFIG = '~/.codesurf/mcp-server.json'
 const BUILTIN_TOOLS = ['read', 'write', 'edit', 'bash', 'computer', 'web_search', 'browser']
 
+// Convert Windows path to WSL-compatible path (no-op on POSIX paths)
+// "C:\Users\foo\bar" → "/mnt/c/Users/foo/bar"
+function toWslPath(p: string): string {
+  return p
+    .replace(/^([A-Za-z]):[\\\/]/, (_, drive) => `/mnt/${drive.toLowerCase()}/`)
+    .replace(/\\/g, '/')
+}
+
 function resolveMcpConfigPath(input: string): string {
-  if (!input.startsWith('~')) return input
-  const home = (window as any).process?.env?.HOME
+  if (!input.startsWith('~')) return toWslPath(input)
+  const home = (window as any).process?.env?.HOME ?? (window as any).electron?.homedir
   if (!home) return input
-  if (input === '~') return home
+  if (input === '~') return toWslPath(home)
+  if (input.startsWith('~/.codesurf/')) {
+    return toWslPath(`${home}/.codesurf/${input.slice('~/.codesurf/'.length)}`)
+  }
   if (input.startsWith('~/.contex/')) {
-    return `${home}/.contex/${input.slice('~/.contex/'.length)}`
+    return toWslPath(`${home}/.codesurf/${input.slice('~/.contex/'.length)}`)
   }
   if (input.startsWith('~\\.contex\\')) {
-    return `${home}/.contex/${input.slice('~\\.contex\\'.length)}`
+    return toWslPath(`${home}/.codesurf/${input.slice('~\\.contex\\'.length)}`)
   }
-  return `${home}/${input.slice(2)}`
+  return toWslPath(`${home}/${input.slice(2)}`)
 }
 
 type Tab = 'overview' | 'progress' | 'notes'
@@ -215,16 +226,19 @@ export function buildLaunchCmd(card: KanbanCardData, briefPath?: string, agentPa
   if (card.model) parts.push(`--model ${card.model}`)
   const mcpConfigPath = resolveMcpConfigPath(card.mcpConfig ?? MCP_CONFIG)
   parts.push(`--mcp-config "${mcpConfigPath}"`)
+  if (card.agent === 'claude') parts.push('--dangerously-skip-permissions')
   if (briefPath) {
-    if (card.agent === 'claude') parts.push(`--print "$(cat ${briefPath})"`)
-    else if (card.agent === 'codex') parts.push(`exec "$(cat ${briefPath})"`)
+    const wslBriefPath = toWslPath(briefPath)
+    if (card.agent === 'claude') parts.push(`--print "$(cat ${wslBriefPath})"`)
+    else if (card.agent === 'codex') parts.push(`exec "$(cat ${wslBriefPath})"`)
   } else if (card.instructions) {
     const esc = card.instructions.replace(/"/g, '\\"').replace(/\n/g, '\\n')
     if (card.agent === 'claude') parts.push(`--print "${esc}"`)
     else if (card.agent === 'codex') parts.push(`exec "${esc}"`)
   }
-  if (card.hooks.length) return card.hooks.join(' && ') + ' && ' + parts.join(' ')
-  return parts.join(' ')
+  const cmd = parts.join(' ')
+  const withHooks = card.hooks.length ? card.hooks.join(' && ') + ' && ' + cmd : cmd
+  return `export CARD_ID="${card.id}" && ${withHooks}`
 }
 
 // ─── Shared chat-like progress components ───────────────────────────────────
@@ -319,7 +333,7 @@ function ToolBlockView({ block }: { block: ToolBlock }): JSX.Element {
 
 // ─── KanbanCard ───────────────────────────────────────────────────────────────
 
-function CardAgentRunner({ termId, workspaceDir, launchCmd }: { termId: string; workspaceDir: string; launchCmd?: string }): null {
+function CardAgentRunner({ termId, workspaceDir, launchCmd, onError }: { termId: string; workspaceDir: string; launchCmd?: string; onError?: (msg: string) => void }): null {
   const launchedRef = useRef(false)
 
   useEffect(() => {
@@ -335,6 +349,7 @@ function CardAgentRunner({ termId, workspaceDir, launchCmd }: { termId: string; 
         await window.electron?.terminal?.write(termId, `${launchCmd}\n`)
       } catch (error) {
         console.error('[KanbanCard] CardAgentRunner launch failed:', error)
+        onError?.(`Falha ao iniciar: ${error instanceof Error ? error.message : String(error)}`)
       }
     })()
 
@@ -413,7 +428,8 @@ export function KanbanCard({
         'rgba(45, 212, 191, 0.15)',
         'rgba(248, 113, 113, 0.15)',
       ]
-  const instructionPreview = card.instructions.trim() || card.description.trim()
+  const _rawPreview = card.instructions.trim() || card.description.trim()
+  const instructionPreview = _rawPreview !== card.title.trim() ? _rawPreview : ''
   const headerActionColor = theme.text.primary
   const unresolvedStartAfter = card.cardRefs
     .map(ref => allCards.find(c => c.id === ref || c.title === ref))
@@ -504,7 +520,9 @@ export function KanbanCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {card.launched && <CardAgentRunner termId={termId} workspaceDir={workspaceDir} launchCmd={launchCmd} />}
+      {card.launched && <CardAgentRunner termId={termId} workspaceDir={workspaceDir} launchCmd={launchCmd}
+        onError={msg => onUpdate(card.id, { comments: [...card.comments, { id: `err-${Date.now()}`, text: `⚠️ ${msg}`, ts: Date.now() }] })}
+      />}
 
       {/* ── Collapsed header ── */}
       <div

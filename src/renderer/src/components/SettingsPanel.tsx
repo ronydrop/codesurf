@@ -89,6 +89,7 @@ function notifyExtensionsChanged(): void {
 
 // ─── Extension settings panel ─────────────────────────────────────────────────
 function ExtSettingsPanel({ extId, tileType }: { extId: string; tileType: string }): React.JSX.Element {
+  const theme = useTheme()
   const [src, setSrc] = useState<string | null>(null)
   useEffect(() => {
     window.electron.extensions?.tileEntry?.(extId, tileType)

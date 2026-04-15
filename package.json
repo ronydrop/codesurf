@@ -18,12 +18,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "electron-vite dev -- --js-flags=\"--expose-gc --max-old-space-size=${CODESURF_MAX_OLD_SPACE_SIZE_MB:-8192}\"",
-    "build:main": "EV_BUILD_TARGET=main electron-vite build",
-    "build:preload": "EV_BUILD_TARGET=preload electron-vite build",
-    "build:renderer": "EV_BUILD_TARGET=renderer electron-vite build",
-    "build": "EV_BUILD_TARGET=main electron-vite build && EV_BUILD_TARGET=preload electron-vite build && EV_BUILD_TARGET=renderer electron-vite build",
-    "dist:mac": "npm run build && electron-builder --mac dmg zip",
-    "release:github": "npm run build && electron-builder --mac dmg zip --publish always",
+    "build:main": "electron-vite build",
+    "build:preload": "electron-vite build",
+    "build:renderer": "electron-vite build",
+    "build": "electron-vite build",
+    "dist:mac": "electron-vite build && electron-builder --mac dmg zip",
+    "dist:win": "electron-vite build && electron-builder --win --publish never",
+    "release:github": "electron-vite build && electron-builder --mac dmg zip --publish always",
     "dogfood": "electron-vite build && electron-vite preview",
     "preview": "electron-vite preview",
     "rebuild": "electron-rebuild -f -w node-pty,better-sqlite3",
@@ -43,6 +44,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.27",
+    "cross-env": "^10.1.0",
     "electron": "^40.8.2",
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
@@ -99,8 +101,18 @@
     "win": {
       "icon": "resources/icon.png",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "npmRebuild": false,

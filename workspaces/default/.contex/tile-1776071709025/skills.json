@@ -1,0 +1,11 @@
+{
+  "enabled": [
+    "mcp:contex",
+    "mcp:context7",
+    "mcp:sequential-thinking",
+    "mcp:fetch",
+    "mcp:memory",
+    "mcp:postgres"
+  ],
+  "disabled": []
+}

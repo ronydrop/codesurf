@@ -480,10 +480,30 @@ function handleDrop(targetColId) {
 // ── Actions ──────────────────────────────────────────────────
 async function startAgent(taskId) {
   if (!bridge) return
-  await bridge.ext.invoke('startAgent', { workspacePath, taskId })
+  let result
+  try {
+    result = await bridge.ext.invoke('startAgent', { workspacePath, taskId })
+  } catch (err) {
+    console.error('startAgent invoke error:', err)
+    result = { ok: false, error: err.message || String(err) }
+  }
   await loadBoard()
-  startOutputPoller(taskId)
   openDetail(taskId)
+  if (result && !result.ok) {
+    // Show error in output log
+    const log = document.getElementById('outputLog')
+    const errMsg = result.error || 'Falha ao iniciar o agente'
+    if (log) {
+      const div = document.createElement('div')
+      div.className = 'line-stderr'
+      div.textContent = '[error] ' + errMsg
+      log.appendChild(div)
+      log.scrollTop = log.scrollHeight
+    }
+    console.error('[agent-kanban] startAgent failed:', errMsg)
+  } else {
+    startOutputPoller(taskId)
+  }
 }
 
 async function stopAgent(taskId) {

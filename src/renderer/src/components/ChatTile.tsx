@@ -8,7 +8,9 @@ import type {
   ExtensionChatModel,
   ExtensionChatProviderConfig,
   ExtensionChatTransportConfig,
+  AgentMode,
 } from '../../../shared/types'
+import { DEFAULT_AGENT_MODES } from '../../../shared/agent-modes'
 import { basename, getDroppedPaths, isImagePath } from '../utils/dnd'
 import {
   ShieldCheck, ChevronDown,
@@ -153,6 +155,7 @@ interface ChatTilePersistedState {
   thinking: string
   agentMode: boolean
   autoAgentMode: boolean
+  personaId?: string | null
   sessionId: string | null
   isStreaming: boolean
 }
@@ -879,6 +882,10 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
   const [thinking, setThinking] = useState(() => initialRuntimeStateRef.current?.thinking ?? 'adaptive')
   const [agentMode, setAgentMode] = useState(() => initialRuntimeStateRef.current?.agentMode ?? false)
   const [autoAgentMode, setAutoAgentMode] = useState(() => initialRuntimeStateRef.current?.autoAgentMode ?? false)
+  const [personaId, setPersonaId] = useState<string | null>(() => initialRuntimeStateRef.current?.personaId ?? null)
+  const [personaModes, setPersonaModes] = useState<AgentMode[]>(DEFAULT_AGENT_MODES)
+  const [showPersonaMenu, setShowPersonaMenu] = useState(false)
+  const personaMenuRef = useRef<HTMLDivElement>(null)
   const [showModelMenu, setShowModelMenu] = useState(false)
   const [showProviderMenu, setShowProviderMenu] = useState(false)
   const [showMcpMenu, setShowMcpMenu] = useState(false)
@@ -1054,6 +1061,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       thinking,
       agentMode,
       autoAgentMode,
+      personaId,
       sessionId,
       isStreaming,
     }
@@ -1061,7 +1069,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       if (isChatTileRuntimeStateDisposed(tileId)) return
       setChatTileRuntimeState(tileId, latestStateRef.current)
     }
-  }, [tileId, messages, input, attachments, provider, model, mcpEnabled, mode, thinking, agentMode, autoAgentMode, sessionId, isStreaming])
+  }, [tileId, messages, input, attachments, provider, model, mcpEnabled, mode, thinking, agentMode, autoAgentMode, personaId, sessionId, isStreaming])
 
   const persistLatestState = useCallback((stateOverride?: ChatTilePersistedState | null) => {
     if (persistTimerRef.current) {
@@ -1094,6 +1102,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       if (typeof saved.thinking === 'string') setThinking(saved.thinking)
       if (typeof saved.agentMode === 'boolean') setAgentMode(saved.agentMode)
       if (typeof saved.autoAgentMode === 'boolean') setAutoAgentMode(saved.autoAgentMode)
+      if (saved.personaId !== undefined) setPersonaId(saved.personaId ?? null)
       if (typeof saved.sessionId === 'string' || saved.sessionId === null) setSessionId(saved.sessionId)
       if (typeof saved.isStreaming === 'boolean') setIsStreaming(saved.isStreaming)
     }
@@ -1131,7 +1140,27 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
         persistTimerRef.current = null
       }
     }
-  }, [workspaceId, tileId, messages, input, attachments, provider, model, mcpEnabled, mode, thinking, agentMode, autoAgentMode, sessionId, isStreaming, persistLatestState])
+  }, [workspaceId, tileId, messages, input, attachments, provider, model, mcpEnabled, mode, thinking, agentMode, autoAgentMode, personaId, sessionId, isStreaming, persistLatestState])
+
+  // Load agent persona modes from agents.json
+  useEffect(() => {
+    if (!_workspaceDir) return
+    const file = `${_workspaceDir}/.contex/customisation/agents.json`
+    window.electron.fs.stat(file).catch(() => null).then((s: unknown) => {
+      if (!s) { setPersonaModes(DEFAULT_AGENT_MODES); return null }
+      return window.electron.fs.readFile(file)
+    }).then((raw: unknown) => {
+      if (!raw || typeof raw !== 'string') return
+      const loaded: AgentMode[] = JSON.parse(raw)
+      const merged = [...DEFAULT_AGENT_MODES]
+      for (const item of loaded) {
+        const idx = merged.findIndex(m => m.id === item.id)
+        if (idx >= 0) merged[idx] = { ...merged[idx], ...item }
+        else merged.push(item)
+      }
+      setPersonaModes(merged)
+    }).catch(() => setPersonaModes(DEFAULT_AGENT_MODES))
+  }, [_workspaceDir])
 
   useEffect(() => {
     return () => {
@@ -1244,9 +1273,14 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       : [EXTENSION_PROVIDER_MODE]
   }, [currentProviderEntry])
 
+  const selectedPersona = useMemo<AgentMode | null>(
+    () => personaId ? personaModes.find(m => m.id === personaId) ?? null : null,
+    [personaId, personaModes]
+  )
+
   // Close dropdowns on outside click or Escape
-  const anyMenuOpen = showModelMenu || showProviderMenu || showMcpMenu || showModeMenu || showThinkingMenu
-  const menuRefs = [modelMenuRef, providerMenuRef, mcpMenuRef, modeMenuRef, thinkingMenuRef]
+  const anyMenuOpen = showModelMenu || showProviderMenu || showMcpMenu || showModeMenu || showThinkingMenu || showPersonaMenu
+  const menuRefs = [modelMenuRef, providerMenuRef, mcpMenuRef, modeMenuRef, thinkingMenuRef, personaMenuRef]
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -1262,6 +1296,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       setShowMcpMenu(false)
       setShowModeMenu(false)
       setShowThinkingMenu(false)
+      setShowPersonaMenu(false)
       if (acRef.current && !acRef.current.contains(target) && target !== textareaRef.current) {
         setAcType(null)
         setAcQuery('')
@@ -1276,6 +1311,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
         setShowMcpMenu(false)
         setShowModeMenu(false)
         setShowThinkingMenu(false)
+        setShowPersonaMenu(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -1325,12 +1361,13 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
     setShowProviderMenu(false)
   }, [providerEntryById])
 
-  const toggleMenu = useCallback((which: 'model' | 'provider' | 'mcp' | 'mode' | 'thinking') => {
+  const toggleMenu = useCallback((which: 'model' | 'provider' | 'mcp' | 'mode' | 'thinking' | 'persona') => {
     setShowModelMenu(prev => { const next = which === 'model' ? !prev : false; if (!next) setModelFilter(''); return next })
     setShowProviderMenu(prev => which === 'provider' ? !prev : false)
     setShowMcpMenu(prev => which === 'mcp' ? !prev : false)
     setShowModeMenu(prev => which === 'mode' ? !prev : false)
     setShowThinkingMenu(prev => which === 'thinking' ? !prev : false)
+    setShowPersonaMenu(prev => which === 'persona' ? !prev : false)
   }, [])
 
   // Voice dictation via Web Speech API (Chromium in Electron)
@@ -1704,6 +1741,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
         negotiatedTools: mcpEnabled ? peerToolNames : undefined,
         peers: peers.length > 0 ? peers : undefined,
         sessionId,
+        agentSystemPrompt: selectedPersona?.systemPrompt || undefined,
       })
     } catch (err) {
       setMessagesSafe(prev => prev.map(m =>
@@ -1712,7 +1750,7 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
       setIsStreaming(false)
       focusComposer()
     }
-  }, [input, attachments, isStreaming, messages, tileId, provider, model, currentProviderEntry, mode, thinking, mcpEnabled, peerToolNames, peerContextVersion, focusComposer])
+  }, [input, attachments, isStreaming, messages, tileId, provider, model, currentProviderEntry, mode, thinking, mcpEnabled, peerToolNames, peerContextVersion, selectedPersona, focusComposer])
 
   const stopStreaming = useCallback(() => {
     window.electron?.chat?.stop?.(tileId)
@@ -2396,20 +2434,49 @@ export function ChatTile({ tileId, workspaceId, workspaceDir: _workspaceDir, wid
             )}
           </div>
 
-          {/* Agent Mode */}
-          <ToolbarBtn
-            icon={<Bot size={TOOLBAR_ICON_SIZE} />}
-            tooltip={agentMode
-              ? ((typeof isAutoConnected === 'boolean' ? isAutoConnected : autoAgentMode)
-                ? 'Modo agente (ativado automaticamente por proximidade)'
-                : 'Modo agente (ativado)')
-              : 'Modo agente (desativado)'}
-            color={agentMode || isConnected ? theme.accent.base : undefined}
-            onClick={() => {
-              setAgentMode(p => !p)
-              setAutoAgentMode(false) // Manual toggle clears auto flag
-            }}
-          />
+          {/* Agent Mode + Persona */}
+          <div ref={personaMenuRef} style={{ position: 'relative' }}>
+            <ToolbarPill
+              prefix={<Bot size={TOOLBAR_PILL_ICON_SIZE} />}
+              label={selectedPersona?.name ?? 'Agente'}
+              color={selectedPersona?.color ?? (agentMode ? theme.accent.base : undefined)}
+              active={showPersonaMenu}
+              onClick={() => toggleMenu('persona')}
+            />
+            {showPersonaMenu && (
+              <MenuPortal anchorRef={personaMenuRef}>
+                <Dropdown>
+                  <DropdownItem
+                    icon={<Bot size={11} />}
+                    label="Desligado"
+                    sublabel="Sem persona — sem modo agente"
+                    active={personaId === null && !agentMode}
+                    onClick={() => {
+                      setPersonaId(null)
+                      setAgentMode(false)
+                      setAutoAgentMode(false)
+                      setShowPersonaMenu(false)
+                    }}
+                  />
+                  {personaModes.map(m => (
+                    <DropdownItem
+                      key={m.id}
+                      icon={<Bot size={11} />}
+                      label={m.name}
+                      sublabel={m.description}
+                      active={personaId === m.id}
+                      onClick={() => {
+                        setPersonaId(m.id)
+                        setAgentMode(true)
+                        setAutoAgentMode(false)
+                        setShowPersonaMenu(false)
+                      }}
+                    />
+                  ))}
+                </Dropdown>
+              </MenuPortal>
+            )}
+          </div>
 
           {/* MCP — server list with toggles */}
           <div ref={mcpMenuRef} style={{ position: 'relative' }}>

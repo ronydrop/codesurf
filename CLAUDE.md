@@ -99,3 +99,10 @@ New untracked file: `src/main/ipc/chat.ts`
 - MCP server port is random — always read from config file, never hardcode
 - Canvas undo state holds full snapshots — don't accidentally push to undo stack in hot paths
 - `cluso-widget` is an optional local file dependency (`file:../agentation-real`) — may not exist in all environments
+
+## Related projects
+
+**command-deck** (CommandDeck) — WPF/.NET 8 terminal manager + dashboard para Windows. Canvas draggável com cards de terminal, widgets interativos, servidor MCP local, multi-provider AI (Anthropic/OpenAI/OpenRouter/Ollama). Rony está portando elementos dele (canvas, widgets, padrões de integração MCP, multi-provider chat) para o codesurf — quando editar canvas/tiles/MCP/chat aqui, considere olhar lá antes de inventar do zero.
+
+- Source: `C:\Users\ronyo\Desktop\Rony\Projetos\Command Deck`
+- Vault page: `C:\Users\ronyo\brain\wiki\projects\command-deck.md`

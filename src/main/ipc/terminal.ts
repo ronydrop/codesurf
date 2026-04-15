@@ -48,10 +48,11 @@ const ALLOWED_SHELLS = new Set([
   '/usr/local/bin/bash', '/usr/local/bin/zsh', '/usr/local/bin/fish',
   '/opt/homebrew/bin/bash', '/opt/homebrew/bin/zsh', '/opt/homebrew/bin/fish',
   // Windows shells
-  'cmd.exe', 'powershell.exe', 'pwsh.exe',
+  'cmd.exe', 'powershell.exe', 'pwsh.exe', 'wsl.exe',
   'C:\\Windows\\System32\\cmd.exe',
   'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
   'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+  'C:\\Windows\\System32\\wsl.exe',
 ])
 
 // Also allow the user's default shell
@@ -301,7 +302,7 @@ export function registerTerminalIPC(): void {
 
     // If a binary is specified, spawn it directly (no shell wrapper)
     const defaultShell = process.platform === 'win32'
-      ? (process.env.COMSPEC || 'C:\\Windows\\System32\\cmd.exe')
+      ? 'C:\\Windows\\System32\\wsl.exe'
       : (process.env.SHELL || '/bin/zsh')
     const bin = launchBin || defaultShell
     const args = launchBin ? (launchArgs ?? []).map(expandHome) : []

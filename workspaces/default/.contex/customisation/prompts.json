@@ -1,232 +1,165 @@
 [
   {
-    "id": "commit-message",
-    "name": "Commit Message",
-    "description": "Analisa o git diff staged e gera um conventional commit em inglês",
-    "template": "Analise o diff abaixo e escreva uma mensagem de commit seguindo Conventional Commits.\n\nRegras:\n- Tipo: {{tipo}}\n- Idioma: inglês\n- Linha de assunto: máximo 72 caracteres, imperativo (\"add\", \"fix\", \"remove\")\n- Body opcional: explique o \"por quê\", não o \"o quê\"\n- Sem emoji\n- Formato:\n  <tipo>(<escopo>): <descrição>\n  \n  [body opcional]\n\nDiff:\n```\n{{diff}}\n```\n\nRetorne apenas a mensagem de commit, sem explicações.",
+    "id": "go-http-handler",
+    "name": "Go HTTP Handler",
+    "description": "Handler HTTP stdlib com middleware, JSON response e error handling",
+    "template": "Crie um handler HTTP em Go usando stdlib net/http.\n\nMethod: {{method}}\nPath: {{path}}\nEntidade: {{entity}}\n\nRequisitos:\n- Use http.HandlerFunc\n- JSON request/response com encoding/json\n- Error handling com HTTP status codes apropriados\n- Validacao de input na entrada\n- Context propagation\n- Nao use frameworks (gin, echo, fiber)\n- pgx/v5 para queries se necessario\n- Valores monetarios em int64 (centavos)",
     "fields": [
-      {
-        "name": "tipo",
-        "type": "select",
-        "options": ["feat", "fix", "refactor", "chore", "docs", "test", "perf", "style", "ci"],
-        "default": "feat",
-        "required": true
-      },
-      {
-        "name": "diff",
-        "type": "str",
-        "required": true
-      }
+      { "name": "method", "type": "select", "options": ["GET", "POST", "PUT", "PATCH", "DELETE"], "required": true },
+      { "name": "path", "type": "str", "required": true },
+      { "name": "entity", "type": "str", "required": true }
+    ],
+    "tags": ["go", "backend", "api"]
+  },
+  {
+    "id": "go-table-test",
+    "name": "Go Table Test",
+    "description": "Table-driven test com subtests e edge cases",
+    "template": "Crie um table-driven test em Go para a funcao/handler:\n\nFuncao: {{function}}\nPackage: {{package}}\n\nRequisitos:\n- Use t.Run para subtests\n- Inclua casos: happy path, input invalido, edge cases, error paths\n- Use t.Helper() em funcoes auxiliares\n- Setup/teardown quando necessario\n- t.Parallel() quando seguro\n- Nao use testify ou outros frameworks de assert",
+    "fields": [
+      { "name": "function", "type": "str", "required": true },
+      { "name": "package", "type": "str", "required": true }
+    ],
+    "tags": ["go", "test"]
+  },
+  {
+    "id": "go-migration-sql",
+    "name": "Migracao SQL",
+    "description": "SQL migration inline idempotente com rollback",
+    "template": "Crie uma migration SQL para PostgreSQL.\n\nTabela: {{table}}\nOperacao: {{operation}}\nDetalhes: {{details}}\n\nRequisitos:\n- SQL puro, sem ORM\n- Idempotente (IF NOT EXISTS / IF EXISTS quando aplicavel)\n- Inclua UP e DOWN (rollback)\n- Use transacao (BEGIN/COMMIT)\n- Para colunas monetarias: use BIGINT (centavos), nunca DECIMAL/NUMERIC\n- Inclua indices para colunas de busca frequente\n- Formato compativel com pgx/v5 inline migration",
+    "fields": [
+      { "name": "table", "type": "str", "required": true },
+      { "name": "operation", "type": "select", "options": ["create-table", "add-column", "alter-column", "add-index", "drop-column", "rename"], "required": true },
+      { "name": "details", "type": "str", "required": false }
+    ],
+    "tags": ["sql", "postgresql", "migration"]
+  },
+  {
+    "id": "stripe-webhook",
+    "name": "Stripe Webhook Handler",
+    "description": "Webhook handler com HMAC verification e idempotency",
+    "template": "Crie um webhook handler para Stripe.\n\nEvento: {{event_type}}\nLinguagem: {{language}}\n\nRequisitos OBRIGATORIOS:\n1. Verificar assinatura HMAC do Stripe (webhook secret) ANTES de processar\n2. Idempotency: verificar se o evento ja foi processado (por event ID)\n3. Valores em centavos (int) — NUNCA converter para float\n4. Responder 200 rapidamente, processar async se pesado\n5. Log de audit: event_id, type, amount, timestamp\n6. Error handling: nunca crash, sempre retorne HTTP status\n7. Para Go: use stripe-go SDK\n8. Para PHP: use stripe-php SDK\n9. Para Node: use stripe SDK",
+    "fields": [
+      { "name": "event_type", "type": "select", "options": ["checkout.session.completed", "invoice.payment_succeeded", "invoice.payment_failed", "customer.subscription.updated", "customer.subscription.deleted", "charge.dispute.created", "charge.refunded"], "required": true },
+      { "name": "language", "type": "select", "options": ["go", "php", "node"], "required": true }
+    ],
+    "tags": ["stripe", "webhook", "payments", "finance"]
+  },
+  {
+    "id": "payment-flow",
+    "name": "Fluxo de Pagamento",
+    "description": "Fluxo completo: checkout -> webhook -> ativacao",
+    "template": "Desenhe o fluxo de pagamento completo.\n\nProvider: {{provider}}\nPlano: {{plan}}\n\nInclua:\n1. Criacao da sessao de checkout\n2. Redirect do usuario\n3. Webhook de confirmacao (com HMAC + idempotency)\n4. Ativacao do servico/plano\n5. Tratamento de falha (retry, notificacao)\n6. Cancelamento e downgrade\n7. Dispute/chargeback handling\n\nRegras:\n- Valores em centavos (BRL = centavos)\n- Idempotency em toda operacao\n- Audit log completo\n- Fail-safe: na duvida, NAO cobre duas vezes",
+    "fields": [
+      { "name": "provider", "type": "select", "options": ["stripe", "pix", "boleto"], "required": true },
+      { "name": "plan", "type": "str", "required": true }
+    ],
+    "tags": ["payments", "finance", "architecture"]
+  },
+  {
+    "id": "nextjs-server-action",
+    "name": "Next.js Server Action",
+    "description": "Server action com Zod validation e revalidation",
+    "template": "Crie um Next.js Server Action.\n\nAction: {{action}}\nEntidade: {{entity}}\n\nRequisitos:\n- 'use server' no topo\n- Validacao com Zod schema\n- revalidatePath ou revalidateTag apos mutacao\n- Return type tipado (success/error)\n- Sem useEffect para data fetching\n- TypeScript strict\n- Error handling com try/catch, retorne objeto de erro (nao throw)",
+    "fields": [
+      { "name": "action", "type": "str", "required": true },
+      { "name": "entity", "type": "str", "required": true }
+    ],
+    "tags": ["nextjs", "frontend", "react"]
+  },
+  {
+    "id": "nextjs-page",
+    "name": "Next.js App Router Page",
+    "description": "Page com metadata, loading, error e server component",
+    "template": "Crie uma page Next.js App Router.\n\nRota: {{route}}\nFonte de dados: {{data_source}}\n\nRequisitos:\n- Server component por padrao\n- generateMetadata para SEO\n- loading.tsx com skeleton\n- error.tsx com error boundary\n- TypeScript strict\n- Tailwind CSS para styling\n- Sem 'use client' a menos que necessario\n- Data fetching direto no componente (sem useEffect)",
+    "fields": [
+      { "name": "route", "type": "str", "required": true },
+      { "name": "data_source", "type": "str", "required": true }
+    ],
+    "tags": ["nextjs", "frontend", "react"]
+  },
+  {
+    "id": "nginx-reverse-proxy",
+    "name": "Nginx Reverse Proxy",
+    "description": "Server block com proxy_pass, rate limiting e TLS",
+    "template": "Crie um server block Nginx para reverse proxy.\n\nDominio: {{domain}}\nPorta upstream: {{upstream_port}}\nSSL: {{ssl}}\n\nInclua:\n- proxy_pass para 127.0.0.1:{{upstream_port}}\n- proxy_set_header (Host, X-Real-IP, X-Forwarded-For, X-Forwarded-Proto)\n- Rate limiting (limit_req_zone)\n- Gzip on\n- Security headers (X-Frame-Options, X-Content-Type-Options, HSTS)\n- Se SSL: TLS 1.2+, certificado Let's Encrypt, redirect HTTP->HTTPS\n- Access log e error log separados",
+    "fields": [
+      { "name": "domain", "type": "str", "required": true },
+      { "name": "upstream_port", "type": "str", "required": true },
+      { "name": "ssl", "type": "select", "options": ["yes", "no"], "required": true }
+    ],
+    "tags": ["nginx", "infra", "devops"]
+  },
+  {
+    "id": "systemd-service",
+    "name": "Systemd Unit",
+    "description": "Unit file com restart policy, journal e env",
+    "template": "Crie um systemd unit file.\n\nServico: {{service_name}}\nExecutavel: {{exec_path}}\nUsuario: {{user}}\n\nInclua:\n- [Unit] com Description e After=network.target\n- [Service] com Type=simple, ExecStart, User, WorkingDirectory\n- Restart=on-failure, RestartSec=5\n- EnvironmentFile (se aplicavel)\n- StandardOutput=journal, StandardError=journal\n- [Install] WantedBy=multi-user.target\n- Comentarios com comandos de instalacao (systemctl enable/start)",
+    "fields": [
+      { "name": "service_name", "type": "str", "required": true },
+      { "name": "exec_path", "type": "str", "required": true },
+      { "name": "user", "type": "str", "default": "www-data", "required": true }
+    ],
+    "tags": ["systemd", "infra", "devops"]
+  },
+  {
+    "id": "pm2-ecosystem",
+    "name": "PM2 Ecosystem",
+    "description": "ecosystem.config.js com cluster, logs e env",
+    "template": "Crie um PM2 ecosystem.config.js.\n\nApp: {{app_name}}\nScript: {{script}}\nInstancias: {{instances}}\n\nInclua:\n- name, script, instances\n- exec_mode: 'cluster' se instances > 1\n- max_memory_restart\n- log_date_format, error_file, out_file\n- env e env_production\n- watch: false em producao\n- autorestart: true",
+    "fields": [
+      { "name": "app_name", "type": "str", "required": true },
+      { "name": "script", "type": "str", "required": true },
+      { "name": "instances", "type": "select", "options": ["1", "2", "4", "max"], "required": true }
+    ],
+    "tags": ["pm2", "infra", "nodejs"]
+  },
+  {
+    "id": "incident-report",
+    "name": "Relatorio de Incidente",
+    "description": "Timeline, root cause, mitigation e follow-up",
+    "template": "Crie um relatorio de incidente.\n\nServico: {{service}}\nSeveridade: {{severity}}\nResumo: {{summary}}\n\nEstrutura:\n## Incidente: {{summary}}\n- Severidade: {{severity}}\n- Servico: {{service}}\n- Inicio: [timestamp]\n- Resolucao: [timestamp]\n- Duracao: [tempo]\n\n## Timeline\n- [HH:MM] Evento detectado\n- [HH:MM] Investigacao iniciada\n- [HH:MM] Root cause identificado\n- [HH:MM] Mitigacao aplicada\n- [HH:MM] Servico restaurado\n\n## Root Cause\n[Descricao tecnica]\n\n## Mitigacao\n[O que foi feito para resolver]\n\n## Follow-up Actions\n- [ ] [Acao preventiva 1]\n- [ ] [Acao preventiva 2]",
+    "fields": [
+      { "name": "service", "type": "str", "required": true },
+      { "name": "severity", "type": "select", "options": ["P1", "P2", "P3"], "required": true },
+      { "name": "summary", "type": "str", "required": true }
+    ],
+    "tags": ["ops", "incident"]
+  },
+  {
+    "id": "pr-description",
+    "name": "Descricao de PR",
+    "description": "Summary, changes, test plan e breaking changes",
+    "template": "Crie uma descricao de Pull Request.\n\nTipo: {{type}}\nEscopo: {{scope}}\nDescricao: {{description}}\n\n## Summary\n{{type}}({{scope}}): {{description}}\n\n## Changes\n- [Lista de mudancas]\n\n## Test Plan\n- [ ] [Teste 1]\n- [ ] [Teste 2]\n\n## Breaking Changes\n[Nenhum / Lista]\n\n## Screenshots\n[Se aplicavel]",
+    "fields": [
+      { "name": "type", "type": "select", "options": ["feat", "fix", "refactor", "perf", "chore", "docs"], "required": true },
+      { "name": "scope", "type": "str", "required": true },
+      { "name": "description", "type": "str", "required": true }
+    ],
+    "tags": ["git", "pr", "workflow"]
+  },
+  {
+    "id": "commit-conventional",
+    "name": "Commit Convencional",
+    "description": "Conventional commit message em ingles",
+    "template": "Gere uma commit message seguindo Conventional Commits.\n\nType: {{type}}\nScope: {{scope}}\nDescription: {{description}}\n\nFormato: {{type}}({{scope}}): {{description}}\n\nRegras:\n- Em ingles\n- Primeira linha: max 72 caracteres\n- Imperativo (add, fix, update — nao added, fixed, updated)\n- Sem ponto final\n- Body opcional: explique WHY, nao WHAT",
+    "fields": [
+      { "name": "type", "type": "select", "options": ["feat", "fix", "refactor", "perf", "chore", "docs", "test", "ci"], "required": true },
+      { "name": "scope", "type": "str", "required": false },
+      { "name": "description", "type": "str", "required": true }
     ],
     "tags": ["git", "commit", "workflow"]
   },
   {
-    "id": "pr-description",
-    "name": "PR Description",
-    "description": "Gera título e corpo de Pull Request a partir do diff da branch",
-    "template": "Você é um engenheiro escrevendo a descrição de um Pull Request.\n\nBranch base: {{base}}\nTipo de mudança: {{tipo}}\n\nDiff / commits incluídos:\n```\n{{diff}}\n```\n\nGere:\n1. **Título** (máximo 70 caracteres, inglês)\n2. **Summary** (3-5 bullet points do que foi feito)\n3. **Motivation** (por que essa mudança era necessária)\n4. **Test plan** (checklist markdown do que testar)\n\nSeja objetivo. Sem floreios.",
+    "id": "vault-ingest",
+    "name": "Vault Ingest",
+    "description": "Template para ingerir conteudo no brain vault",
+    "template": "Ingira o seguinte conteudo no vault ~/brain/ seguindo o protocolo.\n\nFonte: {{source}}\nTopico: {{topic}}\nTags: {{tags}}\n\nPassos:\n1. Leia o conteudo fonte\n2. Crie/atualize a pagina em wiki/ com frontmatter:\n   ---\n   title: [titulo]\n   tags: [{{tags}}]\n   created: [ISO date]\n   updated: [ISO date]\n   source: {{source}}\n   ---\n3. Conteudo denso, escaneavel em 30 segundos\n4. Atualize wiki/INDEX.md com a nova pagina\n5. Atualize o MOC relevante (moc-development.md, moc-infrastructure.md, etc.)\n6. Adicione entrada em wiki/log.md\n7. Execute lint.sh para validar",
     "fields": [
-      {
-        "name": "base",
-        "type": "select",
-        "options": ["main", "develop", "staging"],
-        "default": "main",
-        "required": true
-      },
-      {
-        "name": "tipo",
-        "type": "select",
-        "options": ["feature", "bugfix", "refactor", "hotfix", "chore"],
-        "default": "feature",
-        "required": true
-      },
-      {
-        "name": "diff",
-        "type": "str",
-        "required": true
-      }
+      { "name": "source", "type": "str", "required": true },
+      { "name": "topic", "type": "str", "required": true },
+      { "name": "tags", "type": "str", "required": true }
     ],
-    "tags": ["git", "pr", "github", "workflow"]
-  },
-  {
-    "id": "review-diff",
-    "name": "Review de Código",
-    "description": "Revisa um diff ou arquivo com foco configurável (segurança, lógica, performance)",
-    "template": "Faça uma revisão de código do diff/arquivo abaixo.\n\nFoco principal: **{{foco}}**\nNível de severidade mínimo para reportar: {{severidade}}\n\nPara cada problema encontrado, informe:\n- **Arquivo e linha** (se disponível)\n- **Severidade**: crítico / alto / médio / baixo\n- **Problema**: descrição clara em PT-BR\n- **Sugestão**: como corrigir\n\nSe não encontrar problemas no nível solicitado, diga explicitamente.\n\nCódigo:\n```\n{{codigo}}\n```",
-    "fields": [
-      {
-        "name": "foco",
-        "type": "select",
-        "options": ["segurança", "lógica e bugs", "performance", "qualidade geral", "estilo e convenções"],
-        "default": "qualidade geral",
-        "required": true
-      },
-      {
-        "name": "severidade",
-        "type": "select",
-        "options": ["crítico", "alto", "médio", "baixo"],
-        "default": "médio",
-        "required": true
-      },
-      {
-        "name": "codigo",
-        "type": "str",
-        "required": true
-      }
-    ],
-    "tags": ["review", "qualidade", "segurança"]
-  },
-  {
-    "id": "bug-triage",
-    "name": "Bug Triage",
-    "description": "Analisa stack trace e contexto, propõe causa raiz e fix",
-    "template": "Analise o erro abaixo e me ajude a diagnosticar.\n\n**Stack trace / mensagem de erro:**\n```\n{{stack}}\n```\n\n**Contexto adicional:** {{contexto}}\n\nResponda em PT-BR com:\n1. **Causa raiz provável** — o que está causando o erro\n2. **Hipóteses alternativas** (se houver)\n3. **Passos para confirmar** — como validar a hipótese\n4. **Fix sugerido** — código ou ação concreta\n5. **Como evitar no futuro** (se aplicável)",
-    "fields": [
-      {
-        "name": "stack",
-        "type": "str",
-        "required": true
-      },
-      {
-        "name": "contexto",
-        "type": "str",
-        "required": false
-      }
-    ],
-    "tags": ["debug", "bug", "triage"]
-  },
-  {
-    "id": "go-handler",
-    "name": "Go HTTP Handler",
-    "description": "Gera handler HTTP Go + teste (estilo aprovei-shadow)",
-    "template": "Gere um handler HTTP em Go para o recurso abaixo.\n\nRecurso: **{{recurso}}**\nMétodo HTTP: **{{metodo}}**\nAutenticação necessária: **{{auth}}**\n\nPadrões a seguir:\n- Struct de request/response separadas\n- Validação de input com retorno de erro 400 claro\n- Erros internos retornam 500 sem expor detalhes\n- Teste unitário com table-driven tests\n- Comentários apenas onde a lógica não é óbvia\n\nGere:\n1. Handler function\n2. Request/Response structs\n3. Arquivo de teste `_test.go`",
-    "fields": [
-      {
-        "name": "recurso",
-        "type": "str",
-        "required": true
-      },
-      {
-        "name": "metodo",
-        "type": "select",
-        "options": ["GET", "POST", "PUT", "PATCH", "DELETE"],
-        "default": "POST",
-        "required": true
-      },
-      {
-        "name": "auth",
-        "type": "select",
-        "options": ["sim", "não"],
-        "default": "sim",
-        "required": true
-      }
-    ],
-    "tags": ["go", "backend", "handler", "aprovei"]
-  },
-  {
-    "id": "nextjs-action",
-    "name": "Next.js Server Action",
-    "description": "Gera Server Action tipado com validação Zod",
-    "template": "Crie um Next.js Server Action para a seguinte funcionalidade:\n\nNome da action: **{{nome}}**\nDescrição do input: **{{schema_input}}**\n\nGere:\n1. Schema Zod para validação\n2. Server Action com tipagem completa\n3. Tipos de retorno (success/error)\n4. Hook `use client` correspondente para chamar a action\n\nUse `next-safe-action` se compatível, caso contrário use `'use server'` direto.\nNão use `any`. Prefira `unknown` quando necessário.",
-    "fields": [
-      {
-        "name": "nome",
-        "type": "str",
-        "required": true
-      },
-      {
-        "name": "schema_input",
-        "type": "str",
-        "required": true
-      }
-    ],
-    "tags": ["nextjs", "typescript", "frontend", "aprovei"]
-  },
-  {
-    "id": "test-writer",
-    "name": "Gerador de Testes",
-    "description": "Gera testes unitários para o código fornecido",
-    "template": "Escreva testes para o código abaixo.\n\nFramework: **{{framework}}**\n\nDiretrizes:\n- Cubra: caminho feliz, edge cases, erros esperados\n- Use table-driven tests onde fizer sentido\n- Mocks apenas quando necessário (prefira implementações reais em memória)\n- Nomes descritivos que explicam o comportamento esperado\n- Sem comentários óbvios\n\nCódigo a testar:\n```\n{{codigo}}\n```",
-    "fields": [
-      {
-        "name": "framework",
-        "type": "select",
-        "options": ["go test", "vitest", "jest", "pytest", "phpunit"],
-        "default": "go test",
-        "required": true
-      },
-      {
-        "name": "codigo",
-        "type": "str",
-        "required": true
-      }
-    ],
-    "tags": ["test", "qualidade"]
-  },
-  {
-    "id": "sql-optimize",
-    "name": "Otimização SQL",
-    "description": "Analisa query lenta e sugere índices e reescritas",
-    "template": "Analise a query SQL abaixo e otimize-a.\n\n**Query:**\n```sql\n{{query}}\n```\n\n**DDL da(s) tabela(s) envolvida(s):**\n```sql\n{{ddl}}\n```\n\nResponda com:\n1. **Problema identificado** — por que está lenta\n2. **Índices sugeridos** — com o comando `CREATE INDEX` pronto\n3. **Query reescrita** (se aplicável)\n4. **EXPLAIN esperado** — como o plano deve mudar\n5. **Trade-offs** — impacto em writes, tamanho do índice",
-    "fields": [
-      {
-        "name": "query",
-        "type": "str",
-        "required": true
-      },
-      {
-        "name": "ddl",
-        "type": "str",
-        "required": false
-      }
-    ],
-    "tags": ["sql", "postgres", "performance", "db"]
-  },
-  {
-    "id": "refactor-safe",
-    "name": "Refactor Seguro",
-    "description": "Refatora código sem mudar comportamento externo",
-    "template": "Refatore o código abaixo com objetivo de **{{objetivo}}**.\n\nRegras obrigatórias:\n- Comportamento externo idêntico (mesma assinatura, mesmos outputs)\n- Sem adicionar features ou edge cases novos\n- Sem adicionar comentários onde o código é auto-explicativo\n- Sem abstrações especulativas (\"pode ser útil no futuro\")\n\nApós o código refatorado, liste em bullets as mudanças feitas e por quê.\n\nCódigo:\n```\n{{codigo}}\n```",
-    "fields": [
-      {
-        "name": "objetivo",
-        "type": "select",
-        "options": ["clareza e legibilidade", "reduzir duplicação", "melhorar performance", "simplificar lógica"],
-        "default": "clareza e legibilidade",
-        "required": true
-      },
-      {
-        "name": "codigo",
-        "type": "str",
-        "required": true
-      }
-    ],
-    "tags": ["refactor", "qualidade"]
-  },
-  {
-    "id": "explain-file",
-    "name": "Explicar Código",
-    "description": "Explica o que um arquivo ou função faz, para documentação ou onboarding",
-    "template": "Explique o código abaixo para **{{nivel}}**.\n\nArquivo/contexto: {{arquivo}}\n\nCubra:\n1. **O que faz** — propósito principal em 1-2 frases\n2. **Como funciona** — fluxo de execução passo a passo\n3. **Dependências importantes** — o que precisa existir/funcionar para ele rodar\n4. **Pontos de atenção** — partes complexas, edge cases, limitações conhecidas\n\nUse PT-BR. Seja direto, sem floreios.\n\nCódigo:\n```\n{{codigo}}\n```",
-    "fields": [
-      {
-        "name": "nivel",
-        "type": "select",
-        "options": ["desenvolvedor júnior do time", "desenvolvedor sênior novo no projeto", "documentação técnica"],
-        "default": "desenvolvedor sênior novo no projeto",
-        "required": true
-      },
-      {
-        "name": "arquivo",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "codigo",
-        "type": "str",
-        "required": true
-      }
-    ],
-    "tags": ["docs", "onboarding", "explicação"]
+    "tags": ["vault", "knowledge"]
   }
 ]

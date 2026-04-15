@@ -67,10 +67,16 @@ interface ChatRequest {
   peers?: PeerContext[]
   sessionId?: string | null
   providerTransport?: ExtensionChatTransportConfig | null
+  agentSystemPrompt?: string
 }
 
 function log(...args: unknown[]): void {
   console.log('[Chat]', ...args)
+}
+
+function applyAgentPrompt(content: string, agentPrompt?: string): string {
+  if (!agentPrompt) return content
+  return `[System Instructions]\n${agentPrompt}\n\n[User Message]\n${content}`
 }
 
 function sendStream(cardId: string, event: Record<string, unknown>): void {
@@ -130,6 +136,7 @@ function chatLocalProxy(req: ChatRequest): void {
       model: req.model,
       stream: true,
       max_tokens: 4096,
+      ...(req.agentSystemPrompt && { system: req.agentSystemPrompt }),
       messages: req.messages.map(message => ({
         role: message.role,
         content: message.content,
@@ -568,6 +575,13 @@ function chatClaude(req: ChatRequest): void {
     log('systemPrompt built for', req.peers.length, 'peers, contex tools:', contexToolNames.length)
   }
 
+  // Merge agent persona system prompt
+  if (req.agentSystemPrompt) {
+    systemPrompt = systemPrompt
+      ? req.agentSystemPrompt + '\n\n' + systemPrompt
+      : req.agentSystemPrompt
+  }
+
   // Resolve claude binary from startup detection
   const claudePath = getAgentPath('claude')
 
@@ -719,7 +733,7 @@ function chatCodex(req: ChatRequest): void {
   const codexMode = req.mode ?? 'auto'
   const codexBin = getAgentPath('codex') || 'codex'
   const shellPath = getShellEnvPath()
-  const proc = spawn(codexBin, ['exec', '--model', req.model, '--approval-mode', codexMode, lastUserMsg.content], {
+  const proc = spawn(codexBin, ['exec', '--model', req.model, '--approval-mode', codexMode, applyAgentPrompt(lastUserMsg.content, req.agentSystemPrompt)], {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...(shellPath && { PATH: shellPath }) },
   })
@@ -855,7 +869,7 @@ function chatOpencode(req: ChatRequest): void {
       const promptPromise = client.session.prompt({
         sessionID,
         model: { providerID, modelID },
-        parts: [{ type: 'text', text: lastUserMsg.content }],
+        parts: [{ type: 'text', text: applyAgentPrompt(lastUserMsg.content, req.agentSystemPrompt) }],
       }).catch((err: any) => {
         if (!isDone) {
           log('opencode prompt error:', err.message)
@@ -1208,7 +1222,7 @@ function chatOpenclaw(req: ChatRequest): void {
     args.push('--thinking', thinking)
   }
 
-  args.push('--message', lastUserMsg.content)
+  args.push('--message', applyAgentPrompt(lastUserMsg.content, req.agentSystemPrompt))
 
   const proc = spawn(openclawBin, args, {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -1321,7 +1335,7 @@ function chatHermes(req: ChatRequest): void {
 
   // Hermes requires the `chat` subcommand for non-interactive prompts.
   // `--quiet` suppresses banners/spinners but still prints the final response.
-  const args = ['chat', '--query', lastUserMsg.content, '--quiet', '--source', 'tool']
+  const args = ['chat', '--query', applyAgentPrompt(lastUserMsg.content, req.agentSystemPrompt), '--quiet', '--source', 'tool']
 
   if (req.model) {
     args.push('--model', req.model)

@@ -174,6 +174,7 @@ contextBridge.exposeInMainWorld('electron', {
       negotiatedTools?: string[]
       peers?: { peerId: string; peerType: string; tools: string[] }[]
       providerTransport?: import('../../shared/types').ExtensionChatTransportConfig | null
+      agentSystemPrompt?: string
     }) =>
       ipcRenderer.invoke('chat:send', req),
     stop: (cardId: string) => ipcRenderer.invoke('chat:stop', cardId),
@@ -203,6 +204,7 @@ contextBridge.exposeInMainWorld('electron', {
   // Git
   git: {
     status: (dirPath: string) => ipcRenderer.invoke('git:status', dirPath),
+    remote: (dirPath: string) => ipcRenderer.invoke('git:remote', dirPath),
   },
 
   // Window management

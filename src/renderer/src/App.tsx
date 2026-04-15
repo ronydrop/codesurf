@@ -10,11 +10,11 @@ import { getTileNodeTools, withCapabilityPrefix, stripCapabilityPrefix, getAllNo
 import { FontProvider, FontTokenProvider, SANS_DEFAULT, MONO_DEFAULT } from './FontContext'
 import { ThemeProvider } from './ThemeContext'
 import { DEFAULT_THEME_ID, getThemeById, resolveEffectiveThemeId, registerCustomTheme, unregisterCustomTheme } from './theme'
-import type { PanelNode } from './components/PanelLayout'
-import { createLeaf, removeTileFromTree, addTabToLeaf, getAllTileIds, splitLeaf, closeOthersInLeaf, closeToRightInLeaf, findLeafById } from './components/PanelLayout'
+import type { PanelNode } from './components/panelLayoutUtils'
+import { createLeaf, removeTileFromTree, addTabToLeaf, getAllTileIds, splitLeaf, closeOthersInLeaf, closeToRightInLeaf, findLeafById } from './components/panelLayoutUtils'
 import { getDroppedPaths, toFileUrl, isMediaFile } from './utils/dnd'
 import { disposeChatTileRuntimeState } from './components/chatTileRuntimeState'
-import { disposeMediaTile } from './components/MediaTile'
+import { disposeMediaTile } from './components/mediaTileUtils'
 import { MainStatusBar } from './components/MainStatusBar'
 
 const LazyPanelLayout = React.lazy(() => import('./components/PanelLayout').then(m => ({ default: m.PanelLayout })))
@@ -1533,10 +1533,11 @@ function App(): JSX.Element {
       return b && world.x >= b.x && world.x <= b.x + b.w && world.y >= b.y && world.y <= b.y + b.h
     })
     const items: MenuItem[] = [
-      { label: 'New Terminal', action: () => addTile('terminal', undefined, world) },
-      { label: 'New Note',     action: () => addTile('note',     undefined, world) },
-      { label: 'New Browser',  action: () => addTile('browser',  undefined, world) },
-      { label: 'New Board',    action: () => addTile('kanban',   undefined, world) },
+      { label: 'Novo Terminal', action: () => addTile('terminal', undefined, world) },
+      { label: 'Nova Nota',     action: () => addTile('note',     undefined, world) },
+      { label: 'Novo Browser',  action: () => addTile('browser',  undefined, world) },
+      { label: 'Novo Quadro',   action: () => addTile('kanban',   undefined, world) },
+      { label: 'Novo Chat',     action: () => addTile('chat',     undefined, world) },
     ]
     // Extension tile types
     if (extensionTiles.length > 0) {
@@ -1550,14 +1551,14 @@ function App(): JSX.Element {
     }
     if (clipboard.current.length > 0) {
       items.push({ label: '', action: () => {}, divider: true })
-      items.push({ label: 'Paste', action: () => pasteTilesRef.current(world) })
+      items.push({ label: 'Colar', action: () => pasteTilesRef.current(world) })
       if (hitGroup) {
-        items.push({ label: 'Paste into group', action: () => pasteTilesRef.current(world, hitGroup.id) })
+        items.push({ label: 'Colar no grupo', action: () => pasteTilesRef.current(world, hitGroup.id) })
       }
     }
     if (selectedTileIds.size >= 2) {
       items.push({ label: '', action: () => {}, divider: true })
-      items.push({ label: `Group ${selectedTileIds.size} blocks`, action: () => groupSelectedTilesRef.current() })
+      items.push({ label: `Agrupar ${selectedTileIds.size} blocos`, action: () => groupSelectedTilesRef.current() })
     }
     setCtxMenu({ x: e.clientX, y: e.clientY, items })
   }, [screenToWorld, addTile, selectedTileIds, groups, panelLayout, extensionTiles])
@@ -1567,30 +1568,30 @@ function App(): JSX.Element {
     e.preventDefault()
     e.stopPropagation()
     const items: MenuItem[] = [
-      { label: 'Duplicate', action: () => duplicateTilesRef.current([tile.id]) },
-      { label: 'Copy',      action: () => { setSelectedTileId(tile.id); setSelectedTileIds(new Set()); copyTilesRef.current(false) } },
-      { label: 'Cut',       action: () => { setSelectedTileId(tile.id); setSelectedTileIds(new Set()); copyTilesRef.current(true) } },
+      { label: 'Duplicar', action: () => duplicateTilesRef.current([tile.id]) },
+      { label: 'Copiar',   action: () => { setSelectedTileId(tile.id); setSelectedTileIds(new Set()); copyTilesRef.current(false) } },
+      { label: 'Recortar', action: () => { setSelectedTileId(tile.id); setSelectedTileIds(new Set()); copyTilesRef.current(true) } },
     ]
     // Paste options
     if (clipboard.current.length > 0) {
       items.push({ label: '', action: () => {}, divider: true })
-      items.push({ label: 'Paste', action: () => pasteTilesRef.current() })
+      items.push({ label: 'Colar', action: () => pasteTilesRef.current() })
       if (tile.groupId) {
-        items.push({ label: 'Paste into this group', action: () => pasteTilesRef.current(undefined, tile.groupId) })
+        items.push({ label: 'Colar neste grupo', action: () => pasteTilesRef.current(undefined, tile.groupId) })
       }
     }
     items.push({ label: '', action: () => {}, divider: true })
     // Group membership
     if (tile.groupId) {
-      items.push({ label: 'Remove from group', action: () => {
+      items.push({ label: 'Remover do grupo', action: () => {
         setTiles(prev => {
           const updated = prev.map(t => t.id === tile.id ? { ...t, groupId: undefined } : t)
           saveCanvas(updated, viewport, nextZIndex)
           return updated
         })
       }})
-      items.push({ label: 'Ungroup',     action: () => ungroupTilesRef.current(tile.groupId!) })
-      items.push({ label: 'Ungroup All', action: () => ungroupAllRef.current(tile.groupId!) })
+      items.push({ label: 'Desagrupar',      action: () => ungroupTilesRef.current(tile.groupId!) })
+      items.push({ label: 'Desagrupar tudo', action: () => ungroupAllRef.current(tile.groupId!) })
       items.push({ label: '', action: () => {}, divider: true })
     }
     // Add to group options — show available groups this tile isn't already in
@@ -1598,7 +1599,7 @@ function App(): JSX.Element {
     if (availableGroups.length > 0) {
       availableGroups.forEach(g => {
         items.push({
-          label: `Add to ${g.label ?? g.id.slice(-6)}`,
+          label: `Adicionar a ${g.label ?? g.id.slice(-6)}`,
           action: () => {
             setTiles(prev => {
               const updated = prev.map(t => t.id === tile.id ? { ...t, groupId: g.id } : t)
@@ -1612,7 +1613,7 @@ function App(): JSX.Element {
     }
     if (tile.type === 'file' && tile.filePath && workspace?.path && !tile.filePath.startsWith(workspace.path)) {
       items.push({
-        label: 'Add to workspace',
+        label: 'Adicionar ao workspace',
         action: () => { void importFileToWorkspace(tile.filePath!, tile.id) }
       })
       items.push({ label: '', action: () => {}, divider: true })
@@ -1622,7 +1623,7 @@ function App(): JSX.Element {
     // two states coherent.
     const currentlyChromeless = !!tile.hideTitlebar || !!tile.hideNavbar
     items.push({
-      label: currentlyChromeless ? 'Show Controls' : 'Hide Controls',
+      label: currentlyChromeless ? 'Mostrar controles' : 'Ocultar controles',
       action: () => {
         setTiles(prev => {
           const updated = prev.map(t => t.id === tile.id
@@ -1634,7 +1635,7 @@ function App(): JSX.Element {
       }
     })
     items.push({ label: '', action: () => {}, divider: true })
-    items.push({ label: 'Close', action: () => closeTile(tile.id), danger: true })
+    items.push({ label: 'Fechar', action: () => closeTile(tile.id), danger: true })
     setCtxMenu({ x: e.clientX, y: e.clientY, items })
   }, [closeTile, groups, viewport, nextZIndex, saveCanvas])
 
@@ -4177,16 +4178,16 @@ function App(): JSX.Element {
                       <span style={{ width: 1, height: 10, background: color, opacity: 0.3 }} />
 
                       {([
-                        { icon: <LayoutGrid size={12} />, label: 'Make layout', action: () => convertGroupToLayout(g.id) },
-                        { icon: <Ungroup size={12} />, label: 'Ungroup', action: () => ungroupTilesRef.current(g.id) },
-                        { icon: <Grid2x2X size={12} />, label: 'Ungroup all', action: () => ungroupAllRef.current(g.id) },
-                        { icon: <Scissors size={12} />, label: 'Cut', action: () => {
+                        { icon: <LayoutGrid size={12} />, label: 'Criar layout', action: () => convertGroupToLayout(g.id) },
+                        { icon: <Ungroup size={12} />, label: 'Desagrupar', action: () => ungroupTilesRef.current(g.id) },
+                        { icon: <Grid2x2X size={12} />, label: 'Desagrupar tudo', action: () => ungroupAllRef.current(g.id) },
+                        { icon: <Scissors size={12} />, label: 'Recortar', action: () => {
                           const ids = collectGroupTileIds(g.id)
                           setSelectedTileIds(new Set(ids))
                           setSelectedTileId(null)
                           setTimeout(() => copyTilesRef.current(true), 0)
                         }},
-                        ...(clipboard.current.length > 0 ? [{ icon: <ClipboardPaste size={12} />, label: 'Paste in', action: () => pasteTilesRef.current(undefined, g.id) }] : [])
+                        ...(clipboard.current.length > 0 ? [{ icon: <ClipboardPaste size={12} />, label: 'Colar aqui', action: () => pasteTilesRef.current(undefined, g.id) }] : [])
                       ] as { icon: React.ReactNode; label: string; action: () => void }[]).map(btn => (
                         <div
                           key={btn.label}

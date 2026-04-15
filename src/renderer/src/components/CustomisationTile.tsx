@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useTheme } from '../ThemeContext'
 import { useAppFonts } from '../FontContext'
 import type { PromptTemplate, PromptField, SkillDefinition, AgentMode } from '../../../shared/types'
+import { DEFAULT_AGENT_MODES } from '../../../shared/agent-modes'
 
 type Tab = 'prompts' | 'skills' | 'tools' | 'agents'
 
@@ -410,7 +411,7 @@ function PromptEditor({ item, onSave, onCancel }: { item: PromptTemplate; onSave
           {draft.tags.map(t => (
             <span key={t} onClick={() => up({ tags: draft.tags.filter(x => x !== t) })} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: theme.accent.soft, color: theme.accent.base, cursor: 'pointer' }}>{t} x</span>
           ))}
-          <input value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder="Add tag..."
+          <input value={tagInput} onChange={e => setTagInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && tagInput.trim()) { up({ tags: [...draft.tags, tagInput.trim()] }); setTagInput('') } }}
             placeholder="Adicionar tag..."
             style={{ padding: '3px 8px', fontSize: fonts.secondarySize, border: 'none', background: 'transparent', color: theme.text.secondary, outline: 'none', width: 80 }}
@@ -866,11 +867,6 @@ export function ToolsSection(): JSX.Element {
 
 // ─── Agents section ──────────────────────────────────────────────────────────
 
-const DEFAULT_MODES: AgentMode[] = [
-  { id: 'agent', name: 'Agent', description: 'Full autonomous access to all tools', systemPrompt: '', tools: null, icon: 'robot', color: '#3568ff', isBuiltin: true },
-  { id: 'ask', name: 'Ask', description: 'Read-only Q&A mode — no file modifications', systemPrompt: 'You are in read-only mode. Do not modify files or run destructive commands.', tools: ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch'], icon: 'help', color: '#56c288', isBuiltin: true },
-  { id: 'plan', name: 'Plan', description: 'Plan without execution — outline steps before acting', systemPrompt: 'Create a detailed plan. Do not execute changes until the user approves.', tools: ['Read', 'Glob', 'Grep', 'WebSearch'], icon: 'map', color: '#f5a623', isBuiltin: true },
-]
 
 const AGENT_COLORS = ['#3568ff', '#56c288', '#f5a623', '#e57399', '#b368c9', '#00acd7', '#ff7b72', '#8f96a0']
 const AGENT_ICONS: Record<string, JSX.Element> = {
@@ -894,7 +890,7 @@ export function AgentsSection({ workspacePath }: { workspacePath: string }): JSX
   useEffect(() => {
     loadJson<AgentMode[]>(file, []).then(loaded => {
       // Merge with defaults
-      const merged = [...DEFAULT_MODES]
+      const merged = [...DEFAULT_AGENT_MODES]
       for (const item of loaded) {
         const idx = merged.findIndex(m => m.id === item.id)
         if (idx >= 0) merged[idx] = { ...merged[idx], ...item }
@@ -909,7 +905,7 @@ export function AgentsSection({ workspacePath }: { workspacePath: string }): JSX
   const save = useCallback((next: AgentMode[]) => {
     setItems(next)
     // Only persist non-default or modified items
-    saveJson(file, next.filter(m => !m.isBuiltin || DEFAULT_MODES.find(d => d.id === m.id && JSON.stringify(d) !== JSON.stringify(m))))
+    saveJson(file, next.filter(m => !m.isBuiltin || DEFAULT_AGENT_MODES.find(d => d.id === m.id && JSON.stringify(d) !== JSON.stringify(m))))
   }, [file])
 
   const handleSave = useCallback((item: AgentMode) => {
@@ -1074,7 +1070,7 @@ function AgentEditor({ item, modes, onSave, onCancel }: { item: AgentMode; modes
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8 }}>
         {item.isBuiltin && (
           <button onClick={() => {
-            const d = DEFAULT_MODES.find(m => m.id === item.id)
+            const d = DEFAULT_AGENT_MODES.find(m => m.id === item.id)
             if (d) onSave(d)
           }} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${theme.border.default}`, background: 'transparent', color: theme.text.disabled, fontSize: fonts.secondarySize, cursor: 'pointer', marginRight: 'auto' }}>Restaurar Padrão</button>
         )}
